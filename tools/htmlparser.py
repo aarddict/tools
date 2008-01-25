@@ -24,30 +24,33 @@ import sys
 
 class HTMLParser(SimpleXMLParser):
 
-    text = property(lambda self: "".join(self.textBuffer))
-
+    text = property(lambda self: "".join(self.docBuffer))
+    
     def __init__(self):
         SimpleXMLParser.__init__(self)
         self.goodtags =  ['h1', 'h2', 'a', 'b', 'i', 'ref', 'p', 'br', 'img', 'big', 'small', 'sup', 'blockquote', 'tt']
         self.tags = []
         self.tagStack = []
-        self.textBuffer = []
+        self.docBuffer = []
+        self.tagBuffer = []
         self.textUnicodeLength = 0
         
     def handleStartElement(self, tag, attrsDict):
 
+        self.bufferCharacterData()
+        
         if not tag in self.goodtags:
             return
 
         #sys.stderr.write("HTML start tag: <%s> at '%s'\n" % (tag, self.text[-20:]))
 
         if tag == "p":
-            self.textBuffer.append("\n\n")
+            self.docBuffer.append("\n\n")
             self.textUnicodeLength = self.textUnicodeLength + 2
             return
 
         if tag == "br":
-            self.textBuffer.append("\n")
+            self.docBuffer.append("\n")
             self.textUnicodeLength = self.textUnicodeLength + 1
             return
             
@@ -56,6 +59,8 @@ class HTMLParser(SimpleXMLParser):
 
     def handleEndElement(self, tag):
 
+        self.bufferCharacterData()
+        
         if not tag in self.goodtags:
             return
 
@@ -70,7 +75,7 @@ class HTMLParser(SimpleXMLParser):
                 t = self.tagStack.pop()
                 #sys.stderr.write("Discarded HTML end tag: </%s> at '%s'\n" % (t[0], self.text[-20:]))
             else:
-                sys.stderr.write("Mismatched HTML end tag: </%s> at '%s %s'\n" % (tag, self.text[-20], repr(self.tagStack)))
+                #sys.stderr.write("Mismatched HTML end tag: </%s> at '%s %s'\n" % (tag, repr(self.text[-20:]), repr(self.tagStack)))
                 return
 
         t = self.tagStack.pop()
@@ -78,13 +83,24 @@ class HTMLParser(SimpleXMLParser):
         self.tags.append(t)
 
     def handleCharacterData(self, data):
+        
+        #sys.stderr.write("Data: %s\n" % repr(data))
+        self.tagBuffer.append(data)
+
+    def bufferCharacterData(self):
+
+        # character data is utf-8 but length (used for tag offsets) must be based on unicode
+        if not self.tagBuffer:
+            return
+        tagBufferString = "".join(self.tagBuffer)
         try:
-            u = data.decode("utf-8")
-            self.textUnicodeLength = self.textUnicodeLength + len(u)
-            self.textBuffer.append(data)
-        except Exception, e:
-            sys.stderr.write(str(e) + "\n")
-    
+            self.textUnicodeLength = self.textUnicodeLength + len(tagBufferString.decode("utf-8"))
+            self.docBuffer.append(tagBufferString)
+        except:
+            sys.stderr.write("Undecodable string: %s\n" % (repr(tagBufferString)))
+            
+        self.tagBuffer = []
+
 if __name__ == '__main__':
     import sys
 

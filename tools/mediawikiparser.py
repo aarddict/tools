@@ -80,7 +80,7 @@ class MediaWikiParser(SimpleXMLParser):
                         
         elif tag == "page":
             
-            if self.weakRedirect(self.title, entrytext):
+            if self.weakRedirect(self.title, self.text):
                 return
             try:
                 self.text = self.translateWikiMarkupToHTML(self.text).strip()
@@ -107,7 +107,7 @@ class MediaWikiParser(SimpleXMLParser):
         return s
     
     def weakRedirect(self, title, text):
-        if self.reRedirect.search(text):
+        if self.reRedirect.search(text): 
             m = self.reSquare2.search(text)
             if m:
                 redirect = m.group(1)
@@ -120,11 +120,13 @@ class MediaWikiParser(SimpleXMLParser):
 
     def translateWikiMarkupToHTML(self, text):
 #        text = wiki_parser.transform(text)
+
+        text = self.reRedirect.sub("See:", text)
+
         text = wikimarkup.parse(text, False)
         
 #        text = text.replace("\n", "<br>")
 #        text = text.replace("\r", "")
-#        text = self.reRedirect.sub("See:", text)
 #        text = self.reH4.sub(r"<h4>\1</h4>", text)
 #        text = self.reH3.sub(r"<h3>\1</h3>", text)
 #        text = self.reH2.sub(r"<h2>\1</h2>", text)
@@ -152,7 +154,7 @@ def parseLinks(s):
             right = right + 1
                         
         if (nest != 0):
-            sys.stderr.write("Mismatched brackets: %s %s %s\n" % (str(left), str(right), str(nest)))
+            #sys.stderr.write("Mismatched brackets: %s %s %s\n" % (str(left), str(right), str(nest)))
             return ""
                         
         link = s[left:right]
@@ -176,7 +178,7 @@ def parseLinks(s):
             r = '<a href="' + p[0] + '">' + p[-1] + '</a>'
             
 
-        s = s[:left] + r + s[right:] 
+        s = "".join([s[:left] + r + s[right:]]) 
         
     return s
 
