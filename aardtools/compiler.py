@@ -174,7 +174,7 @@ def makeFullIndex():
 
 root_locale = Locale('root')
 collator4 =  Collator.createInstance(root_locale)
-collator4.setStrength(4)
+collator4.setStrength(Collator.QUATERNARY)
 
 articlePointer = 0L
 aarFile = []
@@ -242,7 +242,7 @@ if __name__ == '__main__':
         sys.stderr.write("Compiling %s as mediawiki\n" % inputFile.name)
         from mediawikiparser import MediaWikiParser
         collator1 =  Collator.createInstance(root_locale)
-        collator1.setStrength(0)        
+        collator1.setStrength(Collator.PRIMARY)        
         p = MediaWikiParser(collator1, header, templateDb, handleArticle)
         p.parseFile(inputFile)
     
