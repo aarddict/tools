@@ -31,7 +31,6 @@ import optparse
 from mwlib import cdbwiki
 from PyICU import Locale, Collator
 
-import htmlparser
 from sortexternal import SortExternal
 from aarddict import compactjson
 
@@ -91,7 +90,7 @@ def createArticleFile():
     aarFile[-1].write(jsonText)
     aarFileLength[-1] += len(jsonText)
 
-def handleArticle(title, text, tags=None):
+def handleArticle(title, text, tags):
         
     global header
     global articlePointer
@@ -100,11 +99,6 @@ def handleArticle(title, text, tags=None):
     if (not title) or (not text):
         #sys.stderr.write("Skipped blank article: \"%s\" -> \"%s\"\n" % (title, text))
         return
-
-    if tags is None:
-        parser = htmlparser.HTMLParser()
-        parser.parseString(text)
-        tags = parser.tags
     
     jsonstring = compactjson.dumps([text, tags])
     jsonstring = bz2.compress(jsonstring)

@@ -24,6 +24,7 @@ import re
 import StringIO
 
 from mwlib import cdbwiki, uparser, htmlwriter
+import htmlparser
 from simplexmlparser import SimpleXMLParser
 
 class MediaWikiParser(SimpleXMLParser):
@@ -95,7 +96,7 @@ class MediaWikiParser(SimpleXMLParser):
                     redirectKey = self.collator.getCollationKey(redirect)
                     titleKey = self.collator.getCollationKey(self.title)
                     if redirectKey != titleKey:
-                        self.consumer(self.title, "#REDIRECT " + redirect)
+                        self.consumer(self.title, "#REDIRECT " + redirect, [])
                     #sys.stderr.write("Weak redirect: " + repr(title) + " " + repr(redirect) + "\n")
                 return
 
@@ -106,7 +107,10 @@ class MediaWikiParser(SimpleXMLParser):
             self.text = htmlFile.getvalue().encode("utf8")
             htmlFile.close()
             #sys.stderr.write("mediawiki html: %s\n" % repr(self.text.decode("utf8")))
-            self.consumer(self.title, self.text)
+                        
+            parser = htmlparser.HTMLParser()
+            parser.parseString(self.text)
+            self.consumer(self.title, parser.text.rstrip(), parser.tags)
             self.text = ""
             return
             
