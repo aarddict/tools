@@ -145,7 +145,7 @@ def makeFullIndex():
         if count % 100 == 0:
             sys.stderr.write("\r" + str(count))
         count = count + 1
-        sortkey, title, redirectTitle = item.split("___", 3)
+        sortkey, title, redirectTitle = item.split("___", 2)
         if redirectTitle:
             #sys.stderr.write("Redirect: %s %s\n" % (repr(title), repr(redirectTitle)))
             target = redirectTitle
