@@ -19,16 +19,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright (C) 2008  Jeremy Mortis and Igor Tkach
 """
-import os
 import sys
 import re
-import codecs
 import StringIO
 
 from mwlib import cdbwiki, uparser, htmlwriter
 from simplexmlparser import SimpleXMLParser
-
-import aarddict.pyuca
 
 class MediaWikiParser(SimpleXMLParser):
 
@@ -131,7 +127,6 @@ def printDoc(title, text):
     print repr(text)
 
 if __name__ == '__main__':
-    import sys
 
     s = """
 entry<mediawiki xmlns="http://www.mediawiki.org/xml/export-0.3/" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://www.mediawiki.org/xml/export-0.3/ http://www.mediawiki.org/xml/export-0.3.xsd" version="0.3" xml:lang="fr">

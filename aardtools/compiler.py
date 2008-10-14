@@ -28,11 +28,12 @@ import shelve
 import datetime
 import optparse
 
-from sortexternal import SortExternal
 from mwlib import cdbwiki
-from aarddict import compactjson
-
 from PyICU import Locale, Collator
+
+import htmlparser
+from sortexternal import SortExternal
+from aarddict import compactjson
 
 def getOptions():
     usage = "usage: %prog [options] "
@@ -90,7 +91,7 @@ def createArticleFile():
     aarFile[-1].write(jsonText)
     aarFileLength[-1] += len(jsonText)
 
-def handleArticle(title, text, tags):
+def handleArticle(title, text, tags=None):
         
     global header
     global articlePointer
@@ -99,6 +100,11 @@ def handleArticle(title, text, tags):
     if (not title) or (not text):
         #sys.stderr.write("Skipped blank article: \"%s\" -> \"%s\"\n" % (title, text))
         return
+
+    if tags is None:
+        parser = htmlparser.HTMLParser()
+        parser.parseString(text)
+        tags = parser.tags
     
     jsonstring = compactjson.dumps([text, tags])
     jsonstring = bz2.compress(jsonstring)
