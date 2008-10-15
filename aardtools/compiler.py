@@ -182,8 +182,8 @@ header = {
     "minor_version": 0,
     "timestamp": str(datetime.datetime.utcnow()),
     "file_sequence": 0,
-    "article_language": "en",
-    "index_language": "en"
+    "article_language": "",
+    "index_language": ""
     }
 
 if __name__ == '__main__':
@@ -264,17 +264,7 @@ if __name__ == '__main__':
     header["file_count"] = "%06i" % header["file_count"]
     
     sys.stderr.write("Composing header...\n")
-    
-    f = open("ISO-639-2.txt", "r")
-    languageCodeDict = {}
-    for line in f:
-        codes = line.split('|')
-        languageCodeDict[codes[0]] = codes[2]
-    f.close()
-    
-    header["article_language"] = languageCodeDict.get(header["article_language"].lower(), header["article_language"])
-    header["index_language"] = languageCodeDict.get(header["index_language"].lower(), header["index_language"])
-    
+            
     header["index1_length"] = index1Length
     header["index2_length"] = index2Length
     
