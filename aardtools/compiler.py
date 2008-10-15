@@ -186,14 +186,14 @@ header = {
     "index_language": ""
     }
 
-if __name__ == '__main__':
+def main():
+    
+    global options, sortex, indexDb, index1, index2
+    
     tempDir = tempfile.mkdtemp()
-        
     sortex = SortExternal()
     
-    
-    sys.stderr.write("Parsing input file...\n")
-    
+    sys.stderr.write("Parsing input file...\n")    
     optionsParser = getOptions()
     options, args = optionsParser.parse_args()
     
@@ -222,8 +222,6 @@ if __name__ == '__main__':
     index1 = tempfile.NamedTemporaryFile()
     index2 = tempfile.NamedTemporaryFile()
     
-    
-    
     header["article_count"] =  0
     header["index_count"] =  0
     
@@ -241,17 +239,11 @@ if __name__ == '__main__':
         p.parseFile(inputFile)
     
     sys.stderr.write("\r" + str(header["article_count"]) + "\n")
-    
     sys.stderr.write("Sorting index...\n")
-    
     sortex.sort()
-    
     sys.stderr.write("Writing temporary indexes...\n")
-    
     makeFullIndex()
-    
     sortex.cleanup()
-    
     indexDb.close()
     os.remove(indexDbFullname)
     os.rmdir(tempDir)
@@ -363,6 +355,8 @@ if __name__ == '__main__':
        
     sys.stderr.write("Done.\n")
 
+if __name__ == '__main__':
+    main()
 
 
 
