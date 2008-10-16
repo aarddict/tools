@@ -184,7 +184,6 @@ aarFile = []
 aarFileLength = []
 index1Length = 0
 index2Length = 0
-aarFileLengthMax = 2000000000
 
 header = {
     "major_version": 1,
@@ -255,6 +254,16 @@ def make_output_file_name(input_file, options):
             output_file = output_file[:output_file.rfind('.')]
         output_file += '.aar'
     return output_file 
+
+def max_file_size(options):
+    s = options.max_file_size
+    s = s.lower()
+    if s.endswith('m'):        
+        return int(s.strip('mM'))*1000000
+    elif s.endswith('g'):
+        return int(s.strip('gG'))*1000000000
+    else:
+        raise Exception('Can\'t understand maximum file size specification "%s"' % options.max_file_size)
         
 def print_progress(progress):
     s = str(progress)
@@ -267,7 +276,7 @@ def erase_progress(progress):
     sys.stdout.flush()
         
 def main():
-    global options
+    global options, aarFileLengthMax
     opt_parser = make_opt_parser()
     options, args = opt_parser.parse_args()
     
@@ -292,6 +301,9 @@ def main():
         log.setLevel(logging.DEBUG)
     else:
         log.setLevel(logging.INFO)
+        
+    aarFileLengthMax = max_file_size(options)    
+    log.info('Maximum file size is %d bytes', aarFileLengthMax)
             
     input_type = args[0]
     input_file = args[1]
