@@ -108,19 +108,17 @@ def handleArticle(title, text, tags):
     global aarFile, aarFileLength
     
     if (not title) or (not text):
-        #sys.stderr.write("Skipped blank article: \"%s\" -> \"%s\"\n" % (title, text))
+        log.debug("Skipped blank article: \"%s\" -> \"%s\"\n", title, text)
         return
     
     jsonstring = compactjson.dumps([text, tags])
     jsonstring = bz2.compress(jsonstring)
-    #sys.stderr.write("write article: %i %i %s\n" % (articleTempFile.tell(), len(jsonstring), title))    
-
     collationKeyString4 = collator4.getCollationKey(title).getByteArray()
 
     if text.startswith("#REDIRECT"):
         redirectTitle = text[10:]
         sortex.put(collationKeyString4 + "___" + title + "___" + redirectTitle)
-        sys.stderr.write("Redirect: %s %s\n" % (title, text))
+        log.debug("Redirect: %s %s\n", title, text)
         return
     sortex.put(collationKeyString4 + "___" + title + "___")
 
@@ -134,15 +132,17 @@ def handleArticle(title, text, tags):
     aarFileLength[-1] += articleUnitLength
 
     if indexDb.has_key(title):
-        sys.stderr.write("Duplicate key: %s\n" % title)
+        log.debug("Duplicate key: %s\n" , title)
     else:
-        #sys.stderr.write("Real article: %s\n" % title)
+        log.debug("Real article: %s\n", title)
         indexDb[title] = (len(aarFile) - 1, articlePointer)
 
     articlePointer += articleUnitLength
     
     if header["article_count"] % 100 == 0:
-        sys.stderr.write("\r" + str(header["article_count"]))
+        countstr = str(header["article_count"])
+        sys.stdout.write("\b"*len(countstr) + countstr)
+        sys.stdout.flush()
     header["article_count"] += 1
 
 def makeFullIndex():
@@ -150,15 +150,14 @@ def makeFullIndex():
     global index1Length, index2Length
     global header
     
-    count = 0
-
-    for item in sortex:
+    for count, item in enumerate(sortex):
         if count % 100 == 0:
-            sys.stderr.write("\r" + str(count))
-        count = count + 1
+            countstr = str(count)
+            sys.stdout.write("\b"*len(countstr) + countstr)
+            sys.stdout.flush()
         sortkey, title, redirectTitle = item.split("___", 2)
         if redirectTitle:
-            #sys.stderr.write("Redirect: %s %s\n" % (repr(title), repr(redirectTitle)))
+            log.debug("Redirect: %s %s", repr(title), repr(redirectTitle))
             target = redirectTitle
         else:
             target = title
@@ -171,11 +170,13 @@ def makeFullIndex():
             index2.write(index2Unit)
             index2Length += len(index2Unit)
             header["index_count"] += 1
-            sys.stderr.write("sorted: %s %i %i\n" % (title, fileno, articlePointer))
+            log.debug("sorted: %s %i %i\n", title, fileno, articlePointer)
         except KeyError:
-            sys.stderr.write("Redirect not found: %s %s\n" % (repr(title), repr(redirectTitle)))
+            log.warn("Redirect not found: %s %s\n" ,repr(title), repr(redirectTitle))
     
-    sys.stderr.write("\r" + str(count) + "\n")
+    sys.stdout.write("\b"*len(countstr))
+    sys.stdout.flush()    
+    log.info("\nSorted %d items", count)
 
 root_locale = Locale('root')
 collator4 =  Collator.createInstance(root_locale)
@@ -299,11 +300,6 @@ def main():
     
     indexDbFullname = os.path.join(tempDir, "index.db")
     indexDb = shelve.open(indexDbFullname, 'n')
-    
-#    if options.templates:
-#        templateDb = cdbwiki.WikiDB(options.templates)
-#    else:
-#        templateDb = None
         
     index1 = tempfile.NamedTemporaryFile()
     index2 = tempfile.NamedTemporaryFile()
@@ -315,23 +311,12 @@ def main():
     
     compile(make_input(input_file), options, handleArticle)
     
-#    if input_type == "xdxf" or inputFile.name[-5:] == ".xdxf":        
-#        sys.stderr.write("Compiling %s as xdxf\n" % inputFile.name)
-#        import xdxf
-#        p = xdxf.XDXFParser(header, handleArticle)
-#        p.parse(inputFile)
-#    else:  
-#        sys.stderr.write("Compiling %s as mediawiki\n" % inputFile.name)
-#        from mediawikiparser import MediaWikiParser
-#        collator1 =  Collator.createInstance(root_locale)
-#        collator1.setStrength(Collator.PRIMARY)        
-#        p = MediaWikiParser(collator1, header, templateDb, handleArticle)
-#        p.parseFile(inputFile)
-    
-    sys.stderr.write("\r" + str(header["article_count"]) + "\n")
-    sys.stderr.write("Sorting index...\n")
+    sys.stdout.write("\b"*len(header["article_count"]))
+    sys.stdout.flush()
+    log.info('Article count: %d', header["article_count"])
+    log.info("Sorting index...")        
     sortex.sort()
-    sys.stderr.write("Writing temporary indexes...\n")
+    log.info("Writing temporary indexes...")
     makeFullIndex()
     sortex.cleanup()
     indexDb.close()
@@ -345,7 +330,7 @@ def main():
         combineFiles = True
     header["file_count"] = "%06i" % header["file_count"]
     
-    sys.stderr.write("Composing header...\n")
+    log.debug("Composing header...")
             
     header["index1_length"] = index1Length
     header["index2_length"] = index2Length
@@ -360,7 +345,7 @@ def main():
     header["index2_offset"] = "%012i" % (5 + 8 + len(jsonText) + index1Length)
     header["article_offset"] = "%012i" % (5 + 8 + len(jsonText) + index1Length + index2Length)
     
-    sys.stderr.write("Writing header...\n")
+    log.debug("Writing header...")
     
     jsonText = compactjson.dumps(header)
     
@@ -373,7 +358,7 @@ def main():
     aarFile[0].write(jsonText)
     aarFileLength[0] += len(jsonText)
     
-    sys.stderr.write("Writing index 1...\n")
+    log.debug('Writing index 1...')
     
     index1.flush()
     index1.seek(0)
@@ -393,9 +378,7 @@ def main():
         aarFileLength[0] += 12
     sys.stderr.write("\r" + str(writeCount) + "\n")
     index1.close()
-    
-    sys.stderr.write("Writing index 2...\n")
-    
+    log.debug('Writing index 2...')    
     index2.flush()
     index2.seek(0)
     writeCount = 0
@@ -435,15 +418,16 @@ def main():
             aarFile[0].write(unitLengthString + unit)
             aarFileLength[0] += 4 + unitLength
         sys.stderr.write("\r" + str(writeCount) + "\n")
-        sys.stderr.write("Deleting %s\n" % aarFile[-1].name)
+        log.debug("Deleting %s\n", aarFile[-1].name)
         os.remove(aarFile[-1].name)    
         aarFile.pop()
     
-    sys.stderr.write("Created %i output file(s)\n" % len(aarFile))
+    log.info("Created %i output file(s)\n", len(aarFile))
+    
     for f in aarFile:
         f.close
        
-    sys.stderr.write("Done.\n")
+    log.info("Done.")
 
 if __name__ == '__main__':
     main()
