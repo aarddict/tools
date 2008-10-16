@@ -84,7 +84,7 @@ def createArticleFile():
 
     aarFile.append(open(extFilenamePrefix + ("%02i" % len(aarFile)), "w+b", 4096))
     aarFileLength.append(0)
-    sys.stderr.write("New article file: %s\n" % aarFile[-1].name)
+    log.debug("New article file: %s\n" , aarFile[-1].name)
     extHeader = {}
     extHeader["article_offset"] = "%012i" % 0
     extHeader["major_version"] = header["major_version"]
