@@ -84,7 +84,7 @@ def createArticleFile():
 
     aarFile.append(open(extFilenamePrefix + ("%02i" % len(aarFile)), "w+b", 4096))
     aarFileLength.append(0)
-    log.debug("New article file: %s\n" , aarFile[-1].name)
+    log.debug("New article file: %s" , aarFile[-1].name)
     extHeader = {}
     extHeader["article_offset"] = "%012i" % 0
     extHeader["major_version"] = header["major_version"]
@@ -108,7 +108,7 @@ def handleArticle(title, text, tags):
     global aarFile, aarFileLength
     
     if (not title) or (not text):
-        log.debug("Skipped blank article: \"%s\" -> \"%s\"\n", title, text)
+        log.debug('Skipped blank article: "%s" -> "%s"', title, text)
         return
     
     jsonstring = compactjson.dumps([text, tags])
@@ -118,7 +118,7 @@ def handleArticle(title, text, tags):
     if text.startswith("#REDIRECT"):
         redirectTitle = text[10:]
         sortex.put(collationKeyString4 + "___" + title + "___" + redirectTitle)
-        log.debug("Redirect: %s %s\n", title, text)
+        log.debug("Redirect: %s %s", title, text)
         return
     sortex.put(collationKeyString4 + "___" + title + "___")
 
@@ -132,9 +132,9 @@ def handleArticle(title, text, tags):
     aarFileLength[-1] += articleUnitLength
 
     if indexDb.has_key(title):
-        log.debug("Duplicate key: %s\n" , title)
+        log.debug("Duplicate key: %s" , title)
     else:
-        log.debug("Real article: %s\n", title)
+        log.debug("Real article: %s", title)
         indexDb[title] = (len(aarFile) - 1, articlePointer)
 
     articlePointer += articleUnitLength
@@ -170,13 +170,13 @@ def makeFullIndex():
             index2.write(index2Unit)
             index2Length += len(index2Unit)
             header["index_count"] += 1
-            log.debug("sorted: %s %i %i\n", title, fileno, articlePointer)
+            log.debug("sorted: %s %i %i", title, fileno, articlePointer)
         except KeyError:
-            log.warn("Redirect not found: %s %s\n" ,repr(title), repr(redirectTitle))
+            log.warn("Redirect not found: %s %s" ,repr(title), repr(redirectTitle))
     
     sys.stdout.write("\b"*len(countstr))
     sys.stdout.flush()    
-    log.info("\nSorted %d items", count)
+    log.info("Sorted %d items", count)
 
 root_locale = Locale('root')
 collator4 =  Collator.createInstance(root_locale)
@@ -244,6 +244,15 @@ def make_xdxf_input(input_file_name):
 known_types = {'wiki': (make_wiki_input, compile_wiki), 
                'xdxf': (make_xdxf_input, compile_xdxf)}
         
+def print_progress(progress):
+    s = str(progress)
+    sys.stdout.write('\b'*len(s) + s)
+    sys.stdout.flush()
+
+def erase_progress(progress):
+    s = str(progress)
+    sys.stdout.write('\b'*len(s))
+    sys.stdout.flush()
         
 def main():
     global options
@@ -255,12 +264,12 @@ def main():
         raise SystemExit()    
     
     if len(args) != 2:
-        log.error('Not enough parameters\n') 
+        log.error('Not enough parameters') 
         opt_parser.print_help()
         raise SystemExit()    
 
     if args[0] not in known_types:
-        log.error('Unknown input type %s, expected one of %s \n', 
+        log.error('Unknown input type %s, expected one of %s', 
                   args[0], ', '.join(known_types.keys())) 
         opt_parser.print_help()
         raise SystemExit()    
@@ -365,7 +374,7 @@ def main():
     writeCount = 0
     while 1:
         if writeCount % 100 == 0:
-            sys.stderr.write("\r" + str(writeCount))
+            print_progress(writeCount)
         unit = index1.read(12)
         if len(unit) == 0:
             break
@@ -376,7 +385,8 @@ def main():
         writeCount += 1
         aarFile[0].write(unit)
         aarFileLength[0] += 12
-    sys.stderr.write("\r" + str(writeCount) + "\n")
+    erase_progress(writeCount)
+    log.debug('Wrote %d items to index 1', writeCount)
     index1.close()
     log.debug('Writing index 2...')    
     index2.flush()
@@ -384,7 +394,7 @@ def main():
     writeCount = 0
     while 1:
         if writeCount % 100 == 0:
-            sys.stderr.write("\r" + str(writeCount))
+            print_progress(writeCount)
         unitLengthString = index2.read(4)
         if len(unitLengthString) == 0:
             break
@@ -393,13 +403,13 @@ def main():
         unit = index2.read(unitLength)
         aarFile[0].write(unitLengthString + unit)
         aarFileLength[0] += 4 + unitLength
-    sys.stderr.write("\r" + str(writeCount) + "\n")
-    index2.close()
-    
+    erase_progress(writeCount)
+    log.debug('Wrote %d items to index 2', writeCount)
+    index2.close()    
     writeCount = 0L
     
     if combineFiles:
-        sys.stderr.write("Appending %s to %s\n" % (aarFile[-1].name, aarFile[0].name))
+        log.debug('Appending %s to %s', aarFile[-1].name, aarFile[0].name)
         aarFile[-1].flush()
         aarFile[-1].seek(0)
         aarFile[-1].read(5)
@@ -408,7 +418,7 @@ def main():
     
         while 1:
             if writeCount % 100 == 0:
-                sys.stderr.write("\r" + str(writeCount))
+                print_progress(writeCount)
             unitLengthString = aarFile[-1].read(4)
             if len(unitLengthString) == 0:
                 break
@@ -417,12 +427,12 @@ def main():
             unit = aarFile[-1].read(unitLength)
             aarFile[0].write(unitLengthString + unit)
             aarFileLength[0] += 4 + unitLength
-        sys.stderr.write("\r" + str(writeCount) + "\n")
-        log.debug("Deleting %s\n", aarFile[-1].name)
+        erase_progress(writeCount)
+        log.debug("Deleting %s", aarFile[-1].name)
         os.remove(aarFile[-1].name)    
         aarFile.pop()
     
-    log.info("Created %i output file(s)\n", len(aarFile))
+    log.info("Created %i output file(s)", len(aarFile))
     
     for f in aarFile:
         f.close
