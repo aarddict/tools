@@ -19,6 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 Copyright (C) 2008  Jeremy Mortis and Igor Tkach
 """
 
+import logging
 import sys 
 import bz2
 import struct
@@ -28,35 +29,45 @@ import shelve
 import datetime
 import optparse
 
-from mwlib import cdbwiki
 from PyICU import Locale, Collator
 
 from sortexternal import SortExternal
 from aarddict import compactjson
 
-def getOptions():
-    usage = "usage: %prog [options] "
-    parser = optparse.OptionParser(version="%prog 1.0", usage=usage)
+logging.basicConfig(format='%(levelname)s: %(message)s')
+log = logging.getLogger()
 
+def make_opt_parser():
+    usage = "usage: %prog [options] (wiki|xdxf) FILE"
+    parser = optparse.OptionParser(version="%prog 1.0", usage=usage)
     parser.add_option(
         '-o', '--output-file',
         default='',
-        help='Output file (mandatory)'
+        help='Output file name. By default is the same as input file base name with .aar extension'
         )
     parser.add_option(
-        '-i', '--input-file',
-        default='',
-        help='Input file (default stdin)'
-        )
-    parser.add_option(
-        '-f', '--input-format',
-        default='mediawiki',
-        help='Input format:  mediawiki or xdxf'
-        )
+        '-s', '--max-file-size',
+        default='2000M',
+        help='Maximum file size in megabytes(M) or gigabytes(G). Default: %default'
+        )    
     parser.add_option(
         '-t', '--templates',
         default=None,
         help='Template definitions database'
+        )
+
+    parser.add_option(
+        '-d', '--debug',
+        action='store_true',
+        default=False,
+        help='Turn on debugging messages'
+        )
+
+    parser.add_option(
+        '-q', '--quite',
+        action='store_true',
+        default=False,
+        help='Print minimal information about compilation progress'
         )
 
     return parser
@@ -186,27 +197,102 @@ header = {
     "index_language": ""
     }
 
+def compile_wiki(input_file, options, handle_article):
+    from mediawikiparser import MediaWikiParser
+    collator1 =  Collator.createInstance(root_locale)
+    collator1.setStrength(Collator.PRIMARY)  
+    from mwlib.cdbwiki import WikiDB
+    template_db = WikiDB(options.templates) if options.templates else None
+    p = MediaWikiParser(collator1, header, template_db, handle_article)
+    p.parseFile(input_file)    
+
+def compile_xdxf(input_file, options, handle_article):
+    import xdxf
+    p = xdxf.XDXFParser(header, handle_article)
+    p.parse(input_file)
+
+def make_wiki_input(input_file_name):
+    if input_file_name == '-':
+        return sys.stdin
+    from bz2 import BZ2File
+    try:
+        bz2file = BZ2File(input_file_name)
+        bz2file.readline()
+    except:
+        #probably this is not bz2, open regular file
+        return open(input_file_name)
+    else:
+        bz2file.seek(0)
+        return bz2file
+
+def make_xdxf_input(input_file_name):
+    if input_file_name == '-':
+        return sys.stdin
+    import tarfile
+    try:
+        tf = tarfile.open(input_file_name)
+    except:
+        #probably this is not tar archive, open regular file
+        return open(input_file_name)
+    else:
+        for tar in tf:
+            if os.path.basename(tar.name) == 'dict.xdxf':
+                return tf.extractfile(tar)
+    raise IOError("%s doesn't look like a XDXF dictionary" % input_file_name) 
+
+known_types = {'wiki': (make_wiki_input, compile_wiki), 
+               'xdxf': (make_xdxf_input, compile_xdxf)}
+        
+        
 def main():
+    global options
+    opt_parser = make_opt_parser()
+    options, args = opt_parser.parse_args()
     
-    global options, sortex, indexDb, index1, index2
+    if not args:
+        opt_parser.print_help()
+        raise SystemExit()    
+    
+    if len(args) != 2:
+        log.error('Not enough parameters\n') 
+        opt_parser.print_help()
+        raise SystemExit()    
+
+    if args[0] not in known_types:
+        log.error('Unknown input type %s, expected one of %s \n', 
+                  args[0], ', '.join(known_types.keys())) 
+        opt_parser.print_help()
+        raise SystemExit()    
+    
+    if options.quite:
+        log.setLevel(logging.ERROR)
+    elif options.debug:
+        log.setLevel(logging.DEBUG)
+    else:
+        log.setLevel(logging.INFO)
+            
+    input_type = args[0]
+    input_file = args[1]
+    
+    if options.output_file:
+        output_file = options.output_file
+    else:            
+        output_file = os.path.basename(input_file)
+        output_file = output_file[:output_file.rfind('.')]
+        if (output_file.endswith('.tar') or 
+            output_file.endswith('.xml') or
+            output_file.endswith('.xdxf')):
+            output_file = output_file[:output_file.rfind('.')]
+        output_file += '.aar' 
+    
+    log.info('Compiling to %s', output_file)
+    
+    global sortex, indexDb, index1, index2
     
     tempDir = tempfile.mkdtemp()
     sortex = SortExternal()
-    
-    sys.stderr.write("Parsing input file...\n")    
-    optionsParser = getOptions()
-    options, args = optionsParser.parse_args()
-    
-    if options.input_file:
-        inputFile = open(options.input_file, "rb", 4096)
-    else:
-        inputFile = sys.stdin
-        
-    if not options.output_file:
-        optionsParser.print_help()
-        sys.exit()
-        
-    aarFile.append(open(options.output_file, "w+b", 4096))
+                        
+    aarFile.append(open(output_file, "w+b", 4096))
     aarFileLength.append(0)
     
     createArticleFile()    
@@ -214,10 +300,10 @@ def main():
     indexDbFullname = os.path.join(tempDir, "index.db")
     indexDb = shelve.open(indexDbFullname, 'n')
     
-    if options.templates:
-        templateDb = cdbwiki.WikiDB(options.templates)
-    else:
-        templateDb = None
+#    if options.templates:
+#        templateDb = cdbwiki.WikiDB(options.templates)
+#    else:
+#        templateDb = None
         
     index1 = tempfile.NamedTemporaryFile()
     index2 = tempfile.NamedTemporaryFile()
@@ -225,18 +311,22 @@ def main():
     header["article_count"] =  0
     header["index_count"] =  0
     
-    if options.input_format == "xdxf" or inputFile.name[-5:] == ".xdxf":
-        sys.stderr.write("Compiling %s as xdxf\n" % inputFile.name)
-        import xdxf
-        p = xdxf.XDXFParser(header, handleArticle)
-        p.parse(inputFile)
-    else:  
-        sys.stderr.write("Compiling %s as mediawiki\n" % inputFile.name)
-        from mediawikiparser import MediaWikiParser
-        collator1 =  Collator.createInstance(root_locale)
-        collator1.setStrength(Collator.PRIMARY)        
-        p = MediaWikiParser(collator1, header, templateDb, handleArticle)
-        p.parseFile(inputFile)
+    make_input, compile = known_types[input_type]
+    
+    compile(make_input(input_file), options, handleArticle)
+    
+#    if input_type == "xdxf" or inputFile.name[-5:] == ".xdxf":        
+#        sys.stderr.write("Compiling %s as xdxf\n" % inputFile.name)
+#        import xdxf
+#        p = xdxf.XDXFParser(header, handleArticle)
+#        p.parse(inputFile)
+#    else:  
+#        sys.stderr.write("Compiling %s as mediawiki\n" % inputFile.name)
+#        from mediawikiparser import MediaWikiParser
+#        collator1 =  Collator.createInstance(root_locale)
+#        collator1.setStrength(Collator.PRIMARY)        
+#        p = MediaWikiParser(collator1, header, templateDb, handleArticle)
+#        p.parseFile(inputFile)
     
     sys.stderr.write("\r" + str(header["article_count"]) + "\n")
     sys.stderr.write("Sorting index...\n")
