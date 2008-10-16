@@ -243,6 +243,21 @@ def make_xdxf_input(input_file_name):
 
 known_types = {'wiki': (make_wiki_input, compile_wiki), 
                'xdxf': (make_xdxf_input, compile_xdxf)}
+
+def make_output_file_name(input_file, options):    
+    if options.output_file:
+        output_file = options.output_file
+    elif input_file == '-':
+        output_file = 'dictionary.aar'
+    else:
+        output_file = os.path.basename(input_file)
+        output_file = output_file[:output_file.rfind('.')]
+        if (output_file.endswith('.tar') or 
+            output_file.endswith('.xml') or
+            output_file.endswith('.xdxf')):
+            output_file = output_file[:output_file.rfind('.')]
+        output_file += '.aar'
+    return output_file 
         
 def print_progress(progress):
     s = str(progress)
@@ -284,16 +299,7 @@ def main():
     input_type = args[0]
     input_file = args[1]
     
-    if options.output_file:
-        output_file = options.output_file
-    else:            
-        output_file = os.path.basename(input_file)
-        output_file = output_file[:output_file.rfind('.')]
-        if (output_file.endswith('.tar') or 
-            output_file.endswith('.xml') or
-            output_file.endswith('.xdxf')):
-            output_file = output_file[:output_file.rfind('.')]
-        output_file += '.aar' 
+    output_file = make_output_file_name(input_file, options)
     
     log.info('Compiling to %s', output_file)
     
