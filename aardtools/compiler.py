@@ -18,7 +18,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright (C) 2008  Jeremy Mortis and Igor Tkach
 """
-
 import logging
 import sys 
 import bz2
@@ -140,9 +139,7 @@ def handleArticle(title, text, tags):
     articlePointer += articleUnitLength
     
     if header["article_count"] % 100 == 0:
-        countstr = str(header["article_count"])
-        sys.stdout.write("\b"*len(countstr) + countstr)
-        sys.stdout.flush()
+        print_progress(header["article_count"])
     header["article_count"] += 1
 
 def makeFullIndex():
@@ -325,9 +322,7 @@ def main():
     make_input, compile = known_types[input_type]
     
     compile(make_input(input_file), options, handleArticle)
-    
-    sys.stdout.write("\b"*len(str(header["article_count"])))
-    sys.stdout.flush()
+    erase_progress(header["article_count"])
     log.info('Article count: %d', header["article_count"])
     log.info("Sorting index...")        
     sortex.sort()
