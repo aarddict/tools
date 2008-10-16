@@ -21,7 +21,6 @@ Copyright (C) 2008  Jeremy Mortis and Igor Tkach
 import aarddict
 import logging
 import sys 
-import bz2
 import struct
 import os
 import tempfile
@@ -72,7 +71,7 @@ def make_opt_parser():
 
     return parser
 
-def createArticleFile():
+def create_article_file():
     global header
     global aarFile, aarFileLength
     global options
@@ -101,7 +100,7 @@ def createArticleFile():
     aarFile[-1].write(jsonText)
     aarFileLength[-1] += len(jsonText)
 
-def handleArticle(title, text, tags):
+def handle_article(title, text, tags):
         
     global header
     global articlePointer
@@ -131,7 +130,7 @@ def handleArticle(title, text, tags):
     articleUnit = struct.pack(">L", len(jsonstring)) + jsonstring
     articleUnitLength = len(articleUnit)
     if aarFileLength[-1] + articleUnitLength > aarFileLengthMax:
-        createArticleFile()
+        create_article_file()
         articlePointer = 0L
         
     aarFile[-1].write(articleUnit)
@@ -149,7 +148,7 @@ def handleArticle(title, text, tags):
         print_progress(header["article_count"])
     header["article_count"] += 1
 
-def makeFullIndex():
+def make_full_index():
     global aarFile, aarFileLength
     global index1Length, index2Length
     global header
@@ -327,7 +326,7 @@ def main():
     aarFile.append(open(output_file, "w+b", 4096))
     aarFileLength.append(0)
     
-    createArticleFile()    
+    create_article_file()    
     
     indexDbFullname = os.path.join(tempDir, "index.db")
     indexDb = shelve.open(indexDbFullname, 'n')
@@ -340,13 +339,13 @@ def main():
     
     make_input, compile = known_types[input_type]
     
-    compile(make_input(input_file), options, handleArticle)
+    compile(make_input(input_file), options, handle_article)
     erase_progress(header["article_count"])
     log.info('Article count: %d', header["article_count"])
     log.info("Sorting index...")        
     sortex.sort()
     log.info("Writing temporary indexes...")
-    makeFullIndex()
+    make_full_index()
     sortex.cleanup()
     indexDb.close()
     os.remove(indexDbFullname)
