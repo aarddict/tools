@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright (C) 2008  Jeremy Mortis and Igor Tkach
 """
+import aarddict
 import logging
 import sys 
 import bz2
@@ -111,7 +112,13 @@ def handleArticle(title, text, tags):
         return
     
     jsonstring = compactjson.dumps([text, tags])
-    jsonstring = bz2.compress(jsonstring)
+    compressed = jsonstring
+    for compress in aarddict.compression:
+        c = compress(jsonstring)
+        if len(c) < len(compressed):
+            compressed = c        
+    
+    jsonstring = compressed
     collationKeyString4 = collator4.getCollationKey(title).getByteArray()
 
     if text.startswith("#REDIRECT"):
