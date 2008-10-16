@@ -311,7 +311,7 @@ def main():
     
     compile(make_input(input_file), options, handleArticle)
     
-    sys.stdout.write("\b"*len(header["article_count"]))
+    sys.stdout.write("\b"*len(str(header["article_count"])))
     sys.stdout.flush()
     log.info('Article count: %d', header["article_count"])
     log.info("Sorting index...")        
