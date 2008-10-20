@@ -27,14 +27,17 @@ import tempfile
 import shelve
 import datetime
 import optparse
+import functools
 
 from PyICU import Locale, Collator
 
 from sortexternal import SortExternal
-from aarddict import compactjson
+import simplejson
 
 logging.basicConfig(format='%(levelname)s: %(message)s')
 log = logging.getLogger()
+
+tojson = functools.partial(simplejson.dumps,encoding='utf-8', ensure_ascii=False) 
 
 def make_opt_parser():
     usage = "usage: %prog [options] (wiki|xdxf) FILE"
@@ -90,9 +93,9 @@ def create_article_file():
     extHeader["minor_version"] = header["minor_version"]
     extHeader["timestamp"] = header["timestamp"]
     extHeader["file_sequence"] = len(aarFile) - 1
-    jsonText = compactjson.dumps(extHeader)
+    jsonText = tojson(extHeader)
     extHeader["article_offset"] = "%012i" % (5 + 8 + len(jsonText))
-    jsonText = compactjson.dumps(extHeader)
+    jsonText = tojson(extHeader)
     aarFile[-1].write("aar%02i" % header["major_version"])
     aarFileLength[-1] += 5
     aarFile[-1].write("%08i" % len(jsonText))
@@ -109,8 +112,7 @@ def handle_article(title, text, tags):
     if (not title) or (not text):
         log.debug('Skipped blank article: "%s" -> "%s"', title, text)
         return
-    
-    jsonstring = compactjson.dumps([text, tags])
+    jsonstring = tojson([text, tags])
     compressed = jsonstring
     for compress in aarddict.compression:
         c = compress(jsonstring)
@@ -367,7 +369,7 @@ def main():
     header["index2_offset"] = "%012i" % 0
     header["article_offset"] = "%012i" % 0
     
-    jsonText = compactjson.dumps(header)
+    jsonText = tojson(header)
     
     header["index1_offset"] = "%012i" % (5 + 8 + len(jsonText))
     header["index2_offset"] = "%012i" % (5 + 8 + len(jsonText) + index1Length)
@@ -375,7 +377,7 @@ def main():
     
     log.debug("Writing header...")
     
-    jsonText = compactjson.dumps(header)
+    jsonText = tojson(header)
     
     aarFile[0].write("aar%02i" % header["major_version"])
     aarFileLength[0] += 5
