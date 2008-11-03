@@ -18,21 +18,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright (C) 2008  Jeremy Mortis and Igor Tkach
 """
-import aarddict
 import logging
 import sys 
 import struct
 import os
 import tempfile
 import shelve
-import datetime
 import optparse
 import functools
 
 from PyICU import Locale, Collator
+import simplejson
 
 from sortexternal import SortExternal
-import simplejson
+import aarddict
+from aarddict.dictionary import HEADER_SPEC, spec_len
 
 logging.basicConfig(format='%(levelname)s: %(message)s')
 log = logging.getLogger()
@@ -74,146 +74,200 @@ def make_opt_parser():
 
     return parser
 
-def create_article_file():
-    global header
-    global aarFile, aarFileLength
-    global options
-
-    if options.output_file[-3:] == "aar":
-        extFilenamePrefix = options.output_file[:-2]
-    else:
-        extFilenamePrefix = options.output_file + ".a"
-
-    aarFile.append(open(extFilenamePrefix + ("%02i" % len(aarFile)), "w+b", 4096))
-    aarFileLength.append(0)
-    log.debug("New article file: %s" , aarFile[-1].name)
-    extHeader = {}
-    extHeader["article_offset"] = "%012i" % 0
-    extHeader["major_version"] = header["major_version"]
-    extHeader["minor_version"] = header["minor_version"]
-    extHeader["timestamp"] = header["timestamp"]
-    extHeader["file_sequence"] = len(aarFile) - 1
-    jsonText = tojson(extHeader)
-    extHeader["article_offset"] = "%012i" % (5 + 8 + len(jsonText))
-    jsonText = tojson(extHeader)
-    aarFile[-1].write("aar%02i" % header["major_version"])
-    aarFileLength[-1] += 5
-    aarFile[-1].write("%08i" % len(jsonText))
-    aarFileLength[-1] += 8
-    aarFile[-1].write(jsonText)
-    aarFileLength[-1] += len(jsonText)
-
-def handle_article(title, text, tags):
+class Compiler(object):
+    
+    def __init__(self, output_file_name):
+        self.output_file_name = output_file_name
+        log.info('Compiling to %s', output_file_name)
+        self.article_file_len = 0
+        self.article_count = 0
+        self.index_count = 0
+        self.current_article_pointer = 0
+        self.sortex = SortExternal()
+        self.article_file =  tempfile.NamedTemporaryFile()
+        self.tempDir = tempfile.mkdtemp()
+        self.indexDbFullname = os.path.join(self.tempDir, "index.db")
+        self.indexDb = shelve.open(self.indexDbFullname, 'n')
+        self.metadata = {}
+            
+    def collect_article(self, title, text, tags):        
+        if (not title) or (not text):
+            log.debug('Skipped blank article: "%s" -> "%s"', title, text)
+            return
         
-    global header
-    global articlePointer
-    global aarFile, aarFileLength
+        jsonstring = compress(tojson([text, tags]))
+        collationKeyString4 = collator4.getCollationKey(title).getByteArray()
     
-    if (not title) or (not text):
-        log.debug('Skipped blank article: "%s" -> "%s"', title, text)
-        return
-    jsonstring = tojson([text, tags])
-    compressed = jsonstring
-    for compress in aarddict.compression:
-        c = compress(jsonstring)
-        if len(c) < len(compressed):
-            compressed = c        
+        if text.startswith("#REDIRECT"):
+            redirectTitle = text[10:]
+            self.sortex.put(collationKeyString4 + "___" + title + "___" + redirectTitle)
+            log.debug("Redirect: %s %s", title, text)
+            return
+        self.sortex.put(collationKeyString4 + "___" + title + "___")
     
-    jsonstring = compressed
-    collationKeyString4 = collator4.getCollationKey(title).getByteArray()
-
-    if text.startswith("#REDIRECT"):
-        redirectTitle = text[10:]
-        sortex.put(collationKeyString4 + "___" + title + "___" + redirectTitle)
-        log.debug("Redirect: %s %s", title, text)
-        return
-    sortex.put(collationKeyString4 + "___" + title + "___")
-
-    articleUnit = struct.pack(">L", len(jsonstring)) + jsonstring
-    articleUnitLength = len(articleUnit)
-    if aarFileLength[-1] + articleUnitLength > aarFileLengthMax:
-        create_article_file()
-        articlePointer = 0L
-        
-    aarFile[-1].write(articleUnit)
-    aarFileLength[-1] += articleUnitLength
-
-    if indexDb.has_key(title):
-        log.debug("Duplicate key: %s" , title)
-    else:
-        log.debug("Real article: %s", title)
-        indexDb[title] = (len(aarFile) - 1, articlePointer)
-
-    articlePointer += articleUnitLength
+        article_unit = struct.pack(">L", len(jsonstring)) + jsonstring
+        article_unit_len = len(article_unit)
+            
+        self.article_file.write(article_unit)
+        self.article_file_len += article_unit_len
     
-    if header["article_count"] % 100 == 0:
-        print_progress(header["article_count"])
-    header["article_count"] += 1
-
-def make_full_index():
-    global aarFile, aarFileLength
-    global index1Length, index2Length
-    global header
-    
-    for count, item in enumerate(sortex):
-        if count % 100 == 0:
-            countstr = str(count)
-            sys.stdout.write("\b"*len(countstr) + countstr)
-            sys.stdout.flush()
-        sortkey, title, redirectTitle = item.split("___", 2)
-        if redirectTitle:
-            log.debug("Redirect: %s %s", repr(title), repr(redirectTitle))
-            target = redirectTitle
+        if self.indexDb.has_key(title):
+            log.debug("Duplicate key: %s" , title)
         else:
-            target = title
-        try:
-            fileno, articlePointer = indexDb[target]
-            index1Unit = struct.pack('>LLL', long(index2Length), long(fileno), long(articlePointer))
-            index1.write(index1Unit)
-            index1Length += len(index1Unit)
-            index2Unit = struct.pack(">L", long(len(title))) + title
-            index2.write(index2Unit)
-            index2Length += len(index2Unit)
-            header["index_count"] += 1
-            log.debug("sorted: %s %i %i", title, fileno, articlePointer)
-        except KeyError:
-            log.warn("Redirect not found: %s %s" ,repr(title), repr(redirectTitle))
+            log.debug("Real article: %s", title)
+            self.indexDb[title] = (0, self.current_article_pointer)
     
-    sys.stdout.write("\b"*len(countstr))
-    sys.stdout.flush()    
-    log.info("Sorted %d items", count)
+        self.current_article_pointer += article_unit_len
+        
+        if self.article_count % 100 == 0:
+            print_progress(self.article_count)
+        self.article_count += 1    
+        
+    def compile(self):
+        self.article_file.flush()
+        self.sortex.sort()
+        log.info("Writing temporary indexes...")
+        index1, index1Length, index2, index2Length = self.make_index()
+        self.sortex.cleanup()
+        self.indexDb.close()
+        os.remove(self.indexDbFullname)
+        os.rmdir(self.tempDir)
+        self.make_aar(index1, index1Length, index2, index2Length)
+        
+    def make_index(self):
+        index1 = tempfile.NamedTemporaryFile()
+        index2 = tempfile.NamedTemporaryFile()
+        index1Length = 0    
+        index2Length = 0    
+        for count, item in enumerate(self.sortex):
+            if count % 100 == 0:
+                print_progress(count)
+            sortkey, title, redirectTitle = item.split("___", 2)
+            if redirectTitle:
+                log.debug("Redirect: %s %s", repr(title), repr(redirectTitle))
+                target = redirectTitle
+            else:
+                target = title
+            try:
+                fileno, articlePointer = self.indexDb[target]
+                index1Unit = struct.pack('>LLL', index2Length, fileno, articlePointer)
+                index1.write(index1Unit)
+                index1Length += len(index1Unit)
+                index2Unit = struct.pack(">L", len(title)) + title
+                index2.write(index2Unit)
+                index2Length += len(index2Unit)
+                self.index_count += 1
+                log.debug("sorted: %s %i %i", title, fileno, articlePointer)
+            except KeyError:
+                log.warn("Redirect not found: %s %s" ,repr(title), repr(redirectTitle))        
+        erase_progress(count)
+        index1.flush()
+        index2.flush()
+        return index1, index1Length, index2, index2Length
+    
+    def write_header(self, output_file, meta_length, index1Length, index2Length):
+        article_offset = spec_len(HEADER_SPEC)+meta_length+index1Length+index2Length
+        values = dict(signature='aard',
+                      version=1,
+                      meta_length=meta_length,
+                      index_count=self.index_count,
+                      article_count=self.article_count,
+                      article_offset=article_offset,
+                      index1_item_format='>LLL',
+                      key_length_format='>L'
+                      )
+        for name, fmt in HEADER_SPEC:            
+            output_file.write(struct.pack(fmt, values[name]))
+    
+    def write_meta(self, output_file, metadata):
+        output_file.write(metadata)
+        
+    def write_index1(self, output_file, index1):
+        index1.seek(0)
+        writeCount = 0
+        while True:
+            if writeCount % 100 == 0:
+                print_progress(writeCount)
+            unit = index1.read(12)
+            if len(unit) == 0:
+                break
+            index2ptr, fileno, offset = struct.unpack(">LLL", unit)
+            unit = struct.pack(">LLL", index2ptr, fileno, offset) 
+            writeCount += 1
+            output_file.write(unit)
+        erase_progress(writeCount)
+        log.debug('Wrote %d items to index 1', writeCount)
+        index1.close()
+        
+    def write_index2(self, output_file, index2):
+        log.debug('Writing index 2...')    
+        index2.seek(0)
+        writeCount = 0
+        while True:
+            if writeCount % 100 == 0:
+                print_progress(writeCount)
+            unitLengthString = index2.read(4)
+            if len(unitLengthString) == 0:
+                break
+            writeCount += 1
+            unitLength = struct.unpack(">L", unitLengthString)[0]
+            unit = index2.read(unitLength)
+            output_file.write(unitLengthString + unit)
+        erase_progress(writeCount)
+        log.debug('Wrote %d items to index 2', writeCount)
+        index2.close()    
+    
+    def write_articles(self, output_file):
+        self.article_file.seek(0)
+        writeCount = 0
+        while True:
+            if writeCount % 100 == 0:
+                print_progress(writeCount)
+            unitLengthString = self.article_file.read(4)
+            if len(unitLengthString) == 0:
+                break
+            writeCount += 1
+            unitLength = struct.unpack(">L", unitLengthString)[0]
+            unit = self.article_file.read(unitLength)
+            output_file.write(unitLengthString + unit)
+        erase_progress(writeCount)
+        self.article_file.close()
+                
+    def make_aar(self, index1, index1Length, index2, index2Length):
+        output_file = open(self.output_file_name, "w+b", 8192)
+        metadata = compress(tojson(self.metadata))
+        self.write_header(output_file, len(metadata), index1Length, index2Length)
+        self.write_meta(output_file, metadata)
+        self.write_index1(output_file, index1)
+        self.write_index2(output_file, index2)
+        self.write_articles(output_file)
+        output_file.close()
+        log.info("Done.")
+        
+def compress(text):
+    compressed = text
+    for compress in aarddict.compression:
+        c = compress(text)
+        if len(c) < len(compressed):
+            compressed = c
+    return compressed            
 
 root_locale = Locale('root')
 collator4 =  Collator.createInstance(root_locale)
 collator4.setStrength(Collator.QUATERNARY)
 
-articlePointer = 0L
-aarFile = []
-aarFileLength = []
-index1Length = 0
-index2Length = 0
-
-header = {
-    "major_version": 1,
-    "minor_version": 0,
-    "timestamp": str(datetime.datetime.utcnow()),
-    "file_sequence": 0,
-    "article_language": "",
-    "index_language": ""
-    }
-
-def compile_wiki(input_file, options, handle_article):
+def compile_wiki(input_file, options, compiler):
     from mediawikiparser import MediaWikiParser
     collator1 =  Collator.createInstance(root_locale)
     collator1.setStrength(Collator.PRIMARY)  
     from mwlib.cdbwiki import WikiDB
     template_db = WikiDB(options.templates) if options.templates else None
-    p = MediaWikiParser(collator1, header, template_db, handle_article)
+    p = MediaWikiParser(collator1, compiler.metadata, template_db, compiler.collect_article)
     p.parseFile(input_file)    
 
-def compile_xdxf(input_file, options, handle_article):
+def compile_xdxf(input_file, options, compiler):
     import xdxf
-    p = xdxf.XDXFParser(header, handle_article)
+    p = xdxf.XDXFParser(compiler.metadata, compiler.collect_article)
     p.parse(input_file)
 
 def make_wiki_input(input_file_name):
@@ -281,10 +335,9 @@ def print_progress(progress):
 def erase_progress(progress):
     s = str(progress)
     sys.stdout.write('\b'*len(s))
-    sys.stdout.flush()
-        
+    sys.stdout.flush()        
+
 def main():
-    global options, aarFileLengthMax
     opt_parser = make_opt_parser()
     options, args = opt_parser.parse_args()
     
@@ -316,149 +369,12 @@ def main():
     input_type = args[0]
     input_file = args[1]
     
-    output_file = make_output_file_name(input_file, options)
+    output_file_name = make_output_file_name(input_file, options)
+    compiler = Compiler(output_file_name)
+    make_input, collect_articles = known_types[input_type]
+    collect_articles(make_input(input_file), options, compiler)
+    compiler.compile()    
     
-    log.info('Compiling to %s', output_file)
-    
-    global sortex, indexDb, index1, index2
-    
-    tempDir = tempfile.mkdtemp()
-    sortex = SortExternal()
-                        
-    aarFile.append(open(output_file, "w+b", 4096))
-    aarFileLength.append(0)
-    
-    create_article_file()    
-    
-    indexDbFullname = os.path.join(tempDir, "index.db")
-    indexDb = shelve.open(indexDbFullname, 'n')
-        
-    index1 = tempfile.NamedTemporaryFile()
-    index2 = tempfile.NamedTemporaryFile()
-    
-    header["article_count"] =  0
-    header["index_count"] =  0
-    
-    make_input, compile = known_types[input_type]
-    
-    compile(make_input(input_file), options, handle_article)
-    erase_progress(header["article_count"])
-    log.info('Article count: %d', header["article_count"])
-    log.info("Sorting index...")        
-    sortex.sort()
-    log.info("Writing temporary indexes...")
-    make_full_index()
-    sortex.cleanup()
-    indexDb.close()
-    os.remove(indexDbFullname)
-    os.rmdir(tempDir)
-    
-    combineFiles = False
-    header["file_count"] = len(aarFile)
-    if 100 + index1Length + index2Length + aarFileLength[-1] < aarFileLengthMax:
-        header["file_count"] -= 1
-        combineFiles = True
-    header["file_count"] = "%06i" % header["file_count"]
-    
-    log.debug("Composing header...")
-            
-    header["index1_length"] = index1Length
-    header["index2_length"] = index2Length
-    
-    header["index1_offset"] = "%012i" % 0
-    header["index2_offset"] = "%012i" % 0
-    header["article_offset"] = "%012i" % 0
-    
-    jsonText = tojson(header)
-    
-    header["index1_offset"] = "%012i" % (5 + 8 + len(jsonText))
-    header["index2_offset"] = "%012i" % (5 + 8 + len(jsonText) + index1Length)
-    header["article_offset"] = "%012i" % (5 + 8 + len(jsonText) + index1Length + index2Length)
-    
-    log.debug("Writing header...")
-    
-    jsonText = tojson(header)
-    
-    aarFile[0].write("aar%02i" % header["major_version"])
-    aarFileLength[0] += 5
-    
-    aarFile[0].write("%08i" % len(jsonText))
-    aarFileLength[0] += 8
-    
-    aarFile[0].write(jsonText)
-    aarFileLength[0] += len(jsonText)
-    
-    log.debug('Writing index 1...')
-    
-    index1.flush()
-    index1.seek(0)
-    writeCount = 0
-    while 1:
-        if writeCount % 100 == 0:
-            print_progress(writeCount)
-        unit = index1.read(12)
-        if len(unit) == 0:
-            break
-        index2ptr, fileno, offset = struct.unpack(">LLL", unit)
-        if combineFiles and fileno == len(aarFile) - 1:
-            fileno = 0L
-        unit = struct.pack(">LLL", index2ptr, fileno, offset) 
-        writeCount += 1
-        aarFile[0].write(unit)
-        aarFileLength[0] += 12
-    erase_progress(writeCount)
-    log.debug('Wrote %d items to index 1', writeCount)
-    index1.close()
-    log.debug('Writing index 2...')    
-    index2.flush()
-    index2.seek(0)
-    writeCount = 0
-    while 1:
-        if writeCount % 100 == 0:
-            print_progress(writeCount)
-        unitLengthString = index2.read(4)
-        if len(unitLengthString) == 0:
-            break
-        writeCount += 1
-        unitLength = struct.unpack(">L", unitLengthString)[0]
-        unit = index2.read(unitLength)
-        aarFile[0].write(unitLengthString + unit)
-        aarFileLength[0] += 4 + unitLength
-    erase_progress(writeCount)
-    log.debug('Wrote %d items to index 2', writeCount)
-    index2.close()    
-    writeCount = 0L
-    
-    if combineFiles:
-        log.debug('Appending %s to %s', aarFile[-1].name, aarFile[0].name)
-        aarFile[-1].flush()
-        aarFile[-1].seek(0)
-        aarFile[-1].read(5)
-        headerLength = int(aarFile[-1].read(8))
-        aarFile[-1].read(headerLength)
-    
-        while 1:
-            if writeCount % 100 == 0:
-                print_progress(writeCount)
-            unitLengthString = aarFile[-1].read(4)
-            if len(unitLengthString) == 0:
-                break
-            writeCount += 1
-            unitLength = struct.unpack(">L", unitLengthString)[0]
-            unit = aarFile[-1].read(unitLength)
-            aarFile[0].write(unitLengthString + unit)
-            aarFileLength[0] += 4 + unitLength
-        erase_progress(writeCount)
-        log.debug("Deleting %s", aarFile[-1].name)
-        os.remove(aarFile[-1].name)    
-        aarFile.pop()
-    
-    log.info("Created %i output file(s)", len(aarFile))
-    
-    for f in aarFile:
-        f.close
-       
-    log.info("Done.")
 
 if __name__ == '__main__':
     main()
