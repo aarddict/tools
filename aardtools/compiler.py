@@ -39,6 +39,8 @@ log = logging.getLogger()
 
 tojson = functools.partial(simplejson.dumps,encoding='utf-8', ensure_ascii=False) 
 
+KEY_LENGTH_FORMAT = '>H'
+
 def make_opt_parser():
     usage = "usage: %prog [options] (wiki|xdxf) FILE"
     parser = optparse.OptionParser(version="%prog 1.0", usage=usage)
@@ -153,7 +155,7 @@ class Compiler(object):
                 index1Unit = struct.pack('>LLL', index2Length, fileno, articlePointer)
                 index1.write(index1Unit)
                 index1Length += len(index1Unit)
-                index2Unit = struct.pack(">L", len(title)) + title
+                index2Unit = struct.pack(KEY_LENGTH_FORMAT, len(title)) + title
                 index2.write(index2Unit)
                 index2Length += len(index2Unit)
                 self.index_count += 1
@@ -174,7 +176,7 @@ class Compiler(object):
                       article_count=self.article_count,
                       article_offset=article_offset,
                       index1_item_format='>LLL',
-                      key_length_format='>L'
+                      key_length_format=KEY_LENGTH_FORMAT
                       )
         for name, fmt in HEADER_SPEC:            
             output_file.write(struct.pack(fmt, values[name]))
@@ -206,11 +208,11 @@ class Compiler(object):
         while True:
             if writeCount % 100 == 0:
                 print_progress(writeCount)
-            unitLengthString = index2.read(4)
+            unitLengthString = index2.read(struct.calcsize(KEY_LENGTH_FORMAT))
             if len(unitLengthString) == 0:
                 break
             writeCount += 1
-            unitLength = struct.unpack(">L", unitLengthString)[0]
+            unitLength = struct.unpack(KEY_LENGTH_FORMAT, unitLengthString)[0]
             unit = index2.read(unitLength)
             output_file.write(unitLengthString + unit)
         erase_progress(writeCount)
