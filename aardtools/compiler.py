@@ -40,6 +40,8 @@ log = logging.getLogger()
 tojson = functools.partial(simplejson.dumps,encoding='utf-8', ensure_ascii=False) 
 
 KEY_LENGTH_FORMAT = '>H'
+ARTICLE_LENGTH_FORMAT = '>L'
+INDEX1_ITEM_FORMAT = '>LL'
 
 def make_opt_parser():
     usage = "usage: %prog [options] (wiki|xdxf) FILE"
@@ -107,7 +109,7 @@ class Compiler(object):
             return
         self.sortex.put(collationKeyString4 + "___" + title + "___")
     
-        article_unit = struct.pack(">L", len(jsonstring)) + jsonstring
+        article_unit = struct.pack(ARTICLE_LENGTH_FORMAT, len(jsonstring)) + jsonstring
         article_unit_len = len(article_unit)
             
         self.article_file.write(article_unit)
@@ -117,7 +119,7 @@ class Compiler(object):
             log.debug("Duplicate key: %s" , title)
         else:
             log.debug("Real article: %s", title)
-            self.indexDb[title] = (0, self.current_article_pointer)
+            self.indexDb[title] = self.current_article_pointer
     
         self.current_article_pointer += article_unit_len
         
@@ -151,15 +153,15 @@ class Compiler(object):
             else:
                 target = title
             try:
-                fileno, articlePointer = self.indexDb[target]
-                index1Unit = struct.pack('>LLL', index2Length, fileno, articlePointer)
+                articlePointer = self.indexDb[target]
+                index1Unit = struct.pack(INDEX1_ITEM_FORMAT, index2Length, articlePointer)
                 index1.write(index1Unit)
                 index1Length += len(index1Unit)
                 index2Unit = struct.pack(KEY_LENGTH_FORMAT, len(title)) + title
                 index2.write(index2Unit)
                 index2Length += len(index2Unit)
                 self.index_count += 1
-                log.debug("sorted: %s %i %i", title, fileno, articlePointer)
+                log.debug("sorted: %s %i %i", title, articlePointer)
             except KeyError:
                 log.warn("Redirect not found: %s %s" ,repr(title), repr(redirectTitle))        
         erase_progress(count)
@@ -175,8 +177,9 @@ class Compiler(object):
                       index_count=self.index_count,
                       article_count=self.article_count,
                       article_offset=article_offset,
-                      index1_item_format='>LLL',
-                      key_length_format=KEY_LENGTH_FORMAT
+                      index1_item_format=INDEX1_ITEM_FORMAT,
+                      key_length_format=KEY_LENGTH_FORMAT,
+                      article_length_format=ARTICLE_LENGTH_FORMAT
                       )
         for name, fmt in HEADER_SPEC:            
             output_file.write(struct.pack(fmt, values[name]))
@@ -190,11 +193,11 @@ class Compiler(object):
         while True:
             if writeCount % 100 == 0:
                 print_progress(writeCount)
-            unit = index1.read(12)
+            unit = index1.read(struct.calcsize(INDEX1_ITEM_FORMAT))
             if len(unit) == 0:
                 break
-            index2ptr, fileno, offset = struct.unpack(">LLL", unit)
-            unit = struct.pack(">LLL", index2ptr, fileno, offset) 
+            index2ptr, offset = struct.unpack(INDEX1_ITEM_FORMAT, unit)
+            unit = struct.pack(INDEX1_ITEM_FORMAT, index2ptr, offset) 
             writeCount += 1
             output_file.write(unit)
         erase_progress(writeCount)
@@ -225,11 +228,11 @@ class Compiler(object):
         while True:
             if writeCount % 100 == 0:
                 print_progress(writeCount)
-            unitLengthString = self.article_file.read(4)
+            unitLengthString = self.article_file.read(struct.calcsize(ARTICLE_LENGTH_FORMAT))
             if len(unitLengthString) == 0:
                 break
             writeCount += 1
-            unitLength = struct.unpack(">L", unitLengthString)[0]
+            unitLength = struct.unpack(ARTICLE_LENGTH_FORMAT, unitLengthString)[0]
             unit = self.article_file.read(unitLength)
             output_file.write(unitLengthString + unit)
         erase_progress(writeCount)
