@@ -136,7 +136,7 @@ class Compiler(object):
         self.indexDb.close()
         os.remove(self.indexDbFullname)
         os.rmdir(self.tempDir)
-        self.make_aar(index1, index1Length, index2, index2Length)
+        self.make_aar(index1, index1Length, index2, index2Length)        
         
     def make_index(self):
         index1 = tempfile.NamedTemporaryFile()
@@ -172,6 +172,7 @@ class Compiler(object):
     def write_header(self, output_file, meta_length, index1Length, index2Length):
         article_offset = spec_len(HEADER_SPEC)+meta_length+index1Length+index2Length
         values = dict(signature='aard',
+                      sha1sum='0'*40,
                       version=1,
                       meta_length=meta_length,
                       index_count=self.index_count,
@@ -237,6 +238,16 @@ class Compiler(object):
             output_file.write(unitLengthString + unit)
         erase_progress(writeCount)
         self.article_file.close()
+
+    def write_sha1sum(self):
+        log.info("Calculating checksum")
+        offset = spec_len(HEADER_SPEC[:2])                
+        sha1sum = aarddict.dictionary.calcsha1(self.output_file_name, offset)
+        log.info("sha1 (first %d bytes skipped): %s", offset, sha1sum)
+        output_file = open(self.output_file_name, "r+b")
+        output_file.seek(spec_len(HEADER_SPEC[:1]))
+        output_file.write(sha1sum)
+        output_file.close()
                 
     def make_aar(self, index1, index1Length, index2, index2Length):
         output_file = open(self.output_file_name, "w+b", 8192)
@@ -247,6 +258,7 @@ class Compiler(object):
         self.write_index2(output_file, index2)
         self.write_articles(output_file)
         output_file.close()
+        self.write_sha1sum()
         log.info("Done.")
         
 def compress(text):
