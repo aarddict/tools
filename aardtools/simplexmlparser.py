@@ -20,6 +20,8 @@ Copyright (C) 2008  Jeremy Mortis and Igor Tkach
 
 import sys
 import cStringIO
+from htmlentitydefs import name2codepoint
+import re
 
 class SimpleXMLParser:
 
@@ -156,8 +158,19 @@ class SimpleXMLParser:
         # usually overridden
         sys.stderr.write("XML cleanup\n")
 
-def unescape(s):
-    return s.replace("&lt;", "<").replace("&gt;", ">").replace("&quot;", '"').replace("&amp;", '&').replace("&mdash", "\xE2\x80\x94").replace("&nbsp;", "\xE2\x80\x87")
+def handle_entityref(m):
+    name = m.group(1)
+    if name in name2codepoint:
+        return unichr(name2codepoint[name])
+    elif name.startswith(u'#'):
+        return unichr(int(name[1:]))
+    else:
+        return "&"+name
+
+entity_pattern = re.compile('&(#*\w+);')
+
+def unescape(s):    
+    return re.sub(entity_pattern, handle_entityref, s.decode('utf8')).encode('utf8')       
 
         
 if __name__ == '__main__':
