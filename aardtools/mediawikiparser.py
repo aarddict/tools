@@ -21,9 +21,8 @@ Copyright (C) 2008  Jeremy Mortis and Igor Tkach
 """
 import sys
 import re
-import StringIO
 
-from mwlib import cdbwiki, uparser, htmlwriter
+from mwlib import cdbwiki, uparser, xhtmlwriter
 import htmlparser
 from simplexmlparser import SimpleXMLParser
 
@@ -101,13 +100,14 @@ class MediaWikiParser(SimpleXMLParser):
                 return
 
             #sys.stderr.write("mediawiki text: %s\n" % repr(self.text.decode("utf8")))
-            mwObject = uparser.parseString(title=self.title.decode("utf8"), raw=self.text.decode("utf8"), wikidb=self.templateDb)
-            htmlFile = StringIO.StringIO(u"")
-            htmlwriter.HTMLWriter(htmlFile).write(mwObject)
-            self.text = htmlFile.getvalue().encode("utf8")
-            htmlFile.close()
-            #sys.stderr.write("mediawiki html: %s\n" % repr(self.text.decode("utf8")))
-                        
+            mwObject = uparser.parseString(title=self.title.decode("utf8"), 
+                                           raw=self.text.decode("utf8"), 
+                                           wikidb=self.templateDb)
+            xhtmlwriter.preprocess(mwObject)
+            xml_writer = xhtmlwriter.MWXHTMLWriter()
+            xml_writer.writeBook(mwObject)                        
+            self.text = xml_writer.asstring().encode("utf8")
+            self.text = re.sub('@import.*;', '', self.text).strip()                                    
             parser = htmlparser.HTMLParser()
             parser.parseString(self.text)
             self.consumer(self.title, parser.text.rstrip(), parser.tags)
