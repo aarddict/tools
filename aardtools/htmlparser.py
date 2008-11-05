@@ -24,6 +24,7 @@ import sys
 import re
 import urllib
 
+
 class HTMLParser(SimpleXMLParser):
 
     text = property(lambda self: self.docBuffer)
@@ -139,9 +140,7 @@ class HTMLParser(SimpleXMLParser):
         t[2] = self.textUnicodeLength
         self.tags.append(t)
 
-    def handleCharacterData(self, data):
-        
-        #sys.stderr.write("Data: %s\n" % repr(data))
+    def handleCharacterData(self, data):                
         self.tagBuffer += data.replace("\n", " ")
 
     def bufferCharacterData(self):
