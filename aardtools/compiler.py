@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright (C) 2008  Jeremy Mortis and Igor Tkach
 """
+import uuid
 import logging
 import sys 
 import struct
@@ -61,45 +62,90 @@ def make_opt_parser():
         default=None,
         help='Template definitions database'
         )
-
     parser.add_option(
         '-d', '--debug',
         action='store_true',
         default=False,
         help='Turn on debugging messages'
         )
-
     parser.add_option(
         '-q', '--quite',
         action='store_true',
         default=False,
         help='Print minimal information about compilation progress'
         )
-
     return parser
+
+class Volume(object):
+    
+    class ExceedsMaxSize(Exception): pass
+    
+    number = 0
+    
+    def __init__(self, header_meta_len, max_file_size):
+        self.header_meta_len = header_meta_len
+        self.max_file_size = max_file_size
+        self.index1 = tempfile.NamedTemporaryFile()
+        self.index2 = tempfile.NamedTemporaryFile()
+        self.articles =  tempfile.NamedTemporaryFile()
+        self.index1Length = 0    
+        self.index2Length = 0   
+        self.articles_len = 0 
+        self.index_count = 0
+        self.article_count = 0            
+        Volume.number += 1
+        
+    def add(self, index1_unit, index2_unit, article_unit):
+        if sum((self.header_meta_len, 
+                self.index1Length,
+                self.index2Length,
+                self.articles_len,
+                len(index1_unit),
+                len(index2_unit),
+                len(article_unit)
+                )) > self.max_file_size:
+            raise Volume.ExceedsMaxSize
+        self.index1.write(index1_unit)
+        self.index1Length += len(index1_unit)
+        self.index2.write(index2_unit)
+        self.index2Length += len(index2_unit)
+        self.index_count += 1
+        self.articles.write(article_unit)                
+        self.articles_len += len(article_unit)                
+               
+               
+    def flush(self):
+        self.index1.flush()
+        self.index2.flush()
+        self.articles.flush()                   
+    
+    def totuple(self):
+        return (self.index1, self.index1Length, self.index2, 
+                self.index2Length, self.articles, self.articles_len, 
+                self.index_count, self.article_count)                             
+
 
 class Compiler(object):
     
-    def __init__(self, output_file_name):
+    def __init__(self, output_file_name, max_file_size):
+        self.uuid = uuid.uuid4()
         self.output_file_name = output_file_name
-        log.info('Compiling to %s', output_file_name)
-        self.article_file_len = 0
+        self.max_file_size = max_file_size
+        log.info('Compiling %s', output_file_name)
         self.article_count = 0
         self.index_count = 0
-        self.current_article_pointer = 0
         self.sortex = SortExternal()
-        self.article_file =  tempfile.NamedTemporaryFile()
         self.tempDir = tempfile.mkdtemp()
         self.indexDbFullname = os.path.join(self.tempDir, "index.db")
         self.indexDb = shelve.open(self.indexDbFullname, 'n')
         self.metadata = {}
+        self.file_names = []
             
     def collect_article(self, title, text, tags):        
         if (not title) or (not text):
             log.debug('Skipped blank article: "%s" -> "%s"', title, text)
             return
-        
-        jsonstring = compress(tojson([text, tags]))
+                
         collationKeyString4 = collator4.getCollationKey(title).getByteArray()
     
         if text.startswith("#REDIRECT"):
@@ -107,76 +153,95 @@ class Compiler(object):
             self.sortex.put(collationKeyString4 + "___" + title + "___" + redirectTitle)
             log.debug("Redirect: %s %s", title, text)
             return
-        self.sortex.put(collationKeyString4 + "___" + title + "___")
-    
-        article_unit = struct.pack(ARTICLE_LENGTH_FORMAT, len(jsonstring)) + jsonstring
-        article_unit_len = len(article_unit)
-            
-        self.article_file.write(article_unit)
-        self.article_file_len += article_unit_len
-    
+        self.sortex.put(collationKeyString4 + "___" + title + "___")                
+        
         if self.indexDb.has_key(title):
             log.debug("Duplicate key: %s" , title)
         else:
-            log.debug("Real article: %s", title)
-            self.indexDb[title] = self.current_article_pointer
+            log.debug("New article: %s", title)
+            self.indexDb[title] = compress(tojson([text, tags]))
     
-        self.current_article_pointer += article_unit_len
-        
-        if self.article_count % 100 == 0:
-            print_progress(self.article_count)
+        print_progress(self.article_count)
         self.article_count += 1    
         
     def compile(self):
-        self.article_file.flush()
+        erase_progress(self.article_count)
         self.sortex.sort()
-        log.info("Writing temporary indexes...")
-        index1, index1Length, index2, index2Length = self.make_index()
+           
+        metadata = compress(tojson(self.metadata))
+        header_meta_len = spec_len(HEADER_SPEC) + len(metadata)
+        create_volume_func = functools.partial(self.create_volume, header_meta_len)     
+        for volume in self.make_volumes(create_volume_func):            
+            log.info("Creating volume %d" % volume.number)            
+            self.make_aar(volume)
+            log.info("Volume %d created" % volume.number)
         self.sortex.cleanup()
         self.indexDb.close()
         os.remove(self.indexDbFullname)
         os.rmdir(self.tempDir)
-        self.make_aar(index1, index1Length, index2, index2Length)        
+        self.write_volume_count()
+        self.write_sha1sum()
+        self.rename_files()        
+
+    def create_volume(self, header_meta_len):
+        return Volume(header_meta_len, self.max_file_size)
+    
+    def make_volumes(self, create_volume_func):
+                
+        volume = create_volume_func()
         
-    def make_index(self):
-        index1 = tempfile.NamedTemporaryFile()
-        index2 = tempfile.NamedTemporaryFile()
-        index1Length = 0    
-        index2Length = 0    
         for count, item in enumerate(self.sortex):
-            if count % 100 == 0:
-                print_progress(count)
+            print_progress(count)
             sortkey, title, redirectTitle = item.split("___", 2)
+            
             if redirectTitle:
                 log.debug("Redirect: %s %s", repr(title), repr(redirectTitle))
                 target = redirectTitle
             else:
                 target = title
+                volume.article_count += 1
+                
             try:
-                articlePointer = self.indexDb[target]
-                index1Unit = struct.pack(INDEX1_ITEM_FORMAT, index2Length, articlePointer)
-                index1.write(index1Unit)
-                index1Length += len(index1Unit)
-                index2Unit = struct.pack(KEY_LENGTH_FORMAT, len(title)) + title
-                index2.write(index2Unit)
-                index2Length += len(index2Unit)
-                self.index_count += 1
-                log.debug("sorted: %s %i %i", title, articlePointer)
+                #FIXME:
+                #Article content for redirects is copied
+                #Need to replace this with a lookup done by client
+                jsonstring = self.indexDb[target]
             except KeyError:
-                log.warn("Redirect not found: %s %s" ,repr(title), repr(redirectTitle))        
+                log.warn("Redirect not found: %s %s" ,repr(title), repr(redirectTitle))
+            else:
+                index1Unit = struct.pack(INDEX1_ITEM_FORMAT, 
+                                         volume.index2Length, 
+                                         volume.articles_len)                
+                index2Unit = struct.pack(KEY_LENGTH_FORMAT, len(title)) + title
+                article_unit = struct.pack(ARTICLE_LENGTH_FORMAT, len(jsonstring)) + jsonstring
+                try:
+                    volume.add(index1Unit, index2Unit, article_unit)
+                except Volume.ExceedsMaxSize:
+                    erase_progress(count)
+                    volume.flush()
+                    yield volume
+                    volume = create_volume_func()
+                    index1Unit = struct.pack(INDEX1_ITEM_FORMAT, 
+                                             volume.index2Length, 
+                                             volume.articles_len)
+                    volume.add(index1Unit, index2Unit, article_unit)                
+                
         erase_progress(count)
-        index1.flush()
-        index2.flush()
-        return index1, index1Length, index2, index2Length
+        volume.flush()
+        yield volume                 
+
     
-    def write_header(self, output_file, meta_length, index1Length, index2Length):
+    def write_header(self, output_file, meta_length, index1Length, index2Length, index_count, article_count, volume):
         article_offset = spec_len(HEADER_SPEC)+meta_length+index1Length+index2Length
         values = dict(signature='aard',
                       sha1sum='0'*40,
                       version=1,
+                      uuid=self.uuid.bytes,
+                      volume=volume,
+                      of=0,
                       meta_length=meta_length,
-                      index_count=self.index_count,
-                      article_count=self.article_count,
+                      index_count=index_count,
+                      article_count=article_count,
                       article_offset=article_offset,
                       index1_item_format=INDEX1_ITEM_FORMAT,
                       key_length_format=KEY_LENGTH_FORMAT,
@@ -192,8 +257,7 @@ class Compiler(object):
         index1.seek(0)
         writeCount = 0
         while True:
-            if writeCount % 100 == 0:
-                print_progress(writeCount)
+            print_progress(writeCount)
             unit = index1.read(struct.calcsize(INDEX1_ITEM_FORMAT))
             if len(unit) == 0:
                 break
@@ -210,56 +274,87 @@ class Compiler(object):
         index2.seek(0)
         writeCount = 0
         while True:
-            if writeCount % 100 == 0:
-                print_progress(writeCount)
+            print_progress(writeCount)
             unitLengthString = index2.read(struct.calcsize(KEY_LENGTH_FORMAT))
             if len(unitLengthString) == 0:
                 break
             writeCount += 1
-            unitLength = struct.unpack(KEY_LENGTH_FORMAT, unitLengthString)[0]
+            unitLength, = struct.unpack(KEY_LENGTH_FORMAT, unitLengthString)
             unit = index2.read(unitLength)
             output_file.write(unitLengthString + unit)
         erase_progress(writeCount)
         log.debug('Wrote %d items to index 2', writeCount)
         index2.close()    
     
-    def write_articles(self, output_file):
-        self.article_file.seek(0)
+    def write_articles(self, output_file, articles):
+        articles.seek(0)
         writeCount = 0
         while True:
-            if writeCount % 100 == 0:
-                print_progress(writeCount)
-            unitLengthString = self.article_file.read(struct.calcsize(ARTICLE_LENGTH_FORMAT))
+            print_progress(writeCount)
+            unitLengthString = articles.read(struct.calcsize(ARTICLE_LENGTH_FORMAT))
             if len(unitLengthString) == 0:
                 break
             writeCount += 1
-            unitLength = struct.unpack(ARTICLE_LENGTH_FORMAT, unitLengthString)[0]
-            unit = self.article_file.read(unitLength)
+            unitLength, = struct.unpack(ARTICLE_LENGTH_FORMAT, unitLengthString)
+            unit = articles.read(unitLength)
             output_file.write(unitLengthString + unit)
         erase_progress(writeCount)
-        self.article_file.close()
+        log.debug('Wrote %d items to articles', writeCount)
+        articles.close()
 
     def write_sha1sum(self):
-        log.info("Calculating checksum")
-        offset = spec_len(HEADER_SPEC[:2])                
-        sha1sum = aarddict.dictionary.calcsha1(self.output_file_name, offset)
-        log.info("sha1 (first %d bytes skipped): %s", offset, sha1sum)
-        output_file = open(self.output_file_name, "r+b")
-        output_file.seek(spec_len(HEADER_SPEC[:1]))
-        output_file.write(sha1sum)
-        output_file.close()
+        for file_name in self.file_names:
+            log.info("Calculating checksum for %s", file_name)
+            offset = spec_len(HEADER_SPEC[:2])                
+            sha1sum = aarddict.dictionary.calcsha1(file_name, offset)
+            log.info("sha1 (first %d bytes skipped): %s", offset, sha1sum)
+            output_file = open(file_name, "r+b")
+            output_file.seek(spec_len(HEADER_SPEC[:1]))
+            output_file.write(sha1sum)
+            output_file.close()
                 
-    def make_aar(self, index1, index1Length, index2, index2Length):
-        output_file = open(self.output_file_name, "w+b", 8192)
+    def make_aar(self, volume):
+        (index1, index1Length, index2, index2Length, articles, 
+         articles_len, index_count, article_count) = volume.totuple()
+        file_name = '%s.%d' % (self.output_file_name, Volume.number)         
+        output_file = open(file_name, "wb", 8192)
         metadata = compress(tojson(self.metadata))
-        self.write_header(output_file, len(metadata), index1Length, index2Length)
+        self.write_header(output_file, len(metadata), index1Length, 
+                          index2Length, index_count, article_count, 
+                          Volume.number)
         self.write_meta(output_file, metadata)
         self.write_index1(output_file, index1)
         self.write_index2(output_file, index2)
-        self.write_articles(output_file)
-        output_file.close()
-        self.write_sha1sum()
-        log.info("Done.")
+        self.write_articles(output_file, articles)
+        output_file.close()        
+        self.file_names.append(file_name)
+        log.info("Done with %s", file_name)
+        
+    def write_volume_count(self):
+        name, fmt = HEADER_SPEC[5]
+        log.info("Writing volume count %d to all volumes as %s", 
+                 Volume.number, fmt)
+        log.debug('Writing' )        
+        for file_name in self.file_names:
+            output_file = open(file_name, "r+b")
+            output_file.seek(spec_len(HEADER_SPEC[:5]))
+            output_file.write(struct.pack(fmt, Volume.number))
+            output_file.close()     
+            
+    def rename_files(self):
+        if len(self.file_names) == 1:
+            file_name = self.file_names[0]
+            base, ext, vol = file_name.rsplit('.', 2)
+            newname = "%s.%s" % (base, ext)
+            log.info('Renaming %s ==> %s', file_name, newname)
+            os.rename(file_name, newname)                        
+        else:            
+            for file_name in self.file_names:
+                base, ext, vol = file_name.rsplit('.', 2)
+                newname = "%s.%s_of_%s.%s" % (base,vol,Volume.number,ext)
+                log.info('Renaming %s ==> %s', file_name, newname)
+                os.rename(file_name, newname)            
+                                    
         
 def compress(text):
     compressed = text
@@ -379,15 +474,13 @@ def main():
         log.setLevel(logging.DEBUG)
     else:
         log.setLevel(logging.INFO)
-        
-    aarFileLengthMax = max_file_size(options)    
-    log.info('Maximum file size is %d bytes', aarFileLengthMax)
-            
+                    
     input_type = args[0]
-    input_file = args[1]
-    
-    output_file_name = make_output_file_name(input_file, options)
-    compiler = Compiler(output_file_name)
+    input_file = args[1]    
+    output_file_name = make_output_file_name(input_file, options)    
+    max_volume_size = max_file_size(options)    
+    log.info('Maximum file size is %d bytes', max_volume_size)    
+    compiler = Compiler(output_file_name, max_volume_size)
     make_input, collect_articles = known_types[input_type]
     collect_articles(make_input(input_file), options, compiler)
     compiler.compile()    
@@ -395,6 +488,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
-
-
