@@ -387,12 +387,12 @@ root_locale = Locale('root')
 collator4 =  Collator.createInstance(root_locale)
 collator4.setStrength(Collator.QUATERNARY)
 
-def compile_wiki(input_file, options, compiler):
-    from mediawikiparser import MediaWikiParser
+def compile_wiki(input_file, options, compiler):    
     from mwlib.cdbwiki import WikiDB
-    template_db = WikiDB(options.templates) if options.templates else None
-    p = MediaWikiParser(template_db, compiler)
-    p.parseFile(input_file)    
+    templatedb = WikiDB(options.templates) if options.templates else None
+    import wiki
+    p = wiki.WikiParser(templatedb, compiler)
+    p.parse(input_file)    
 
 def compile_xdxf(input_file, options, compiler):
     import xdxf
