@@ -21,17 +21,21 @@ Copyright (C) 2008  Jeremy Mortis and Igor Tkach
 """
 import sys
 import re
+import functools
 
 from mwlib import cdbwiki, uparser, xhtmlwriter
+import simplejson
+
 import htmlparser
 from simplexmlparser import SimpleXMLParser
 
+tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
+
+
 class MediaWikiParser(SimpleXMLParser):
 
-    def __init__(self, collator, metadata, templateDb, consumer):
+    def __init__(self, templateDb, consumer):
         SimpleXMLParser.__init__(self)
-        self.collator = collator
-        self.metadata = metadata
         self.templateDb = templateDb
         self.consumer = consumer
         self.tagstack = []
@@ -46,6 +50,7 @@ class MediaWikiParser(SimpleXMLParser):
         self.reLeadingSpaces = re.compile(r"^\s*", re.MULTILINE)
         self.reTrailingSpaces = re.compile(r"\s*$", re.MULTILINE)
         self.reSquare2 = re.compile(r"\[\[(.*?)\]\]")
+        self.consumer.add_metadata('article_format', 'json')
         
     def handleStartElement(self, tag, attrs):
         self.tagstack.append([tag, []])
@@ -65,13 +70,13 @@ class MediaWikiParser(SimpleXMLParser):
         entrytext = "".join(entry[1])
 
         if tag == "sitename":
-            self.metadata["title"] = entrytext.replace("\n", "").strip()
+            self.consumer.add_metadata('title', entrytext.replace("\n", "").strip())
 
         elif tag == "base":
             m = re.compile(r"http://(.*?)\.wik").match(entrytext)
             if m:
-                self.metadata["index_language"] = m.group(1)
-                self.metadata["article_language"] = m.group(1)
+                self.consumer.add_metadata("index_language", m.group(1))
+                self.consumer.add_metadata("article_language", m.group(1))
         
         elif tag == "title":
             self.title = entrytext.replace("\n", "").replace("_", " ").strip()
@@ -92,25 +97,25 @@ class MediaWikiParser(SimpleXMLParser):
                 if m:
                     redirect = m.group(1)
                     redirect = redirect.replace("_", " ")
-                    redirectKey = self.collator.getCollationKey(redirect)
-                    titleKey = self.collator.getCollationKey(self.title)
-                    if redirectKey != titleKey:
-                        self.consumer(self.title, "#REDIRECT " + redirect, [])
-                    #sys.stderr.write("Weak redirect: " + repr(title) + " " + repr(redirect) + "\n")
+                    self.consumer.add_redirect(self.title, redirect)
                 return
 
-            #sys.stderr.write("mediawiki text: %s\n" % repr(self.text.decode("utf8")))
             mwObject = uparser.parseString(title=self.title.decode("utf8"), 
                                            raw=self.text.decode("utf8"), 
                                            wikidb=self.templateDb)
             xhtmlwriter.preprocess(mwObject)
             xml_writer = xhtmlwriter.MWXHTMLWriter()
-            xml_writer.writeBook(mwObject)                        
-            self.text = xml_writer.asstring().encode("utf8")
+            xml_writer.writeBook(mwObject)
+            
+            def asstring():                                                                                                         
+                return xml_writer.header + xhtmlwriter.ET.tostring(xml_writer.getTree(), 'utf8')        
+                                    
+            self.text = asstring()
             self.text = re.sub('@import.*;', '', self.text).strip()                                    
             parser = htmlparser.HTMLParser()
             parser.parseString(self.text)
-            self.consumer(self.title, parser.text.rstrip(), parser.tags)
+            self.consumer.add_article(self.title, tojson([parser.text.rstrip(), 
+                                                         parser.tags]))
             self.text = ""
             return
             

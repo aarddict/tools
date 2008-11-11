@@ -1,13 +1,16 @@
-import sys
 import logging
 logging.basicConfig()
+import functools 
+
 from lxml import etree
+import simplejson
+
+tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
 
 class XDXFParser():
     
-    def __init__(self, header, handle_article):
-        self.header = header
-        self.handle_article = handle_article
+    def __init__(self, consumer):
+        self.consumer = consumer
 
     def _text(self, element, tags, offset=0):
         txt = ''
@@ -23,29 +26,32 @@ class XDXFParser():
         return txt
         
     def parse(self, f):
+        self.consumer.add_metadata('article_format', 'json')
         for event, element in etree.iterparse(f):
             if element.tag == 'description':
-                self.header[element.tag] = element.text.encode('utf-8')
+                self.consumer.add_metadata(element.tag, element.text)
                 element.clear()
                 
             if element.tag == 'full_name':
-                self.header['title'] = element.text.encode('utf-8')
+                self.consumer.add_metadata('title', element.text)
                 element.clear()
     
             if element.tag == 'xdxf':    
-                self.header['article_language'] = element.get('lang_to').encode('utf-8')
-                self.header['index_language'] = element.get('lang_from').encode('utf-8')
-                self.header['format'] = element.get('format').encode('utf-8')
+                self.consumer.add_metadata('article_language', 
+                                           element.get('lang_to'))
+                self.consumer.add_metadata('index_language', 
+                                           element.get('lang_from'))
+                self.consumer.add_metadata('xdxf_format', 
+                                           element.get('format'))
                 element.clear()
     
             if element.tag == 'ar':
                 tags = []
                 txt = self._text(element, tags)
                 try:
-                    title = element.find('k').text.encode('utf-8')            
-                    self.handle_article(title, txt.encode('utf-8'), tags)
+                    title = element.find('k').text
+                    self.consumer.add_article(title, tojson([txt, tags]))
                 except:
                     logging.exception('Skipping bad article')
-                    #sys.stderr.write('\nSkipping bad article\n')
                 finally:
                     element.clear()                        

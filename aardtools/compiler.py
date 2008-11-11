@@ -38,7 +38,7 @@ from aarddict.dictionary import HEADER_SPEC, spec_len
 logging.basicConfig(format='%(levelname)s: %(message)s')
 log = logging.getLogger()
 
-tojson = functools.partial(simplejson.dumps,encoding='utf-8', ensure_ascii=False) 
+tojson = functools.partial(simplejson.dumps, ensure_ascii=False) 
 
 KEY_LENGTH_FORMAT = '>H'
 ARTICLE_LENGTH_FORMAT = '>L'
@@ -75,6 +75,20 @@ def make_opt_parser():
         help='Print minimal information about compilation progress'
         )
     return parser
+
+def utf8(func):
+    def f(*args, **kwargs):
+        newargs = [arg.encode('utf8') if isinstance(arg, unicode) else arg 
+                   for arg in args]
+        newkwargs = {} 
+        for key, val in kwargs.iteritems():
+            newkwargs[key] = (val.encode('utf8') 
+                              if isinstance(val, unicode) else val)         
+        return func(*newargs, **newkwargs)
+    f.__doc__ = func.__doc__         
+    f.__name__ = func.__name__
+    f.__dict__.update(func.__dict__)    
+    return f 
 
 class Volume(object):
     
@@ -140,30 +154,35 @@ class Compiler(object):
         self.indexDb = shelve.open(self.indexDbFullname, 'n')
         self.metadata = {}
         self.file_names = []
-            
-    def collect_article(self, title, text, tags):        
-        if (not title) or (not text):
-            log.debug('Skipped blank article: "%s" -> "%s"', title, text)
-            return
-                
-        collationKeyString4 = collator4.getCollationKey(title).getByteArray()
     
-        if text.startswith("#REDIRECT"):
-            redirectTitle = text[10:]
-            self.sortex.put(collationKeyString4 + "___" + title + "___" + redirectTitle)
-            log.debug("Redirect: %s %s", title, text)
+    @utf8
+    def add_metadata(self, key, value):
+        self.metadata[key] = value
+
+    @utf8
+    def add_redirect(self, title, redirect_title):
+        collationKeyString4 = collator4.getCollationKey(title).getByteArray()
+        self.sortex.put(collationKeyString4 + "___" + title + "___" + redirect_title)
+        log.debug("Redirect: %s ==> %s", title, redirect_title)
+
+    @utf8
+    def add_article(self, title, serialized_article):
+             
+        if (not title) or (not serialized_article):
+            log.debug('Skipped blank article: "%s" -> "%s"', 
+                      title, serialized_article)
             return
-        self.sortex.put(collationKeyString4 + "___" + title + "___")                
         
+        collationKeyString4 = collator4.getCollationKey(title).getByteArray()
+        self.sortex.put(collationKeyString4 + "___" + title + "___")
         if self.indexDb.has_key(title):
             log.debug("Duplicate key: %s" , title)
         else:
             log.debug("New article: %s", title)
-            self.indexDb[title] = compress(tojson([text, tags]))
-    
+            self.indexDb[title] = compress(serialized_article)
         print_progress(self.article_count)
-        self.article_count += 1    
-        
+        self.article_count += 1                
+                    
     def compile(self):
         erase_progress(self.article_count)
         self.sortex.sort()
@@ -370,16 +389,14 @@ collator4.setStrength(Collator.QUATERNARY)
 
 def compile_wiki(input_file, options, compiler):
     from mediawikiparser import MediaWikiParser
-    collator1 =  Collator.createInstance(root_locale)
-    collator1.setStrength(Collator.PRIMARY)  
     from mwlib.cdbwiki import WikiDB
     template_db = WikiDB(options.templates) if options.templates else None
-    p = MediaWikiParser(collator1, compiler.metadata, template_db, compiler.collect_article)
+    p = MediaWikiParser(template_db, compiler)
     p.parseFile(input_file)    
 
 def compile_xdxf(input_file, options, compiler):
     import xdxf
-    p = xdxf.XDXFParser(compiler.metadata, compiler.collect_article)
+    p = xdxf.XDXFParser(compiler)
     p.parse(input_file)
 
 def make_wiki_input(input_file_name):

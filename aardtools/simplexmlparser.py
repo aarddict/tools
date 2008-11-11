@@ -17,6 +17,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright (C) 2008  Jeremy Mortis and Igor Tkach
 """
+import logging
 
 import sys
 import cStringIO
@@ -169,8 +170,12 @@ def handle_entityref(m):
 
 entity_pattern = re.compile('&(#*\w+);')
 
-def unescape(s):    
-    return re.sub(entity_pattern, handle_entityref, s.decode('utf8')).encode('utf8')       
+def unescape(s):
+    try:    
+        return re.sub(entity_pattern, handle_entityref, s.decode('utf8')).encode('utf8')
+    except:
+        logging.exception('unescape failed')
+        return s
 
         
 if __name__ == '__main__':
