@@ -1,93 +1,173 @@
-from mwlib import parser
-from mwlib import cdbwiki, uparser, xhtmlwriter
+import logging
 
 def convert(obj):
     w = MWAardWriter()
-    text = w._text(obj)
-    return [text, w.tags]
+    text, tags = w.txt(obj)
+    return text, tags
+
+def newline(func):
+    def f(*args, **kwargs):
+        txt, tags = func(*args, **kwargs)
+        if not txt.endswith(u'\n'):
+            txt += u'\n'
+        return txt, tags
+    f.__name__ = func.__name__
+    f.__doc__ = func.__doc__
+    return f
 
 class MWAardWriter(object):
 
-    ignoreUnknownNodes = True
-    namedLinkCount = 1
-
     def __init__(self):
-
-        self.references = []
-        
+        self.references = []        
         self.errors = []
         self.languagelinks = []
-        self.categorylinks = []
-        
-        self.tags = []
+        self.categorylinks = []        
         self.current_list_number = 0 
 
-    def _text(self, obj, offset=0):
-        txt = ''
-        start = offset
-        if isinstance(obj, parser.Text):
-            txt += obj.caption
+    def _Text(self, obj):
+        return obj.caption, []
 
-        if isinstance(obj, parser.Ref):
-            txt += obj.caption
-            
-        if isinstance(obj, parser.Paragraph):
-            txt += '\n\n'
-            
-        if isinstance(obj, parser.ItemList):
-            self.current_list_number = 0            
-            
-        if isinstance(obj, parser.Item):
-            if (obj.parent.numbered):
-                self.current_list_number += 1
-                txt += ('%d. ' % self.current_list_number)
-            else:
-                txt += '\n* '
-
-        if isinstance(obj, parser.Section):
-            txt += '\n'
-            start += 1
-            self.tags.append(('h'+str(obj.level), start, start + len(self._text(obj.firstchild)), {}))
-
-        if isinstance(obj, parser.Chapter):
-            txt += '\n'
-            start += 1
-            self.tags.append(('h1', start, start + len(self._text(obj.caption)), {}))
-                                    
-        for c in obj:    
-            txt += self._text(c, offset + len(txt)) 
-        end = start + len(txt)
-        
-        if isinstance(obj, parser.Link):
-            self.tags.append(('a', start, end, {'href':obj.target}))
-        
-        if isinstance(obj, parser.TagNode):
-            if obj.caption == u'ref':
-                print obj.caption
-            self.tags.append((obj.caption, start, end, {}))
-
-        if isinstance(obj, (parser.URL, parser.NamedURL)):
-            if start == end:
-                txt += obj.caption
-                end = start + len(txt)
-            self.tags.append(('a', start, end, {'href':obj.caption}))            
-            
-        if isinstance(obj, parser.Style):
-            if obj.caption == "''":
-                self.tags.append('i', start, end, {})
-            if obj.caption == "'''":
-                self.tags.append('b', start, end, {})
-        
-#        if not isinstance(obj, parser.Text):
-#            tag = self._tag(obj, start, end)
-#            if tag:
-#                self.tags.append(tag)
-#        #self.tags.append([obj.tag, start, end, dict(obj.attrib)])
-#                
-##        if element.tail:
-##            txt += element.tail
-        return txt
+    @newline
+    def _ItemList(self, obj):
+        self.current_list_number = 0
+        return self.process_children(obj)
     
+    @newline
+    def _Item(self, obj):
+        txt = u''        
+        if (obj.parent.numbered):
+            self.current_list_number += 1
+            txt += u'%d. ' % self.current_list_number
+        else:
+            txt += u'\u2022 '
+        return self.process_children(obj, txt)        
+    
+    @newline
+    def _Paragraph(self, obj):
+        txt, tags = self.process_children(obj)
+        tags.append((u'p', 0, len(txt), {}))
+        return txt, tags        
+    
+    @newline
+    def _Section(self, obj):
+        level = 2 + obj.getLevel() # starting with h2
+        h = u'h%d' % level
+        txt, tags = self.txt(obj.children[0])
+        tags.append((h, 0, len(txt), {}))
+        txt += u'\n'
+        obj.children = obj.children[1:]
+        return self.process_children(obj, txt, tags)
+
+    @newline
+    def _Chapter(self, obj):
+        txt = obj.caption
+        tags = [(u'h1', 0, len(txt), {})]
+        return txt, tags
+    
+    def _CategoryLink(self, obj):
+        self.categorylinks.append(obj.target)
+        return u'', []
+
+    def _LangLink(self, obj):
+        self.languagelinks.append((obj.namespace, obj.target))
+        return u'', []
+    
+    def _ArticleLink(self, obj):
+        txt, tags = self.process_children(obj)
+        if not txt:
+            txt = obj.caption
+        tags.append((u'a', 0, len(txt), {u'href':obj.target}))
+        return txt, tags
+    
+    _InterwikiLink = _ArticleLink       
+    
+    def _NamedURL(self, obj):
+        txt, tags = self.process_children(obj)
+        if not txt:
+            txt = obj.caption        
+        tags.append((u'a', 0, len(txt), {u'href':obj.caption}))
+        return txt, tags
+
+    def _URL(self, obj):
+        txt, tags = self.process_children(obj)
+        if not txt:
+            txt = obj.caption
+        tags.append((u'a', 0, len(txt), {u'href':obj.caption}))
+        return txt, tags
+    
+    def _Style(self, obj):
+        txt, tags = self.process_children(obj)
+        if obj.caption == "''":
+            tags.append((u'i', 0, len(txt), {}))
+        elif obj.caption == "'''":
+            tags.append((u'b', 0, len(txt), {}))
+        elif obj.caption == ";":
+            tags.append((u'tt', 0, len(txt), {}))            
+        return tags                
+
+    def _TagNode(self, obj):
+        txt, tags = self.process_children(obj)
+        tagname = obj.caption
+        tags.append((tagname, 0, len(txt), {}))
+        return txt, tags    
+    
+    def _Article(self, a):
+        # add article name as first section heading
+        txt = a.caption
+        tags = [(u'h1', 0, len(txt), {})]
+        txt += u'\n'
+        return self.process_children(a, txt, tags)        
+    
+    def _Cell(self, obj):
+        txt, tags = self.process_children(obj)
+        return txt, tags
+
+    def _Row(self, obj):
+        txt, tags = self.process_children(obj)
+        return txt, tags
+    
+#    def xwriteCell(self, cell):
+#        td = ET.Element("td")
+#        setVList(td, cell)           
+#        return td
+#            
+#    def xwriteRow(self, row):
+#        return ET.Element("tr")
+#
+#    def xwriteTable(self, t):           
+#        table = ET.Element("table")
+#        setVList(table, t)           
+#        if t.caption:
+#            c = ET.SubElement(table, "caption")
+#            self.writeText(t.caption, c)
+#        return table    
+    
+    def apply_offset(self, tags, offset):
+        return [(name, start+offset, end+offset, attrs) 
+                for name, start, end, attrs in tags]        
+        
+    def txt(self, obj):
+        m = "_" + obj.__class__.__name__
+        m = getattr(self, m, None)
+        if m: # find handler
+            return m(obj)
+        else:
+            logging.debug('No handler for %s, write children', obj)
+            return self.process_children(obj)
+                
+    def process_children(self, obj, txt=u'', tags=None):
+        if tags is None:
+            tags = []
+        else:
+            tags = tags[:]
+        for c in obj:
+            ctxt, ctags = self.txt(c)
+            tags += self.apply_offset(ctags, len(txt))
+            txt += ctxt            
+        logging.debug('Processed children for %s, returning %s with tags %s', obj, txt, tags)
+        return txt, tags                
+        
+
 #    def _tag(self, obj, start, end):
 #        m = "xtag" + obj.__class__.__name__
 #        m=getattr(self, m, None)
