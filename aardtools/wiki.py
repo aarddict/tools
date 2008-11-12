@@ -40,6 +40,10 @@ class WikiParser():
                 
                 for child in element.iter(NS+'text'):
                     text = child.text
+                
+                if not text:
+                    continue
+                
                 for child in element.iter(NS+'title'):
                     title = child.text
 
