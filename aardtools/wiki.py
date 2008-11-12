@@ -47,7 +47,7 @@ class WikiParser():
                 for child in element.iter(NS+'title'):
                     title = child.text
 
-                if text.startswith("#REDIRECT"): 
+                if text.lstrip().lower().startswith("#redirect"): 
                     m = self.redirect_re.search(text)
                     if m:
                         redirect = m.group(1)
