@@ -7,6 +7,9 @@ from lxml import etree
 import simplejson
 
 from mwlib import cdbwiki, uparser, xhtmlwriter
+from mwlib.log import Log
+Log.logfile = None
+
 import mwaardwriter
 
 tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
@@ -16,7 +19,6 @@ NS = '{http://www.mediawiki.org/xml/export-0.3/}'
 class WikiParser():
     
     def __init__(self, templatedb, consumer):
-        print 'AAAAAAAAAAAAAAAAAAAAA'
         self.templatedb = templatedb
         self.consumer = consumer
         self.redirect_re = re.compile(r"\[\[(.*?)\]\]")
@@ -24,7 +26,6 @@ class WikiParser():
     def parse(self, f):
         self.consumer.add_metadata('article_format', 'json')
         for event, element in etree.iterparse(f):
-            print element.tag
             if element.tag == NS+'sitename':                
                 self.consumer.add_metadata('title', element.text)
                 element.clear()
