@@ -50,7 +50,7 @@ class XDXFParser():
                 txt = self._text(element, tags)
                 try:
                     title = element.find('k').text
-                    self.consumer.add_article(title, tojson([txt, tags]))
+                    self.consumer.add_article(title, tojson((txt, tags, {})))
                 except:
                     logging.exception('Skipping bad article')
                 finally:

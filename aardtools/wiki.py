@@ -52,7 +52,8 @@ class WikiParser():
                     if m:
                         redirect = m.group(1)
                         redirect = redirect.replace("_", " ")
-                        self.consumer.add_redirect(title, redirect)
+                        meta = {u'redirect': redirect}
+                        self.consumer.add_article(title, tojson(('', [], meta)))
                     continue
     
                 mwobject = uparser.parseString(title=title, 
@@ -60,6 +61,6 @@ class WikiParser():
                                                wikidb=self.templatedb)
                 xhtmlwriter.preprocess(mwobject)
                 text, tags = mwaardwriter.convert(mwobject)
-                self.consumer.add_article(title, tojson([text.rstrip(), 
-                                                              tags]))
+                self.consumer.add_article(title, tojson((text.rstrip(), 
+                                                         tags, {})))
                 element.clear()

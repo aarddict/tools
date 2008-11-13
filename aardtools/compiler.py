@@ -144,26 +144,20 @@ class Compiler(object):
     def __init__(self, output_file_name, max_file_size):
         self.uuid = uuid.uuid4()
         self.output_file_name = output_file_name
-        self.max_file_size = max_file_size
-        log.info('Compiling %s', output_file_name)
-        self.article_count = 0
+        self.max_file_size = max_file_size        
+        self.running_count = 0
         self.index_count = 0
         self.sortex = SortExternal()
         self.tempDir = tempfile.mkdtemp()
         self.indexDbFullname = os.path.join(self.tempDir, "index.db")
         self.indexDb = shelve.open(self.indexDbFullname, 'n')
         self.metadata = {}
-        self.file_names = []
+        self.file_names = []        
+        log.info('Collecting articles')
     
     @utf8
     def add_metadata(self, key, value):
         self.metadata[key] = value
-
-    @utf8
-    def add_redirect(self, title, redirect_title):
-        collationKeyString4 = collator4.getCollationKey(title).getByteArray()
-        self.sortex.put(collationKeyString4 + "___" + title + "___" + redirect_title)
-        log.debug("Redirect: %s ==> %s", title, redirect_title)
 
     @utf8
     def add_article(self, title, serialized_article):
@@ -174,19 +168,20 @@ class Compiler(object):
             return
         
         collationKeyString4 = collator4.getCollationKey(title).getByteArray()
-        self.sortex.put(collationKeyString4 + "___" + title + "___")
+        self.sortex.put(collationKeyString4 + "___" + title)
         if self.indexDb.has_key(title):
             log.debug("Duplicate key: %s" , title)
         else:
             log.debug("New article: %s", title)
             self.indexDb[title] = compress(serialized_article)
-        print_progress(self.article_count)
-        self.article_count += 1                
+        print_progress(self.running_count)
+        self.running_count += 1                
                     
     def compile(self):
-        erase_progress(self.article_count)
+        erase_progress(self.running_count)
+        log.info('Sorting')
         self.sortex.sort()
-           
+        log.info('Compiling %s', self.output_file_name)   
         metadata = compress(tojson(self.metadata))
         header_meta_len = spec_len(HEADER_SPEC) + len(metadata)
         create_volume_func = functools.partial(self.create_volume, header_meta_len)     
@@ -211,39 +206,26 @@ class Compiler(object):
         
         for count, item in enumerate(self.sortex):
             print_progress(count)
-            sortkey, title, redirectTitle = item.split("___", 2)
-            
-            if redirectTitle:
-                log.debug("Redirect: %s %s", repr(title), repr(redirectTitle))
-                target = redirectTitle
-            else:
-                target = title
-                volume.article_count += 1
-                
+            sortkey, title = item.split("___", 1)
+            volume.article_count += 1
+            serialized_article = self.indexDb[title]
+            index1Unit = struct.pack(INDEX1_ITEM_FORMAT, 
+                                     volume.index2Length, 
+                                     volume.articles_len)                
+            index2Unit = struct.pack(KEY_LENGTH_FORMAT, len(title)) + title
+            article_unit = struct.pack(ARTICLE_LENGTH_FORMAT, 
+                                       len(serialized_article)) + serialized_article
             try:
-                #FIXME:
-                #Article content for redirects is copied
-                #Need to replace this with a lookup done by client
-                jsonstring = self.indexDb[target]
-            except KeyError:
-                log.warn("Redirect not found: %s %s" ,repr(title), repr(redirectTitle))
-            else:
+                volume.add(index1Unit, index2Unit, article_unit)
+            except Volume.ExceedsMaxSize:
+                erase_progress(count)
+                volume.flush()
+                yield volume
+                volume = create_volume_func()
                 index1Unit = struct.pack(INDEX1_ITEM_FORMAT, 
                                          volume.index2Length, 
-                                         volume.articles_len)                
-                index2Unit = struct.pack(KEY_LENGTH_FORMAT, len(title)) + title
-                article_unit = struct.pack(ARTICLE_LENGTH_FORMAT, len(jsonstring)) + jsonstring
-                try:
-                    volume.add(index1Unit, index2Unit, article_unit)
-                except Volume.ExceedsMaxSize:
-                    erase_progress(count)
-                    volume.flush()
-                    yield volume
-                    volume = create_volume_func()
-                    index1Unit = struct.pack(INDEX1_ITEM_FORMAT, 
-                                             volume.index2Length, 
-                                             volume.articles_len)
-                    volume.add(index1Unit, index2Unit, article_unit)                
+                                         volume.articles_len)
+                volume.add(index1Unit, index2Unit, article_unit)                
                 
         erase_progress(count)
         volume.flush()
