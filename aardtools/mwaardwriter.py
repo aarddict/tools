@@ -1,4 +1,5 @@
 import logging
+from collections import defaultdict
 
 def convert(obj):
     w = MWAardWriter()
@@ -18,12 +19,12 @@ def newline(func):
 class MWAardWriter(object):
 
     def __init__(self):
-        self.references = []        
+        self.refgroups = defaultdict(list)        
         self.errors = []
         self.languagelinks = []
         self.categorylinks = []        
-        self.current_list_number = 0 
-
+        self.current_list_number = 0
+        
     def _Text(self, obj):
         return obj.caption, []
 
@@ -120,8 +121,47 @@ class MWAardWriter(object):
     
     _Emphasized = _Strong = _Small = _Big = _Cite = _Sub = _Sup = _Generic
     
-#    def _Reference(self, obj):
-#        pass
+    def add_ref(self, obj):
+        name = obj.attributes.get(u'name', '')        
+        group = obj.attributes.get(u'group', '')
+        
+        references = self.refgroups[group]
+        
+        refid = None
+        
+        if name:        
+            existing = [r for r in references 
+                        if name == r.attributes.get(u'name', '')]
+            if existing:
+                refid = references.index(existing[0])
+                
+        if refid is None:        
+            references.append(obj)
+            refid = len(references)
+        return refid, name, group
+            
+    def _Reference(self, obj):        
+        refid, name, group = self.add_ref(obj)
+        refidstr = unicode(refid)
+        txt = u'%s %s' % (group, refidstr)
+        txt = u'[%s]' % txt.strip()
+        return txt, [(u'ref', 0, len(txt), {u'id': refidstr, u'group': group})]
+    
+    @newline
+    def _ReferenceList(self, obj):
+        group = obj.attributes.get(u'group', '')
+        tags = []
+        txt = u''
+        for i, refobj in enumerate(self.refgroups[group]):            
+            start = len(txt)
+            txt += u'%s. ' % unicode(i+1)
+            txt, tags = self.process_children(refobj, txt, tags)
+            end = len(txt)
+            txt += u'\n'
+            tags.append((u'note', start, end, 
+                         {u'id': unicode(i+1), u'group': group}))
+        del self.refgroups[group]
+        return txt, tags            
     
     def _Article(self, a):
         # add article name as first section heading
