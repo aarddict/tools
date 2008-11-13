@@ -111,6 +111,18 @@ class MWAardWriter(object):
         tags.append((tagname, 0, len(txt), {}))
         return txt, tags    
     
+    
+    def _Generic(self, obj):
+        txt, tags = self.process_children(obj)
+        tagname = obj._tag
+        tags.append((tagname, 0, len(txt), {}))
+        return txt, tags    
+    
+    _Emphasized = _Strong = _Small = _Big = _Cite = _Sub = _Sup = _Generic
+    
+#    def _Reference(self, obj):
+#        pass
+    
     def _Article(self, a):
         # add article name as first section heading
         txt = a.caption

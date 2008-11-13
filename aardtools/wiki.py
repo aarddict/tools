@@ -6,7 +6,7 @@ import re
 from lxml import etree
 import simplejson
 
-from mwlib import cdbwiki, uparser, xhtmlwriter
+from mwlib import uparser, xhtmlwriter
 from mwlib.log import Log
 Log.logfile = None
 
