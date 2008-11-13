@@ -106,7 +106,6 @@ class Volume(object):
         self.index2Length = 0   
         self.articles_len = 0 
         self.index_count = 0
-        self.article_count = 0            
         Volume.number += 1
         
     def add(self, index1_unit, index2_unit, article_unit):
@@ -136,7 +135,7 @@ class Volume(object):
     def totuple(self):
         return (self.index1, self.index1Length, self.index2, 
                 self.index2Length, self.articles, self.articles_len, 
-                self.index_count, self.article_count)                             
+                self.index_count)                             
 
 
 class Compiler(object):
@@ -207,7 +206,6 @@ class Compiler(object):
         for count, item in enumerate(self.sortex):
             print_progress(count)
             sortkey, title = item.split("___", 1)
-            volume.article_count += 1
             serialized_article = self.indexDb[title]
             index1Unit = struct.pack(INDEX1_ITEM_FORMAT, 
                                      volume.index2Length, 
@@ -232,8 +230,10 @@ class Compiler(object):
         yield volume                 
 
     
-    def write_header(self, output_file, meta_length, index1Length, index2Length, index_count, article_count, volume):
-        article_offset = spec_len(HEADER_SPEC)+meta_length+index1Length+index2Length
+    def write_header(self, output_file, meta_length, index1Length, 
+                     index2Length, index_count, volume):
+        article_offset = (spec_len(HEADER_SPEC) + meta_length + 
+                          index1Length + index2Length)
         values = dict(signature='aard',
                       sha1sum='0'*40,
                       version=1,
@@ -242,7 +242,6 @@ class Compiler(object):
                       of=0,
                       meta_length=meta_length,
                       index_count=index_count,
-                      article_count=article_count,
                       article_offset=article_offset,
                       index1_item_format=INDEX1_ITEM_FORMAT,
                       key_length_format=KEY_LENGTH_FORMAT,
@@ -316,13 +315,12 @@ class Compiler(object):
                 
     def make_aar(self, volume):
         (index1, index1Length, index2, index2Length, articles, 
-         articles_len, index_count, article_count) = volume.totuple()
+         articles_len, index_count) = volume.totuple()
         file_name = '%s.%d' % (self.output_file_name, Volume.number)         
         output_file = open(file_name, "wb", 8192)
         metadata = compress(tojson(self.metadata))
         self.write_header(output_file, len(metadata), index1Length, 
-                          index2Length, index_count, article_count, 
-                          Volume.number)
+                          index2Length, index_count, Volume.number)
         self.write_meta(output_file, metadata)
         self.write_index1(output_file, index1)
         self.write_index2(output_file, index2)

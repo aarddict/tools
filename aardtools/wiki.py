@@ -22,6 +22,7 @@ class WikiParser():
         self.templatedb = templatedb
         self.consumer = consumer
         self.redirect_re = re.compile(r"\[\[(.*?)\]\]")
+        self.article_count = 0
         
     def parse(self, f):
         self.consumer.add_metadata('article_format', 'json')
@@ -63,4 +64,6 @@ class WikiParser():
                 text, tags = mwaardwriter.convert(mwobject)
                 self.consumer.add_article(title, tojson((text.rstrip(), 
                                                          tags, {})))
+                self.article_count += 1
                 element.clear()
+        self.consumer.add_metadata("self.article_count", self.article_count)        
