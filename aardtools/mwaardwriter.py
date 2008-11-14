@@ -24,6 +24,8 @@ class MWAardWriter(object):
         self.languagelinks = []
         self.categorylinks = []        
         self.current_list_number = 0
+        self.current_table = None
+        self.current_row = None
         
     def _Text(self, obj):
         return obj.caption, []
@@ -116,10 +118,12 @@ class MWAardWriter(object):
     def _Generic(self, obj):
         txt, tags = self.process_children(obj)
         tagname = obj._tag
-        tags.append((tagname, 0, len(txt), {}))
+        tags.append((tagname, 0, len(txt), obj.attributes))
         return txt, tags    
     
     _Emphasized = _Strong = _Small = _Big = _Cite = _Sub = _Sup = _Generic
+    
+    _Div = newline(_Generic)
     
     def add_ref(self, obj):
         name = obj.attributes.get(u'name', '')        
@@ -172,28 +176,31 @@ class MWAardWriter(object):
     
     def _Cell(self, obj):
         txt, tags = self.process_children(obj)
-        return txt, tags
+        tags.append((u'cell', 0, len(txt), obj.attributes))
+        if self.current_row is None:
+            logging.warn("Can't add cell outside of row")
+        else:                        
+            self.current_row.append((txt, tags))
+        return '', []
 
     def _Row(self, obj):
-        txt, tags = self.process_children(obj)
-        return txt, tags
+        self.current_row = []
+        self.process_children(obj)
+        if self.current_table is None:
+            logging.warn("Can't add row outside of table")
+        else:                
+            self.current_table.append((self.current_row, obj.attributes))
+            self.current_row = None
+        return '', []
     
-#    def xwriteCell(self, cell):
-#        td = ET.Element("td")
-#        setVList(td, cell)           
-#        return td
-#            
-#    def xwriteRow(self, row):
-#        return ET.Element("tr")
-#
-#    def xwriteTable(self, t):           
-#        table = ET.Element("table")
-#        setVList(table, t)           
-#        if t.caption:
-#            c = ET.SubElement(table, "caption")
-#            self.writeText(t.caption, c)
-#        return table    
-    
+    def _Table(self, obj):
+        self.current_table = []
+        self.process_children(obj)
+        tags = [('table', 0, 1, {'rows': self.current_table, 
+                                 'attrs': obj.attributes})]        
+        self.current_table = None
+        return ' ', tags
+        
     def apply_offset(self, tags, offset):
         return [(name, start+offset, end+offset, attrs) 
                 for name, start, end, attrs in tags]        
