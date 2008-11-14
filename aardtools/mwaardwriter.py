@@ -112,8 +112,21 @@ class MWAardWriter(object):
         txt, tags = self.process_children(obj)
         tagname = obj.caption
         tags.append((tagname, 0, len(txt), {}))
-        return txt, tags    
+        return txt, tags        
+
+    def _Node(self, obj):
+        txt, tags = self.process_children(obj)
+        tagname = obj._tag if hasattr(obj, '_tag') else obj.caption
+        if tagname:
+            tags.append((tagname, 0, len(txt), obj.attributes))
+        return txt, tags        
     
+    def _ImageLink(self, obj):
+        return '', []
+    
+    @newline
+    def _BreakingReturn(self, obj):
+        return '', []
     
     def _Generic(self, obj):
         txt, tags = self.process_children(obj)
