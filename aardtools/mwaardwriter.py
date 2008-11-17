@@ -24,8 +24,7 @@ class MWAardWriter(object):
         self.languagelinks = []
         self.categorylinks = []        
         self.current_list_number = 0
-        self.current_table = None
-        self.current_row = None
+        self.current_tables = []
         
     def _Text(self, obj):
         return obj.caption, []
@@ -188,30 +187,38 @@ class MWAardWriter(object):
         return self.process_children(a, txt, tags)        
     
     def _Cell(self, obj):
-        txt, tags = self.process_children(obj)
-        tags.append((u'cell', 0, len(txt), obj.attributes))
-        if self.current_row is None:
+        current_table, current_row = self.current_tables[-1]
+        if current_row is None:            
             logging.warn("Can't add cell outside of row")
-        else:                        
-            self.current_row.append((txt, tags))
+        else:                       
+            txt, tags = self.process_children(obj)
+            tags.append((u'cell', 0, len(txt), obj.attributes))
+            current_row.append((txt, tags))
         return '', []
 
-    def _Row(self, obj):
-        self.current_row = []
+    def _Row(self, obj):            
+        current_table, current_row = self.current_tables[-1]
+        if len(self.current_tables) > 1:
+            logging.warn('Nested tables')
+        if current_row is not None:
+            #logging.error('Processing row is already in progress')
+            raise Exception('Processing row is already in progress')            
+        self.current_tables[-1] = (current_table, [])              
         self.process_children(obj)
-        if self.current_table is None:
-            logging.warn("Can't add row outside of table")
-        else:                
-            self.current_table.append((self.current_row, obj.attributes))
-            self.current_row = None
+        current_table, current_row = self.current_tables[-1]
+        current_table.append((current_row, obj.attributes))
+        self.current_tables[-1] = (current_table, None)                
         return '', []
     
+    @newline
     def _Table(self, obj):
-        self.current_table = []
+        self.current_tables.append(([], None))
+        
         self.process_children(obj)
-        tags = [('table', 0, 1, {'rows': self.current_table, 
+        current_table, current_row = self.current_tables[-1]
+        tags = [('table', 0, 1, {'rows': current_table, 
                                  'attrs': obj.attributes})]        
-        self.current_table = None
+        self.current_tables.pop()
         return ' ', tags
         
     def apply_offset(self, tags, offset):
