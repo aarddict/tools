@@ -200,16 +200,14 @@ class MWAardWriter(object):
 
     def _Row(self, obj):            
         current_table, current_row = self.current_tables[-1]
-        if len(self.current_tables) > 1:
-            logging.warn('Nested tables')
         if current_row is not None:
-            #logging.error('Processing row is already in progress')
-            raise Exception('Processing row is already in progress')            
-        self.current_tables[-1] = (current_table, [])              
-        self.process_children(obj)
-        current_table, current_row = self.current_tables[-1]
-        current_table.append((current_row, obj.attributes))
-        self.current_tables[-1] = (current_table, None)                
+            logging.error('Processing row is already in progress')
+        else:            
+            self.current_tables[-1] = (current_table, [])              
+            self.process_children(obj)
+            current_table, current_row = self.current_tables[-1]
+            current_table.append((current_row, obj.attributes))
+            self.current_tables[-1] = (current_table, None)                
         return '', []
     
     @newline

@@ -13,7 +13,8 @@ setup(
                          'PyICU >= 0.8.1', 
                          'mwlib == 0.8.5', 
                          'lxml >= 2.0', 
-                         'simplejson'],
+                         'simplejson',
+                         'multiprocessing'],
 
     author = "Igor Tkach",
     author_email = "itkach@gmail.com",

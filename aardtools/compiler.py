@@ -368,10 +368,8 @@ collator4 =  Collator.createInstance(root_locale)
 collator4.setStrength(Collator.QUATERNARY)
 
 def compile_wiki(input_file, options, compiler):    
-    from mwlib.cdbwiki import WikiDB
-    templatedb = WikiDB(options.templates) if options.templates else None
     import wiki
-    p = wiki.WikiParser(templatedb, compiler)
+    p = wiki.WikiParser(options, compiler)
     p.parse(input_file)    
 
 def compile_xdxf(input_file, options, compiler):
@@ -479,8 +477,11 @@ def main():
     log.info('Maximum file size is %d bytes', max_volume_size)    
     compiler = Compiler(output_file_name, max_volume_size)
     make_input, collect_articles = known_types[input_type]
+    import time    
+    t0 = time.time()
     collect_articles(make_input(input_file), options, compiler)
-    compiler.compile()    
+    compiler.compile()
+    logging.info('Compilation took %.1f s', (time.time() - t0))    
     
 
 if __name__ == '__main__':
