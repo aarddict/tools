@@ -1,6 +1,8 @@
 import logging
 from collections import defaultdict
 
+EXCLUDE_TABLE_CLASSES = set(('navbox', 'collapsible', 'autocollapse'))
+
 def convert(obj):
     w = MWAardWriter()
     text, tags = w.txt(obj)
@@ -212,6 +214,11 @@ class MWAardWriter(object):
     
     @newline
     def _Table(self, obj):
+        tableclasses = obj.attributes.get('class', '').split()
+        if any((tableclass in EXCLUDE_TABLE_CLASSES 
+                for tableclass in tableclasses)):
+            return '', []
+        
         self.current_tables.append(([], None))
         
         self.process_children(obj)
