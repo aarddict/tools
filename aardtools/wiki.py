@@ -36,7 +36,8 @@ class WikiParser():
         self.consumer = consumer
         self.redirect_re = re.compile(r"\[\[(.*?)\]\]")
         self.article_count = 0
-        self.pool = Pool()
+        self.pool = Pool(processes=options.processes)
+        self.timeout = options.timeout         
         self.timedout_count = 0
         
     def articles(self, f):
@@ -81,13 +82,13 @@ class WikiParser():
             self.consumer.add_metadata('article_format', 'json')
             articles = self.articles(f)
             resulti = self.pool.imap_unordered(convert, articles)
-            while True:                                                                                              
-                try:                                                                                                 
-                    result = resulti.next(60.0)                                                                      
-                    title, serialized = result                                                                       
-                    self.consumer.add_article(title, serialized)                                                     
-                    self.article_count += 1                                                                          
-                except StopIteration:                                                                                
+            while True:                                                                                         
+                try:                                                                                            
+                    result = resulti.next(self.timeout)                                                                 
+                    title, serialized = result                                                                   
+                    self.consumer.add_article(title, serialized)                                                
+                    self.article_count += 1                                                                     
+                except StopIteration:                                                                           
                     break            
                 except TimeoutError:
                     self.timedout_count += 1

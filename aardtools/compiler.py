@@ -75,6 +75,19 @@ def make_opt_parser():
         default=False,
         help='Print minimal information about compilation progress'
         )
+    parser.add_option(
+        '--timeout',
+        type='float',
+        default=2.0,
+        help='Skip article if it was not process in the amount of time specified.'
+        )
+    parser.add_option(
+        '--processes',
+        type='int',
+        default=None,
+        help='Size of the worker pool (by default equals to the number of detected CPUs). '
+        )    
+        
     return parser
 
 def utf8(func):
