@@ -1,5 +1,6 @@
 import functools 
 import re
+import logging
 
 from lxml import etree
 import simplejson
@@ -14,7 +15,7 @@ tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
 
 NS = '{http://www.mediawiki.org/xml/export-0.3/}'
 
-from multiprocessing import Pool
+from multiprocessing import Pool, TimeoutError
 from mwlib.cdbwiki import WikiDB
 
 def convert(data):
@@ -31,13 +32,12 @@ def convert(data):
 class WikiParser():
     
     def __init__(self, options, consumer):
-        #templatedb = WikiDB(options.templates) if options.templates else None
-        #self.templatedb = templatedb
         self.templatedir = options.templates
         self.consumer = consumer
         self.redirect_re = re.compile(r"\[\[(.*?)\]\]")
         self.article_count = 0
         self.pool = Pool()
+        self.timedout_count = 0
         
     def articles(self, f):
         for event, element in etree.iterparse(f):
@@ -72,22 +72,28 @@ class WikiParser():
                         meta = {u'redirect': redirect}
                         self.consumer.add_article(title, tojson(('', [], meta)))
                     continue
-                
+                                
                 yield title, text, self.templatedir
-#                title, serialized = self.convert(title, text, self.templatedir)
-#                self.consumer.add_article(title, serialized)
-#                self.article_count += 1
                         
         
     def parse(self, f):
         try:
             self.consumer.add_metadata('article_format', 'json')
             articles = self.articles(f)
-            resulti = self.pool.imap_unordered(convert, articles, 4)
-            for result in resulti:
-                title, serialized = result
-                self.consumer.add_article(title, serialized)
-                self.article_count += 1
+            resulti = self.pool.imap_unordered(convert, articles)
+            while True:                                                                                              
+                try:                                                                                                 
+                    result = resulti.next(60.0)                                                                      
+                    title, serialized = result                                                                       
+                    self.consumer.add_article(title, serialized)                                                     
+                    self.article_count += 1                                                                          
+                except StopIteration:                                                                                
+                    break            
+                except TimeoutError:
+                    self.timedout_count += 1
+                    logging.error('Article timed out (%d so far)', 
+                                  self.timedout_count)
+                    continue
             self.consumer.add_metadata("self.article_count", self.article_count)
         finally:
             self.pool.close()
