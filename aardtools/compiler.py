@@ -18,6 +18,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright (C) 2008  Jeremy Mortis and Igor Tkach
 """
+from __future__ import with_statement
 import uuid
 import logging
 import sys 
@@ -137,6 +138,8 @@ class Volume(object):
                 self.index2Length, self.articles, self.articles_len, 
                 self.index_count)                             
 
+import threading
+article_add_lock = threading.RLock()
 
 class Compiler(object):
     
@@ -160,21 +163,21 @@ class Compiler(object):
 
     @utf8
     def add_article(self, title, serialized_article):
-             
-        if (not title) or (not serialized_article):
-            log.debug('Skipped blank article: "%s" -> "%s"', 
-                      title, serialized_article)
-            return
-        
-        collationKeyString4 = collator4.getCollationKey(title).getByteArray()
-        self.sortex.put(collationKeyString4 + "___" + title)
-        if self.indexDb.has_key(title):
-            log.debug("Duplicate key: %s" , title)
-        else:
-            log.debug("New article: %s", title)
-            self.indexDb[title] = compress(serialized_article)
-        print_progress(self.running_count)
-        self.running_count += 1                
+        with article_add_lock:
+            if (not title) or (not serialized_article):
+                log.debug('Skipped blank article: "%s" -> "%s"', 
+                          title, serialized_article)
+                return
+            
+            collationKeyString4 = collator4.getCollationKey(title).getByteArray()        
+            self.sortex.put(collationKeyString4 + "___" + title)
+            if self.indexDb.has_key(title):
+                log.debug("Duplicate key: %s" , title)
+            else:
+                log.debug("New article: %s", title)
+                self.indexDb[title] = compress(serialized_article)
+            print_progress(self.running_count)
+            self.running_count += 1                
                     
     def compile(self):
         erase_progress(self.running_count)
