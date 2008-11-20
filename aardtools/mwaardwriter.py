@@ -209,8 +209,7 @@ class MWAardWriter(object):
             current_table.append((current_row, obj.attributes))
             self.current_tables[-1] = (current_table, None)                
         return '', []
-    
-    @newline
+        
     def _Table(self, obj):
         tableclasses = obj.attributes.get('class', '').split()
         if any((tableclass in EXCLUDE_TABLE_CLASSES 
@@ -224,7 +223,7 @@ class MWAardWriter(object):
         tags = [('table', 0, 1, {'rows': current_table, 
                                  'attrs': obj.attributes})]        
         self.current_tables.pop()
-        return ' ', tags
+        return ' \n', tags
         
     def apply_offset(self, tags, offset):
         return [(name, start+offset, end+offset, attrs) 
