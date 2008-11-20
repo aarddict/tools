@@ -6,7 +6,8 @@ setup(
     version = '0.7.0',
     packages = find_packages(),
     entry_points = {
-        'console_scripts': ['aardcompile = aardtools.compiler:main']
+        'console_scripts': ['aardcompile = aardtools.compiler:main',
+                            'aardc = aardtools.compiler:main']
     },
 
     install_requires = [ 'aarddict >= 0.7.0',
