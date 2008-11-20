@@ -36,7 +36,8 @@ class WikiParser():
         self.consumer = consumer
         self.redirect_re = re.compile(r"\[\[(.*?)\]\]")
         self.article_count = 0
-        self.pool = Pool(processes=options.processes)
+        self.processes = options.processes if options.processes else None 
+        self.pool = Pool(processes=self.processes)
         self.timeout = options.timeout         
         self.timedout_count = 0
         
@@ -73,7 +74,7 @@ class WikiParser():
                         meta = {u'redirect': redirect}
                         self.consumer.add_article(title, tojson(('', [], meta)))
                     continue
-                                
+                logging.info('Yielding "%s" for processing', title.encode('utf8'))                
                 yield title, text, self.templatedir
                         
         
@@ -94,6 +95,11 @@ class WikiParser():
                     self.timedout_count += 1
                     logging.error('Article timed out (%d so far)', 
                                   self.timedout_count)
+                    logging.error('Terminating current worker pool')                                        
+                    self.pool.terminate()
+                    logging.error('Creating new worker pool')
+                    self.pool = Pool(processes=self.processes)
+                    resulti = self.pool.imap_unordered(convert, articles)
                     continue
             self.consumer.add_metadata("self.article_count", self.article_count)
         finally:
