@@ -180,15 +180,19 @@ class Compiler(object):
             if (not title) or (not serialized_article):
                 log.debug('Skipped blank article: "%s" -> "%s"', 
                           title, serialized_article)
-                return
+                return            
             
-            collationKeyString4 = collator4.getCollationKey(title).getByteArray()        
-            self.sortex.put(collationKeyString4 + "___" + title)
             if self.indexDb.has_key(title):
-                log.debug("Duplicate key: %s" , title)
+                articles = self.indexDb[title]
+                log.debug('Adding article for "%s" (already have %d)', 
+                          title, len(articles))
             else:
-                log.debug("New article: %s", title)
-                self.indexDb[title] = compress(serialized_article)
+                log.debug('Article for "%s"', title)
+                collationKeyString4 = collator4.getCollationKey(title).getByteArray()        
+                self.sortex.put(collationKeyString4 + "___" + title)
+                articles = []
+            articles.append(compress(serialized_article))
+            self.indexDb[title] = articles                                                
             print_progress(self.running_count)
             self.running_count += 1                
                     
@@ -222,24 +226,25 @@ class Compiler(object):
         for count, item in enumerate(self.sortex):
             print_progress(count)
             sortkey, title = item.split("___", 1)
-            serialized_article = self.indexDb[title]
-            index1Unit = struct.pack(INDEX1_ITEM_FORMAT, 
-                                     volume.index2Length, 
-                                     volume.articles_len)                
-            index2Unit = struct.pack(KEY_LENGTH_FORMAT, len(title)) + title
-            article_unit = struct.pack(ARTICLE_LENGTH_FORMAT, 
-                                       len(serialized_article)) + serialized_article
-            try:
-                volume.add(index1Unit, index2Unit, article_unit)
-            except Volume.ExceedsMaxSize:
-                erase_progress(count)
-                volume.flush()
-                yield volume
-                volume = create_volume_func()
+            serialized_articles = self.indexDb[title]
+            for serialized_article in serialized_articles:
                 index1Unit = struct.pack(INDEX1_ITEM_FORMAT, 
                                          volume.index2Length, 
-                                         volume.articles_len)
-                volume.add(index1Unit, index2Unit, article_unit)                
+                                         volume.articles_len)                
+                index2Unit = struct.pack(KEY_LENGTH_FORMAT, len(title)) + title
+                article_unit = struct.pack(ARTICLE_LENGTH_FORMAT, 
+                                           len(serialized_article)) + serialized_article
+                try:
+                    volume.add(index1Unit, index2Unit, article_unit)
+                except Volume.ExceedsMaxSize:
+                    erase_progress(count)
+                    volume.flush()
+                    yield volume
+                    volume = create_volume_func()
+                    index1Unit = struct.pack(INDEX1_ITEM_FORMAT, 
+                                             volume.index2Length, 
+                                             volume.articles_len)
+                    volume.add(index1Unit, index2Unit, article_unit)                
                 
         erase_progress(count)
         volume.flush()
