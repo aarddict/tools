@@ -26,7 +26,7 @@ def convert(data):
                                    wikidb=templatedb)
     xhtmlwriter.preprocess(mwobject)
     text, tags = mwaardwriter.convert(mwobject)
-    return title, tojson((text.rstrip(), tags, {}))
+    return title, tojson((text.rstrip(), tags))
 
 
 class WikiParser():
@@ -74,7 +74,7 @@ class WikiParser():
                         meta = {u'redirect': redirect}
                         self.consumer.add_article(title, tojson(('', [], meta)))
                     continue
-                logging.info('Yielding "%s" for processing', title.encode('utf8'))                
+                logging.debug('Yielding "%s" for processing', title.encode('utf8'))                
                 yield title, text, self.templatedir
                         
         
