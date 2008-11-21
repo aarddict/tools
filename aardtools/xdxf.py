@@ -1,5 +1,4 @@
 import logging
-logging.basicConfig()
 import functools 
 
 from lxml import etree
@@ -48,10 +47,20 @@ class XDXFParser():
             if element.tag == 'ar':
                 tags = []
                 txt = self._text(element, tags)
-                try:
-                    title = element.find('k').text
-                    self.consumer.add_article(title, tojson((txt, tags, {})))
-                except:
-                    logging.exception('Skipping bad article')
-                finally:
-                    element.clear()                        
+                for i, title_elements in enumerate(element.findall('k')):
+                    first_title = None
+                    try:
+                        title = title_elements.text
+                        if i == 0:
+                            first_title = title
+                            serialized = tojson((txt, tags, {}))
+                        else:
+                            logging.debug('Redirect %s ==> %s', 
+                                          title.encode('utf8'), 
+                                          first_title.encode('utf8'))
+                            meta = {u'redirect': first_title}
+                            serialized = tojson(('', [], meta))
+                        self.consumer.add_article(title, serialized)
+                    except:
+                        logging.exception('Skipping bad article')
+                element.clear()                        
