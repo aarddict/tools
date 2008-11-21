@@ -11,7 +11,8 @@ def convert(obj):
 def newline(func):
     def f(*args, **kwargs):
         txt, tags = func(*args, **kwargs)
-        txt = txt.rstrip() + u'\n'
+        if not txt.endswith(u'\n'):
+            txt += u'\n'        
         return txt, tags
     f.__name__ = func.__name__
     f.__doc__ = func.__doc__
