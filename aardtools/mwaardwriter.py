@@ -18,6 +18,18 @@ def newline(func):
     f.__doc__ = func.__doc__
     return f
 
+class Cell(object):
+    
+    def __init__(self, text, tags=None, colspan=1, rowspan=1):
+        self.text = text
+        self.colspan = colspan
+        self.rowspan = rowspan
+        self.tags = [] if tags is None else tags
+
+class Row(list):
+    def __init__(self, attributes=None):
+        self.attributes = attributes
+
 class MWAardWriter(object):
 
     def __init__(self):
@@ -195,8 +207,12 @@ class MWAardWriter(object):
             logging.warn("Can't add cell outside of row")
         else:                       
             txt, tags = self.process_children(obj)
-            tags.append(maketag(u'td', obj.attributes))
-            current_row.append((txt, tags))
+            txt = txt.replace('\n', '')
+            txt = txt.replace('\t', '')
+            colspan = obj.colspan
+            rowspan = obj.rowspan
+            #tags.append(maketag(u'td', obj.attributes))
+            current_row.append(Cell(txt, tags, colspan, rowspan))
         return '', []
 
     def _Row(self, obj):            
@@ -204,10 +220,11 @@ class MWAardWriter(object):
         if current_row is not None:
             logging.error('Processing row is already in progress')
         else:            
-            self.current_tables[-1] = (current_table, [])              
+            self.current_tables[-1] = (current_table, Row())              
             self.process_children(obj)
             current_table, current_row = self.current_tables[-1]
-            current_table.append((current_row, obj.attributes))
+            current_row.attributes = obj.attributes
+            current_table.append(current_row)
             self.current_tables[-1] = (current_table, None)                
         return '', []
         
@@ -220,12 +237,84 @@ class MWAardWriter(object):
         self.current_tables.append(([], None))
         
         self.process_children(obj)
-        current_table, current_row = self.current_tables[-1]
+        current_table, current_row = self.current_tables.pop()
         txt = u' '
-        tags = [maketag('tbl', txt, {u'rows': current_table, 
-                                     u'attrs': obj.attributes})]        
-        self.current_tables.pop()
+        tabletext, tags, tabs = self.maketable(current_table)
+        tags = [maketag('tbl', txt, {u'text': tabletext, 
+                                     u'tags': tags,
+                                     u'tabs': tabs,
+                                     })]
         return txt+u'\n', tags
+    
+    def maketable(self, data):
+#        data = [(Cell('a'),  Cell('red'),  Cell('ff', 1, 2), Cell('123')),
+#                (Cell('b'),  Cell('green'), Cell('123456')),
+#                (Cell('c'),  Cell('blue'),  Cell('cccccccccccccc'), Cell('123456789')),
+#                (Cell('qweqweqweqwe', 3, 2),  Cell('sdfsd fsd fsd', 1)),
+#                (Cell('zxczzxczxczxc', 1),  ),
+#                ]
+
+        newdata = []
+        rowspanmap = defaultdict(int)
+        for i, row in enumerate(data):
+            newrow = []
+            j = 0
+            for cell in row:
+                while rowspanmap[j] > 0:
+                    rowspanmap[j] = rowspanmap[j] - 1
+                    j += 1
+                    newrow.append(Cell(''))
+                rowspan = cell.rowspan
+                for k in range(j, j+cell.colspan):
+                    rowspanmap[k] = rowspan - 1
+                cell.rowspan = 1                    
+                newrow.append(cell)
+                j += cell.colspan
+            newdata.append(newrow)
+
+        data = newdata
+
+        text = u''
+        tags = []
+        rowspanmap = defaultdict(int)
+        for i, row in enumerate(data):
+            start = len(text)
+            j = 0
+            text += u'\t'.join([cell.text for cell in row])
+            text += u'\t\n'
+            end = len(text)
+            tags.append((u'row', start, end))
+        
+        tabcount = max([len(row) for row in data]) 
+        globaltabs = [0 for i in range(tabcount)]
+
+        for i, row in enumerate(data):
+            current_pos = 0
+            j=0
+            for cell in row:                
+                pos = globaltabs[j+cell.colspan - 1]
+                newpos = current_pos + (len(cell.text)+1) #add one to cell text length to account for tab char itself
+                if newpos > pos:
+                    globaltabs[j+cell.colspan - 1] = newpos
+                    current_pos = newpos
+                else:
+                    current_pos = pos
+                j += cell.colspan     
+        tabs = {'': globaltabs}
+        
+        for i, row in enumerate(data):
+            print 'row ', i, 'of length', len(row)
+            if any([cell.colspan > 1 for cell in row]):                
+                rowtabs = []
+                tabs[i] = rowtabs
+                j=0                 
+                for cell in row:
+                    print '\t colspan ', cell.colspan, 'of length', len(row)
+                    pos = globaltabs[j+cell.colspan - 1]
+                    rowtabs.append(pos)
+                    j += cell.colspan
+                
+        return text, tags, tabs
         
     def apply_offset(self, tag, offset):
         mtag = list(tag)
