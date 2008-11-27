@@ -11,7 +11,7 @@ def convert(obj):
 def newline(func):
     def f(*args, **kwargs):
         txt, tags = func(*args, **kwargs)
-        if not txt.endswith(u'\n'):
+        if txt and not txt.endswith(u'\n'):
             txt += u'\n'        
         return txt, tags
     f.__name__ = func.__name__
@@ -79,6 +79,12 @@ class MWAardWriter(object):
         txt = obj.caption
         tags = [maketag(u'h1', txt)]
         return txt, tags
+
+    @newline
+    def _Caption(self, obj):
+        txt = obj.caption
+        tags = [maketag(u'strong', txt)]
+        return txt, tags
     
     def _CategoryLink(self, obj):
         self.categorylinks.append(obj.target)
@@ -137,9 +143,8 @@ class MWAardWriter(object):
     def _ImageLink(self, obj):
         return '', []
     
-    @newline
     def _BreakingReturn(self, obj):
-        return '', []
+        return u'\n', []
     
     def _Generic(self, obj):
         txt, tags = self.process_children(obj)
@@ -208,7 +213,7 @@ class MWAardWriter(object):
             logging.warn("Can't add cell outside of row")
         else:                       
             txt, tags = self.process_children(obj)
-            txt = txt.replace('\n', ' ')
+            #txt = txt.replace('\n', ' ')
             txt = txt.replace('\t', ' ')
             colspan = obj.colspan
             rowspan = obj.rowspan
@@ -228,7 +233,8 @@ class MWAardWriter(object):
             current_table.append(current_row)
             self.current_tables[-1] = (current_table, None)                
         return '', []
-        
+    
+    @newline    
     def _Table(self, obj):
         tableclasses = obj.attributes.get('class', '').split()
         if any((tableclass in EXCLUDE_TABLE_CLASSES 
@@ -238,23 +244,23 @@ class MWAardWriter(object):
         self.current_tables.append(([], None))
         if obj.caption:
             logging.debug('Table %s', obj.caption.encode('utf8'))
-        self.process_children(obj)
+        tabletext, tags = self.process_children(obj)
         current_table, current_row = self.current_tables.pop()
         if current_table:
             txt = u' '
-            tabletext, tags, tabs = self.maketable(current_table)
+            tabletext, tags, tabs = self.maketable(current_table, tabletext, tags)
             tags = [maketag('tbl', txt, {u'text': tabletext, 
                                          u'tags': tags,
                                          u'tabs': tabs,
                                          })]
-            return txt+u'\n', tags
+            return txt, tags
         else:
             caption = obj.caption if obj.caption else u'' 
             logging.warn('Table %s has no data, skipping', 
                          caption.encode('utf8'))
             return '', []
     
-    def maketable(self, data):
+    def maketable(self, data, tabletext=u'', tabletags=None):
         newdata = []
         rowspanmap = defaultdict(int)
         for i, row in enumerate(data):
@@ -275,8 +281,8 @@ class MWAardWriter(object):
 
         data = newdata
 
-        text = u''
-        tags = []
+        text = tabletext
+        tags = [] if tabletags is None else tabletags
         rowspanmap = defaultdict(int)
         for i, row in enumerate(data):
             start = len(text)
