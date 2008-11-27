@@ -197,6 +197,7 @@ class MWAardWriter(object):
     def _Article(self, a):
         # add article name as first section heading
         txt = a.caption
+        logging.debug('Article %s', txt.encode('utf8'))
         tags = [maketag(u'h1', txt)]
         txt += u'\n'
         return self.process_children(a, txt, tags)        
@@ -207,8 +208,8 @@ class MWAardWriter(object):
             logging.warn("Can't add cell outside of row")
         else:                       
             txt, tags = self.process_children(obj)
-            txt = txt.replace('\n', '')
-            txt = txt.replace('\t', '')
+            txt = txt.replace('\n', ' ')
+            txt = txt.replace('\t', ' ')
             colspan = obj.colspan
             rowspan = obj.rowspan
             #tags.append(maketag(u'td', obj.attributes))
@@ -235,25 +236,25 @@ class MWAardWriter(object):
             return '', []
         
         self.current_tables.append(([], None))
-        
+        if obj.caption:
+            logging.debug('Table %s', obj.caption.encode('utf8'))
         self.process_children(obj)
         current_table, current_row = self.current_tables.pop()
-        txt = u' '
-        tabletext, tags, tabs = self.maketable(current_table)
-        tags = [maketag('tbl', txt, {u'text': tabletext, 
-                                     u'tags': tags,
-                                     u'tabs': tabs,
-                                     })]
-        return txt+u'\n', tags
+        if current_table:
+            txt = u' '
+            tabletext, tags, tabs = self.maketable(current_table)
+            tags = [maketag('tbl', txt, {u'text': tabletext, 
+                                         u'tags': tags,
+                                         u'tabs': tabs,
+                                         })]
+            return txt+u'\n', tags
+        else:
+            caption = obj.caption if obj.caption else u'' 
+            logging.warn('Table %s has no data, skipping', 
+                         caption.encode('utf8'))
+            return '', []
     
     def maketable(self, data):
-#        data = [(Cell('a'),  Cell('red'),  Cell('ff', 1, 2), Cell('123')),
-#                (Cell('b'),  Cell('green'), Cell('123456')),
-#                (Cell('c'),  Cell('blue'),  Cell('cccccccccccccc'), Cell('123456789')),
-#                (Cell('qweqweqweqwe', 3, 2),  Cell('sdfsd fsd fsd', 1)),
-#                (Cell('zxczzxczxczxc', 1),  ),
-#                ]
-
         newdata = []
         rowspanmap = defaultdict(int)
         for i, row in enumerate(data):
@@ -280,12 +281,16 @@ class MWAardWriter(object):
         for i, row in enumerate(data):
             start = len(text)
             j = 0
-            text += u'\t'.join([cell.text for cell in row])
-            text += u'\t\n'
+            for cell in row:
+                offset = len(text)
+                text += cell.text
+                tags += [self.apply_offset(tag, offset) for tag in cell.tags]
+                text += '\t'        
+            text += u'\n'
             end = len(text)
             tags.append((u'row', start, end))
         
-        tabcount = max([len(row) for row in data]) 
+        tabcount = max([sum(cell.colspan for cell in row) for row in data]) 
         globaltabs = [0 for i in range(tabcount)]
 
         for i, row in enumerate(data):
@@ -303,13 +308,13 @@ class MWAardWriter(object):
         tabs = {'': globaltabs}
         
         for i, row in enumerate(data):
-            print 'row ', i, 'of length', len(row)
+#            print 'row ', i, 'of length', len(row)
             if any([cell.colspan > 1 for cell in row]):                
                 rowtabs = []
                 tabs[i] = rowtabs
                 j=0                 
                 for cell in row:
-                    print '\t colspan ', cell.colspan, 'of length', len(row)
+#                    print '\t colspan ', cell.colspan, 'of length', len(row)                    
                     pos = globaltabs[j+cell.colspan - 1]
                     rowtabs.append(pos)
                     j += cell.colspan
