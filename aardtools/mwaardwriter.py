@@ -1,3 +1,4 @@
+import functools
 import logging
 from collections import defaultdict
 
@@ -213,7 +214,7 @@ class MWAardWriter(object):
             logging.warn("Can't add cell outside of row")
         else:                       
             txt, tags = self.process_children(obj)
-            #txt = txt.replace('\n', ' ')
+            txt = txt.replace('\n', ' ')
             txt = txt.replace('\t', ' ')
             colspan = obj.colspan
             rowspan = obj.rowspan
@@ -299,18 +300,34 @@ class MWAardWriter(object):
         tabcount = max([sum(cell.colspan for cell in row) for row in data]) 
         globaltabs = [0 for i in range(tabcount)]
 
+        lenmatrix = []
         for i, row in enumerate(data):
-            current_pos = 0
-            j=0
-            for cell in row:                
-                pos = globaltabs[j+cell.colspan - 1]
-                newpos = current_pos + (len(cell.text)+1) #add one to cell text length to account for tab char itself
-                if newpos > pos:
-                    globaltabs[j+cell.colspan - 1] = newpos
-                    current_pos = newpos
-                else:
-                    current_pos = pos
-                j += cell.colspan     
+            rowentry = []
+            lenmatrix.append(rowentry)
+            for cell in row:
+                for j in range(cell.colspan):
+                    if j == cell.colspan - 1:
+                        def lencontrib(text, colspan, globaltabs, n):
+                            print 'lencontrib for cell #%d (text "%s")' % (n, text)
+                            contrib = len(text) + 1
+                            for k in range(colspan - 1):
+                                contrib -= globaltabs[n-k-1]
+                            return contrib
+                        l = functools.partial(lencontrib, cell.text, cell.colspan)
+                    else:
+                        l = lambda globaltabs, i: 0                    
+                    rowentry.append(l)                        
+
+        for i in range(len(globaltabs)):
+            cell_lengths = [row[i](globaltabs, i) for row in lenmatrix]
+            print 'Cell %d lengths: %s' % (i, cell_lengths)
+            globaltabs[i] = max(cell_lengths)
+
+        runningsum = 0
+        for i, rawtab in enumerate(globaltabs):
+            runningsum += rawtab
+            globaltabs[i] = runningsum
+                
         tabs = {'': globaltabs}
         
         for i, row in enumerate(data):
