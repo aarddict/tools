@@ -301,6 +301,10 @@ class MWAardWriter(object):
         globaltabs = [0 for i in range(tabcount)]
 
         lenmatrix = []
+        
+        def zero(globaltabs, i):
+            return 0
+        
         for i, row in enumerate(data):
             rowentry = []
             lenmatrix.append(rowentry)
@@ -308,19 +312,21 @@ class MWAardWriter(object):
                 for j in range(cell.colspan):
                     if j == cell.colspan - 1:
                         def lencontrib(text, colspan, globaltabs, n):
-                            print 'lencontrib for cell #%d (text "%s")' % (n, text)
                             contrib = len(text) + 1
                             for k in range(colspan - 1):
                                 contrib -= globaltabs[n-k-1]
                             return contrib
                         l = functools.partial(lencontrib, cell.text, cell.colspan)
                     else:
-                        l = lambda globaltabs, i: 0                    
-                    rowentry.append(l)                        
+                        l = zero                    
+                    rowentry.append(l)
+            if len(rowentry) < tabcount:
+                logging.warn('Bad table, expected %d total column span, got only %d', tabcount, len(rowentry))
+                while len(rowentry) < tabcount:
+                    rowentry.append(zero)                                                                            
 
-        for i in range(len(globaltabs)):
+        for i in range(len(globaltabs)):            
             cell_lengths = [row[i](globaltabs, i) for row in lenmatrix]
-            print 'Cell %d lengths: %s' % (i, cell_lengths)
             globaltabs[i] = max(cell_lengths)
 
         runningsum = 0
@@ -331,13 +337,11 @@ class MWAardWriter(object):
         tabs = {'': globaltabs}
         
         for i, row in enumerate(data):
-#            print 'row ', i, 'of length', len(row)
             if any([cell.colspan > 1 for cell in row]):                
                 rowtabs = []
                 tabs[i] = rowtabs
                 j=0                 
                 for cell in row:
-#                    print '\t colspan ', cell.colspan, 'of length', len(row)                    
                     pos = globaltabs[j+cell.colspan - 1]
                     rowtabs.append(pos)
                     j += cell.colspan
