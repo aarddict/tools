@@ -99,6 +99,7 @@ class MWAardWriter(object):
         txt, tags = self.process_children(obj)
         if not txt:
             txt = obj.caption
+            print 'Article ', txt.encode('utf8')
         tags.append(maketag(u'a', txt, {u'href':obj.target}))
         return txt, tags
     
@@ -214,7 +215,7 @@ class MWAardWriter(object):
             logging.warn("Can't add cell outside of row")
         else:                       
             txt, tags = self.process_children(obj)
-            txt = txt.replace('\n', ' ')
+            #txt = txt.replace('\n', ' ')
             txt = txt.replace('\t', ' ')
             colspan = obj.colspan
             rowspan = obj.rowspan
@@ -280,7 +281,57 @@ class MWAardWriter(object):
                 j += cell.colspan
             newdata.append(newrow)
 
-        data = newdata
+        newdata2 = []
+        for i, row in enumerate(newdata):
+            linecounts = [len(cell.text.splitlines()) for cell in row]
+            count = max(linecounts) if linecounts else 0
+            if count > 1:
+                newrows = [[] for k in range(count)]
+                for cell in row:
+                    lines = cell.text.splitlines()
+                    while len(lines) < count:
+                        lines.append('')
+                    
+                    linelens = [len(line) for line in lines]
+                    cutpoints = []
+                    runningsum = 0
+                    for linelen in linelens:
+                        runningsum += (linelen + 1) # add one to take into account newline char
+                        cutpoints.append(runningsum)
+                    print cutpoints
+                    
+                    linetags=[[] for k in range(count)]    
+                    for tag in cell.tags:
+                        print 'Cell tag', tag
+                        print 'Cutpoints', cutpoints
+                        start = tag[1]
+                        end = tag[2]
+                        
+                        prevcutpoint = 0
+                        for c, cutpoint in enumerate(cutpoints):
+                            if prevcutpoint <= start < cutpoint:
+                                newstart = start - prevcutpoint
+                                newtag = list(tag)
+                                newtag[1] = newstart
+                                newtag[2] = cutpoint - 1 if end > cutpoint else end - prevcutpoint
+                                print 'Line %d, adding tag %s' % (c, newtag)        
+                                linetags[c].append(newtag)                                                
+                                if end > cutpoint:
+                                    start = cutpoint                                    
+                                else:
+                                    break         
+                            prevcutpoint = cutpoint                                                       
+                    
+                    for j, line in enumerate(lines):
+                        rowspan = 1 if j < count - 1 else cell.rowspan
+                        print 'Line: %s, tags: %s' % (line.encode('utf8'), linetags[j]) 
+                        newcell = Cell(line,  linetags[j], cell.colspan, cell.rowspan)
+                        newrows[j].append(newcell)                                        
+                newdata2 += newrows
+            else:
+                newdata2.append(row)
+
+        data = newdata2
 
         text = tabletext
         tags = [] if tabletags is None else tabletags
