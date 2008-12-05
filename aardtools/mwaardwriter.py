@@ -192,11 +192,14 @@ class MWAardWriter(object):
         txt = u''
         for i, refobj in enumerate(self.refgroups[group]):            
             start = len(txt)
-            txt += u'%s. ' % unicode(i+1)
+            refid = unicode(i+1)
+            refidtxt = u'[%s]' % refid
+            txt += refidtxt + u' '
+            tags.append(maketag(u'b', refidtxt, start=start))
             txt, tags = self.process_children(refobj, txt, tags)
-            tags.append(maketag(u'note', txt,  {u'id': unicode(i+1), 
+            tags.append(maketag(u'note', txt,  {u'id': refid, 
                                                 u'group': group}, 
-                                start=start))
+                                                start=start))                        
             txt += u'\n'
         del self.refgroups[group]
         return txt, tags            
@@ -429,5 +432,5 @@ class MWAardWriter(object):
         return txt, tags                
 
 def maketag(name, txt, attrs=None, start=0):
-    end = len(txt)
+    end = start + len(txt)
     return (name, start, end, attrs) if attrs else (name, start, end) 
