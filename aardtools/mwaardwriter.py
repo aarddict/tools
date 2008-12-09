@@ -283,6 +283,17 @@ class MWAardWriter(object):
                 newrow.append(cell)
                 j += cell.colspan
             newdata.append(newrow)
+        
+        tabcount = max([sum(cell.colspan for cell in row) for row in newdata])
+            
+        for i, row in enumerate(newdata):
+            span = sum(cell.colspan for cell in row)
+            if (span < tabcount):
+                logging.warn('Bad row. Span %d expected, but only %d found', 
+                             tabcount, span)
+            for p in range(tabcount - span):
+                row.append(Cell(''))
+        
 
         newdata2 = []
         for i, row in enumerate(newdata):
@@ -301,12 +312,9 @@ class MWAardWriter(object):
                     for linelen in linelens:
                         runningsum += (linelen + 1) # add one to take into account newline char
                         cutpoints.append(runningsum)
-                    print cutpoints
                     
                     linetags=[[] for k in range(count)]    
                     for tag in cell.tags:
-                        print 'Cell tag', tag
-                        print 'Cutpoints', cutpoints
                         start = tag[1]
                         end = tag[2]
                         
@@ -317,7 +325,6 @@ class MWAardWriter(object):
                                 newtag = list(tag)
                                 newtag[1] = newstart
                                 newtag[2] = cutpoint - 1 if end > cutpoint else end - prevcutpoint
-                                print 'Line %d, adding tag %s' % (c, newtag)        
                                 linetags[c].append(newtag)                                                
                                 if end > cutpoint:
                                     start = cutpoint                                    
@@ -327,7 +334,6 @@ class MWAardWriter(object):
                     
                     for j, line in enumerate(lines):
                         rowspan = 1 if j < count - 1 else cell.rowspan
-                        print 'Line: %s, tags: %s' % (line.encode('utf8'), linetags[j]) 
                         newcell = Cell(line,  linetags[j], cell.colspan, cell.rowspan)
                         newrows[j].append(newcell)                                        
                 newdata2 += newrows
@@ -338,7 +344,6 @@ class MWAardWriter(object):
 
         text = tabletext
         tags = [] if tabletags is None else tabletags
-        rowspanmap = defaultdict(int)
         for i, row in enumerate(data):
             start = len(text)
             j = 0
@@ -350,8 +355,7 @@ class MWAardWriter(object):
             text += u'\n'
             end = len(text)
             tags.append((u'row', start, end))
-        
-        tabcount = max([sum(cell.colspan for cell in row) for row in data]) 
+                 
         globaltabs = [0 for i in range(tabcount)]
 
         lenmatrix = []
