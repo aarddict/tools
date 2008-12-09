@@ -101,6 +101,12 @@ class WikiParser():
                     self.pool = Pool(processes=self.processes)
                     resulti = self.pool.imap_unordered(convert, articles)
                     continue
+                except KeyboardInterrupt:
+                    logging.error('Keyboard interrupt: terminating worker pool')
+                    self.pool.terminate()
+                    self.pool.join()
+                    raise
+                    
             self.consumer.add_metadata("self.article_count", self.article_count)
         finally:
             self.pool.close()
