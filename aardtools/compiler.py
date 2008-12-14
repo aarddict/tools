@@ -87,7 +87,21 @@ def make_opt_parser():
         default=None,
         help='Size of the worker pool (by default equals to the number of detected CPUs). '
         )    
-        
+    parser.add_option(
+        '--metadata',
+        default=None,
+        help='INI containing dictionary metadata in [metadata] section'
+        )     
+    parser.add_option(
+        '--license',
+        default=None,
+        help='Name of a UTF-8 encoded text file containing license text'
+        )         
+    parser.add_option(
+        '--copyright',
+        default=None,
+        help='Name of a UTF-8 encoded text file containing copyright notice'
+        )                    
     return parser
 
 def utf8(func):
@@ -156,7 +170,7 @@ article_add_lock = threading.RLock()
 
 class Compiler(object):
     
-    def __init__(self, output_file_name, max_file_size):
+    def __init__(self, output_file_name, max_file_size, metadata=None):
         self.uuid = uuid.uuid4()
         self.output_file_name = output_file_name
         self.max_file_size = max_file_size        
@@ -166,13 +180,17 @@ class Compiler(object):
         self.tempDir = tempfile.mkdtemp()
         self.indexDbFullname = os.path.join(self.tempDir, "index.db")
         self.indexDb = shelve.open(self.indexDbFullname, 'n')
-        self.metadata = {}
+        self.metadata = metadata if metadata is not None else {}
         self.file_names = []        
         log.info('Collecting articles')
     
     @utf8
     def add_metadata(self, key, value):
-        self.metadata[key] = value
+        if key not in self.metadata:
+            self.metadata[key] = value
+        else:
+            log.warn('Value for metadata key %s is already set, new value %s will be ignored', 
+                     key, value)
 
     @utf8
     def add_article(self, title, serialized_article):
@@ -495,8 +513,28 @@ def main():
     input_file = args[1]    
     output_file_name = make_output_file_name(input_file, options)    
     max_volume_size = max_file_size(options)    
-    log.info('Maximum file size is %d bytes', max_volume_size)    
-    compiler = Compiler(output_file_name, max_volume_size)
+    log.info('Maximum file size is %d bytes', max_volume_size)
+    
+    metadata = {}
+    if options.metadata:
+        from ConfigParser import ConfigParser
+        c = ConfigParser()
+        c.read(options.metadata)
+        for opt in c.options('metadata'):
+            value = c.get('metadata', opt)
+            metadata[opt] = value
+    
+    if options.license:
+        with open(options.license) as f:
+            metadata['license'] = f.read()
+
+    if options.copyright:
+        with open(options.copyright) as f:
+            metadata['copyright'] = f.read()
+            
+    log.debug('Metadata: %s', metadata)
+                    
+    compiler = Compiler(output_file_name, max_volume_size, metadata)
     make_input, collect_articles = known_types[input_type]
     import time    
     t0 = time.time()
