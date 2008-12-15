@@ -415,6 +415,11 @@ def compile_xdxf(input_file, options, compiler):
     import xdxf
     p = xdxf.XDXFParser(compiler)
     p.parse(input_file)
+    
+def compile_aard(input_file, options, compiler):
+    import aard
+    p = aard.AardParser(compiler)
+    p.parse(input_file)
 
 def make_wiki_input(input_file_name):
     if input_file_name == '-':
@@ -445,8 +450,14 @@ def make_xdxf_input(input_file_name):
                 return tf.extractfile(tar)
     raise IOError("%s doesn't look like a XDXF dictionary" % input_file_name) 
 
+def make_aard_input(input_file_name):
+    if input_file_name == '-':
+        return sys.stdin
+    return open(input_file_name)
+
 known_types = {'wiki': (make_wiki_input, compile_wiki), 
-               'xdxf': (make_xdxf_input, compile_xdxf)}
+               'xdxf': (make_xdxf_input, compile_xdxf),
+               'aard': (make_aard_input, compile_aard)}
 
 def make_output_file_name(input_file, options):    
     if options.output_file:
