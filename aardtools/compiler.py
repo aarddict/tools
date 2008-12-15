@@ -46,7 +46,7 @@ ARTICLE_LENGTH_FORMAT = '>L'
 INDEX1_ITEM_FORMAT = '>LL'
 
 def make_opt_parser():
-    usage = "usage: %prog [options] (wiki|xdxf) FILE"
+    usage = "Usage: %prog [options] (wiki|xdxf|aard) FILE"
     parser = optparse.OptionParser(version="%prog 1.0", usage=usage)
     parser.add_option(
         '-o', '--output-file',
