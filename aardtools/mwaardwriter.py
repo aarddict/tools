@@ -22,10 +22,17 @@ def newline(func):
 class Cell(object):
     
     def __init__(self, text, tags=None, colspan=1, rowspan=1):
-        self.text = text
+        self.text = text.strip()
         self.colspan = colspan
         self.rowspan = rowspan
         self.tags = [] if tags is None else tags
+
+    def __str__(self):
+        return 'Cell("""%s""", %s, %s)' % (self.text.encode('utf8'), self.colspan, self.rowspan)
+
+    def __repr__(self):
+        return 'Cell("""%s""", %s, %s)' % (self.text.encode('utf8'), self.colspan, self.rowspan)
+    
 
 class Row(list):
     def __init__(self, attributes=None):
@@ -346,12 +353,11 @@ class MWAardWriter(object):
         tags = [] if tabletags is None else tabletags
         for i, row in enumerate(data):
             start = len(text)
-            j = 0
             for cell in row:
                 offset = len(text)
                 text += cell.text
                 tags += [self.apply_offset(tag, offset) for tag in cell.tags]
-                text += '\t'        
+                text += u'\t'        
             text += u'\n'
             end = len(text)
             tags.append((u'row', start, end))
