@@ -22,16 +22,16 @@ def newline(func):
 class Cell(object):
     
     def __init__(self, text, tags=None, colspan=1, rowspan=1):
-        self.text = text.strip()
+        self.text = text.rstrip()
         self.colspan = colspan
         self.rowspan = rowspan
         self.tags = [] if tags is None else tags
 
     def __str__(self):
-        return 'Cell("""%s""", %s, %s)' % (self.text.encode('utf8'), self.colspan, self.rowspan)
+        return 'Cell("""%s""", %s, %s, %s)' % (self.text.encode('utf8'), self.tags, self.colspan, self.rowspan)
 
     def __repr__(self):
-        return 'Cell("""%s""", %s, %s)' % (self.text.encode('utf8'), self.colspan, self.rowspan)
+        return 'Cell("""%s""", %s, %s, %s)' % (self.text.encode('utf8'), self.tags, self.colspan, self.rowspan)
     
 
 class Row(list):
@@ -303,8 +303,8 @@ class MWAardWriter(object):
         
 
         newdata2 = []
-        for i, row in enumerate(newdata):
-            linecounts = [len(cell.text.splitlines()) for cell in row]
+        for i, row in enumerate(newdata):            
+            linecounts = [len(cell.text.splitlines()) for cell in row]            
             count = max(linecounts) if linecounts else 0
             if count > 1:
                 newrows = [[] for k in range(count)]
@@ -312,7 +312,7 @@ class MWAardWriter(object):
                     lines = cell.text.splitlines()
                     while len(lines) < count:
                         lines.append('')
-                    
+                                         
                     linelens = [len(line) for line in lines]
                     cutpoints = []
                     runningsum = 0
@@ -357,7 +357,7 @@ class MWAardWriter(object):
                 offset = len(text)
                 text += cell.text
                 tags += [self.apply_offset(tag, offset) for tag in cell.tags]
-                text += u'\t'        
+                text += u'\t'
             text += u'\n'
             end = len(text)
             tags.append((u'row', start, end))
