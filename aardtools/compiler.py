@@ -115,7 +115,7 @@ def make_opt_parser():
         default=0,
         help='VSZ (virtual) memory threshold in megabytes for a single worker process. Worker process will be terminated if memory threshold is exceeded. Default: %defaults'
         )
-        
+    
     parser.add_option(
         '--metadata',
         default=None,
@@ -130,7 +130,12 @@ def make_opt_parser():
         '--copyright',
         default=None,
         help='Name of a UTF-8 encoded text file containing copyright notice'
-        )                    
+        )
+    parser.add_option(
+        '--work-dir',
+        default='.',
+        help='Directory for temporary file created during compilatiod. Default: %default'
+        )                        
     return parser
 
 def utf8(func):
@@ -153,12 +158,16 @@ class Volume(object):
     
     number = 0
     
-    def __init__(self, header_meta_len, max_file_size):
+    def __init__(self, header_meta_len, max_file_size, work_dir):
+        logging.info('Work dir %s', work_dir)
         self.header_meta_len = header_meta_len
         self.max_file_size = max_file_size
-        self.index1 = tempfile.NamedTemporaryFile()
-        self.index2 = tempfile.NamedTemporaryFile()
-        self.articles =  tempfile.NamedTemporaryFile()
+        self.index1 = tempfile.NamedTemporaryFile(prefix='aardc-index1-', dir=work_dir)
+        logging.info('Creating temporary index 1 file %s', self.index1.name)
+        self.index2 = tempfile.NamedTemporaryFile(prefix='aardc-index2-', dir=work_dir)
+        logging.info('Creating temporary index 2 file %s', self.index2.name)
+        self.articles =  tempfile.NamedTemporaryFile(prefix='aardc-articles-', dir=work_dir)
+        logging.info('Creating temporary articles file %s', self.articles.name)
         self.index1Length = 0    
         self.index2Length = 0   
         self.articles_len = 0 
@@ -199,14 +208,16 @@ article_add_lock = threading.RLock()
 
 class Compiler(object):
     
-    def __init__(self, output_file_name, max_file_size, metadata=None):
+    def __init__(self, output_file_name, max_file_size, work_dir, metadata=None):
         self.uuid = uuid.uuid4()
         self.output_file_name = output_file_name
         self.max_file_size = max_file_size        
         self.running_count = 0
         self.index_count = 0
-        self.sortex = SortExternal()
-        self.tempDir = tempfile.mkdtemp()
+        self.work_dir = work_dir
+        self.sortex = SortExternal(work_dir=work_dir)
+        self.tempDir = tempfile.mkdtemp(prefix='aardc-article-db-', dir=work_dir)
+        logging.info('Creating temp dir %s', self.tempDir)
         self.indexDbFullname = os.path.join(self.tempDir, "index.db")
         self.indexDb = shelve.open(self.indexDbFullname, 'n')
         self.metadata = metadata if metadata is not None else {}
@@ -264,7 +275,7 @@ class Compiler(object):
         self.rename_files()        
 
     def create_volume(self, header_meta_len):
-        return Volume(header_meta_len, self.max_file_size)
+        return Volume(header_meta_len, self.max_file_size, self.work_dir)
     
     def make_volumes(self, create_volume_func):
                 
@@ -582,7 +593,7 @@ def main():
             
     log.debug('Metadata: %s', metadata)
                     
-    compiler = Compiler(output_file_name, max_volume_size, metadata)
+    compiler = Compiler(output_file_name, max_volume_size, options.work_dir, metadata)
     make_input, collect_articles = known_types[input_type]
     import time    
     t0 = time.time()

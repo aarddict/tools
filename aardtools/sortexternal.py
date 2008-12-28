@@ -66,9 +66,9 @@ class VariableLengthRecordFile(file):
 
 class SortExternal:
 
-    def __init__(self, buffer_size = 200000, filenum = 16):
+    def __init__(self, buffer_size=200000, filenum=16, work_dir=None):
         self.buffer_size = buffer_size
-        self.tempdir = tempfile.mkdtemp()
+        self.tempdir = tempfile.mkdtemp(dir=work_dir)
         self.chunk = []
         self.chunksize = 0
         
