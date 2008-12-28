@@ -11,19 +11,21 @@ import os
 __version__ = "1.0"
 __author__ = "Florian Leitner"
 
-def mem(size="rss"):
-    """Generalization; memory sizes: rss, rsz, vsz."""
-    return int(os.popen('ps -p %d -o %s | tail -1' %
-                        (os.getpid(), size)).read())
-
-def rss():
+def mem(size="rss", pid=None):
+    """Generalization; memory sizes: rss, rsz, vsz."""                                                                   
+    if not pid:
+        pid = os.getpid()
+    return int(os.popen('ps -p %d -o %s | tail -1' %                                                                     
+                        (pid, size)).read())                                                                             
+                                                                                                                         
+def rss(pid=None):
     """Return ps -o rss (resident) memory in kB."""
-    return mem("rss")
-
-def rsz():
+    return mem("rss", pid)
+                                                                                                                         
+def rsz(pid=None):
     """Return ps -o rsz (resident + text) memory in kB."""
-    return mem("rsz")
+    return mem("rsz", pid)
 
-def vsz():
+def vsz(pid=None):
     """Return ps -o vsz (virtual) memory in kB."""
-    return mem("vsz")
+    return mem("vsz", pid)
