@@ -85,8 +85,35 @@ def make_opt_parser():
         '--processes',
         type='int',
         default=None,
-        help='Size of the worker pool (by default equals to the number of detected CPUs). '
+        help='Size of the worker pool (by default equals to the number of detected CPUs).'
+        )
+
+    parser.add_option(
+        '--mem-check-freq',
+        type='int',
+        default=1000,
+        help='Check memory usage every N articles. Default: %defaults'
         )    
+    parser.add_option(
+        '--rss-threshold',
+        type='float',
+        default=0,
+        help='RSS (resident) memory threshold in megabytes for a single worker process. Worker process will be terminated if memory threshold is exceeded. Default: %defaults'
+        )
+    parser.add_option(
+        '--rsz-threshold',
+        type='float',
+        default=0,
+        help='RSZ (resident + text) memory threshold in megabytes for a single worker process. Worker process will be terminated if memory threshold is exceeded. Default: %defaults'
+        )
+
+    parser.add_option(
+        '--vsz-threshold',
+        type='float',
+        default=0,
+        help='VSZ (virtual) memory threshold in megabytes for a single worker process. Worker process will be terminated if memory threshold is exceeded. Default: %defaults'
+        )
+        
     parser.add_option(
         '--metadata',
         default=None,

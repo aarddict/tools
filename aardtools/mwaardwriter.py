@@ -106,7 +106,6 @@ class MWAardWriter(object):
         txt, tags = self.process_children(obj)
         if not txt:
             txt = obj.caption
-            print 'Article ', txt.encode('utf8')
         tags.append(maketag(u'a', txt, {u'href':obj.target}))
         return txt, tags
     
@@ -296,7 +295,7 @@ class MWAardWriter(object):
         for i, row in enumerate(newdata):
             span = sum(cell.colspan for cell in row)
             if (span < tabcount):
-                logging.warn('Bad row. Span %d expected, but only %d found', 
+                logging.debug('Bad row. Span %d expected, but only %d found', 
                              tabcount, span)
             for p in range(tabcount - span):
                 row.append(Cell(''))

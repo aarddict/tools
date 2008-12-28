@@ -12,7 +12,7 @@ __version__ = "1.0"
 __author__ = "Florian Leitner"
 
 def mem(size="rss", pid=None):
-    """Generalization; memory sizes: rss, rsz, vsz."""                                                                   
+    """Generalization; memory sizes: rss, rsz, vsz."""
     if not pid:
         pid = os.getpid()
     return int(os.popen('ps -p %d -o %s | tail -1' %                                                                     
