@@ -41,6 +41,8 @@ log = logging.getLogger()
 
 tojson = functools.partial(simplejson.dumps, ensure_ascii=False) 
 
+MAX_FAT32_FILE_SIZE = 2**32-1
+
 KEY_LENGTH_FORMAT = '>H'
 ARTICLE_LENGTH_FORMAT = '>L'
 INDEX1_ITEM_FORMAT = '>LL'
@@ -55,7 +57,7 @@ def make_opt_parser():
         )
     parser.add_option(
         '-s', '--max-file-size',
-        default=str(2**32-1),
+        default=str(MAX_FAT32_FILE_SIZE),
         help='Maximum file size in megabytes(M) or gigabytes(G). Default: %default'
         )    
     parser.add_option(
@@ -556,6 +558,10 @@ def main():
     output_file_name = make_output_file_name(input_file, options)    
     max_volume_size = max_file_size(options)    
     log.info('Maximum file size is %d bytes', max_volume_size)
+    if max_volume_size > MAX_FAT32_FILE_SIZE:
+        global INDEX1_ITEM_FORMAT
+        INDEX1_ITEM_FORMAT = '>LQ'
+        log.info('Maximum file size is too big 32-bit offsets, setting index item format to %s', INDEX1_ITEM_FORMAT)
     
     metadata = {}
     if options.metadata:
