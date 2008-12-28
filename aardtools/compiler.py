@@ -55,7 +55,7 @@ def make_opt_parser():
         )
     parser.add_option(
         '-s', '--max-file-size',
-        default='2000M',
+        default=str(2**32-1),
         help='Maximum file size in megabytes(M) or gigabytes(G). Default: %default'
         )    
     parser.add_option(
@@ -505,12 +505,16 @@ def max_file_size(options):
     s = options.max_file_size
     s = s.lower()
     if s.endswith('m'):        
-        return int(s.strip('mM'))*1000000
+        return int(s.strip('m'))*1000000
     elif s.endswith('g'):
-        return int(s.strip('gG'))*1000000000
+        return int(s.strip('g'))*1000000000
+    elif s.endswith('k'):
+        return int(s.strip('k'))*1000
+    elif s.endswith('b'):
+        return int(s.strip('b'))
     else:
-        raise Exception('Can\'t understand maximum file size specification "%s"' % options.max_file_size)
-        
+        return int(s)    
+       
 def print_progress(progress):
     s = str(progress)
     sys.stdout.write('\b'*len(s) + s)
