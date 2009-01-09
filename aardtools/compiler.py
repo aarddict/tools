@@ -89,7 +89,12 @@ def make_opt_parser():
         default=None,
         help='Size of the worker pool (by default equals to the number of detected CPUs).'
         )
-
+    parser.add_option(
+        '--nomp',
+        action='store_true',
+        default=False,
+        help='Disable multiprocessing, useful for debugging.'
+        )    
     parser.add_option(
         '--mem-check-freq',
         type='int',

@@ -86,6 +86,12 @@ class WikiParser():
         self.rss_threshold = options.rss_threshold
         self.rsz_threshold = options.rsz_threshold
         self.vsz_threshold = options.vsz_threshold
+        if options.nomp:
+            logging.info('Disabling multiprocessing')
+            self.parse = self.parse_simple
+        else:
+            self.parse = self.parse_mp
+        
         
     def articles(self, f):
         for event, element in etree.iterparse(f):
@@ -129,8 +135,17 @@ class WikiParser():
             self.pool.terminate()
         logging.info('Creating new worker pool')
         self.pool = Pool(processes=self.processes)
+
+    def parse_simple(self, f):
+        self.consumer.add_metadata('article_format', 'json')
+        articles = self.articles(f)
+        for a in articles:
+            result = convert(a)
+            title, serialized = result
+            self.consumer.add_article(title, serialized)
+        self.consumer.add_metadata("self.article_count", self.article_count)
         
-    def parse(self, f):
+    def parse_mp(self, f):
         try:
             self.consumer.add_metadata('article_format', 'json')
             articles = self.articles(f)
