@@ -576,13 +576,14 @@ def main():
         log.error('No such file: %s', input_file)
         raise SystemExit()
 
-    if not options.templates:
-        msg = ('Wikipedia templates database directory is not specified, templates will not be processed.',
-               'Generate with mw-buildcdb, specify using -t option.')
-        log.warn('\n'.join(msg))    
-    elif not os.path.isdir(options.templates):
-        log.error("No such directory: %s", options.templates)
-        raise SystemExit()
+    if input_type == 'wiki':
+        if not options.templates:
+            msg = ('Wikipedia templates database directory is not specified, templates will not be processed.',
+                   'Generate with mw-buildcdb, specify using -t option.')
+            log.warn('\n'.join(msg))    
+        elif not os.path.isdir(options.templates):
+            log.error("No such directory: %s", options.templates)
+            raise SystemExit()
     
     output_file_name = make_output_file_name(input_file, options)    
     max_volume_size = max_file_size(options)    
