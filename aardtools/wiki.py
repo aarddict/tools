@@ -24,11 +24,15 @@ import mem
 def convert(data):
     title, text, templatesdir = data
     templatedb = WikiDB(templatesdir) if templatesdir else None
-    mwobject = uparser.parseString(title=title, 
-                                   raw=text, 
-                                   wikidb=templatedb)
-    xhtmlwriter.preprocess(mwobject)
-    text, tags = mwaardwriter.convert(mwobject)
+    try:
+        mwobject = uparser.parseString(title=title, 
+                                       raw=text, 
+                                       wikidb=templatedb)
+        xhtmlwriter.preprocess(mwobject)
+        text, tags = mwaardwriter.convert(mwobject)
+    except RuntimeError:
+        multiprocessing.get_logger().exception('Failed to process article %s', title)
+        raise
     return title, tojson((text.rstrip(), tags))
 
 def mem_check(rss_threshold=0, rsz_threshold=0, vsz_threshold=0):
@@ -83,6 +87,7 @@ class WikiParser():
         self.active_processes = multiprocessing.active_children()
         self.timeout = options.timeout         
         self.timedout_count = 0
+        self.error_count = 0
         self.rss_threshold = options.rss_threshold
         self.rsz_threshold = options.rsz_threshold
         self.vsz_threshold = options.vsz_threshold
@@ -136,13 +141,21 @@ class WikiParser():
         logging.info('Creating new worker pool')
         self.pool = Pool(processes=self.processes)
 
+    def log_runtime_error(self):
+        self.error_count += 1
+        logging.warn('Failed to process article (%d so far)', self.error_count)
+
     def parse_simple(self, f):
         self.consumer.add_metadata('article_format', 'json')
         articles = self.articles(f)
         for a in articles:
-            result = convert(a)
-            title, serialized = result
-            self.consumer.add_article(title, serialized)
+            try:
+                result = convert(a)
+                title, serialized = result
+                self.consumer.add_article(title, serialized)
+            except RuntimeError:
+                self.log_runtime_error()
+                
         self.consumer.add_metadata("self.article_count", self.article_count)
         
     def parse_mp(self, f):
@@ -173,11 +186,12 @@ class WikiParser():
                                   self.timedout_count)
                     self.reset_pool()
                     resulti = self.pool.imap_unordered(convert, articles)
-                    continue
+                except RuntimeError:
+                    self.log_runtime_error()
                 except KeyboardInterrupt:
                     logging.error('Keyboard interrupt: terminating worker pool')
                     self.pool.terminate()
-                    raise
+                    raise                
                     
             self.consumer.add_metadata("self.article_count", self.article_count)
         finally:
