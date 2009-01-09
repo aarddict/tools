@@ -549,13 +549,13 @@ def main():
     if len(args) != 2:
         log.error('Not enough parameters') 
         opt_parser.print_help()
-        raise SystemExit()    
+        raise SystemExit()
 
     if args[0] not in known_types:
         log.error('Unknown input type %s, expected one of %s', 
                   args[0], ', '.join(known_types.keys())) 
         opt_parser.print_help()
-        raise SystemExit()    
+        raise SystemExit()
     
     if options.quite:
         log.setLevel(logging.ERROR)
@@ -565,7 +565,20 @@ def main():
         log.setLevel(logging.INFO)
                     
     input_type = args[0]
-    input_file = args[1]    
+    input_file = args[1]
+    
+    if not input_file == '-' and not os.path.isfile(input_file):
+        log.error('No such file: %s', input_file)
+        raise SystemExit()
+
+    if not options.templates:
+        msg = ('Wikipedia templates database directory is not specified, templates will not be processed.',
+               'Generate with mw-buildcdb, specify using -t option.')
+        log.warn('\n'.join(msg))    
+    elif not os.path.isdir(options.templates):
+        log.error("No such directory: %s", options.templates)
+        raise SystemExit()
+    
     output_file_name = make_output_file_name(input_file, options)    
     max_volume_size = max_file_size(options)    
     log.info('Maximum file size is %d bytes', max_volume_size)
