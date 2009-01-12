@@ -89,7 +89,12 @@ def make_opt_parser():
         default=None,
         help='Size of the worker pool (by default equals to the number of detected CPUs).'
         )
-
+    parser.add_option(
+        '--nomp',
+        action='store_true',
+        default=False,
+        help='Disable multiprocessing, useful for debugging.'
+        )    
     parser.add_option(
         '--mem-check-freq',
         type='int',
@@ -549,13 +554,13 @@ def main():
     if len(args) != 2:
         log.error('Not enough parameters') 
         opt_parser.print_help()
-        raise SystemExit()    
+        raise SystemExit()
 
     if args[0] not in known_types:
         log.error('Unknown input type %s, expected one of %s', 
                   args[0], ', '.join(known_types.keys())) 
         opt_parser.print_help()
-        raise SystemExit()    
+        raise SystemExit()
     
     if options.quite:
         log.setLevel(logging.ERROR)
@@ -565,7 +570,21 @@ def main():
         log.setLevel(logging.INFO)
                     
     input_type = args[0]
-    input_file = args[1]    
+    input_file = args[1]
+    
+    if not input_file == '-' and not os.path.isfile(input_file):
+        log.error('No such file: %s', input_file)
+        raise SystemExit()
+
+    if input_type == 'wiki':
+        if not options.templates:
+            msg = ('Wikipedia templates database directory is not specified, templates will not be processed.',
+                   'Generate with mw-buildcdb, specify using -t option.')
+            log.warn('\n'.join(msg))    
+        elif not os.path.isdir(options.templates):
+            log.error("No such directory: %s", options.templates)
+            raise SystemExit()
+    
     output_file_name = make_output_file_name(input_file, options)    
     max_volume_size = max_file_size(options)    
     log.info('Maximum file size is %d bytes', max_volume_size)
