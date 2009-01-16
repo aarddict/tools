@@ -80,8 +80,10 @@ class WikiParser():
         self.templatedir = options.templates
         self.mem_check_freq = options.mem_check_freq
         self.consumer = consumer
-        self.redirect_re = re.compile(r"\[\[(.*?)\]\]")
+        self.redirect_re = re.compile(r'\[\[(.*?)\]\]')
+        self.special_article_re = re.compile(r'^\w+:\S')
         self.article_count = 0
+        self.skipped_count = 0
         self.processes = options.processes if options.processes else None 
         self.pool = None
         self.active_processes = multiprocessing.active_children()
@@ -120,6 +122,13 @@ class WikiParser():
                 
                 for child in element.iter(NS+'title'):
                     title = child.text
+
+
+                if self.special_article_re.match(title):
+                    self.skipped_count += 1
+                    logging.info('Special article %s, skipping (%d so far)',
+                                 title.encode('utf8'), self.skipped_count)
+                    continue
                     
                 element.clear()
 
