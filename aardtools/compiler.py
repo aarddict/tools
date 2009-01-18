@@ -33,8 +33,7 @@ from PyICU import Locale, Collator
 import simplejson
 
 from sortexternal import SortExternal
-import aarddict
-from aarddict.dictionary import HEADER_SPEC, spec_len
+from aarddict.dictionary import HEADER_SPEC, spec_len, compression, calcsha1
 
 logging.basicConfig(format='%(levelname)s: %(message)s')
 log = logging.getLogger()
@@ -390,7 +389,7 @@ class Compiler(object):
         for file_name in self.file_names:
             log.info("Calculating checksum for %s", file_name)
             offset = spec_len(HEADER_SPEC[:2])                
-            sha1sum = aarddict.dictionary.calcsha1(file_name, offset)
+            sha1sum = calcsha1(file_name, offset)
             log.info("sha1 (first %d bytes skipped): %s", offset, sha1sum)
             output_file = open(file_name, "r+b")
             output_file.seek(spec_len(HEADER_SPEC[:1]))
@@ -441,7 +440,7 @@ class Compiler(object):
         
 def compress(text):
     compressed = text
-    for compress in aarddict.compression:
+    for compress in compression:
         c = compress(text)
         if len(c) < len(compressed):
             compressed = c
