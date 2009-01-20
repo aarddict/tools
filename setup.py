@@ -22,7 +22,7 @@ setup(
     description =  '''Tools to create dictionaries in aarddict format.''',
     license = "GPL 3",
     keywords = ['aarddict', 'aardtools', 'dict', 'dictionary', 'maemo'],
-    url = "http://code.google.com/p/aarddict",  
+    url = "http://aarddict.org",  
     classifiers=[
                  'Development Status :: 3 - Alpha',
                  'Operating System :: OS Independent',
