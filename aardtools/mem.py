@@ -1,6 +1,5 @@
 # From http://snipplr.com/view/6460/get-memory-usage-of-current-process-on-unix/
-"""fnl.core.memory module
-
+"""
 Trivial, but working code to get the memory usage of the current process
 where the pid is retrieved using os.getpid() and the memory usage is read
 from the unix command ps.    
