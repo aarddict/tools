@@ -187,8 +187,8 @@ class WikiParser():
             articles = self.articles(f)
             self.reset_pool()
             resulti = self.pool.imap_unordered(convert, articles)
-            while True:                                                                                         
-                try:                                                                                            
+            while True:
+                try:
                     result = resulti.next(self.timeout)
                     title, serialized = result
                     self.consumer.add_article(title, serialized)
@@ -198,10 +198,11 @@ class WikiParser():
                                               rsz_threshold=self.rsz_threshold,
                                               vsz_threshold=self.vsz_threshold)
                         if processes:
-                            logging.warn('%d process(es) exceeded memory limit, resetting worker pool', len (processes))
+                            logging.warn('%d process(es) exceeded memory limit, resetting worker pool',
+                                         len (processes))
                             self.reset_pool()
                             resulti = self.pool.imap_unordered(convert, articles)
-                except StopIteration:                                                                           
+                except StopIteration:
                     break            
                 except TimeoutError:
                     self.timedout_count += 1
@@ -216,7 +217,7 @@ class WikiParser():
                     self.pool.terminate()
                     raise                
                     
-            self.consumer.add_metadata("self.article_count", self.article_count)
+            self.consumer.add_metadata("article_count", self.article_count)
         finally:
             self.pool.close()
             self.pool.join()
