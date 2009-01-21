@@ -135,8 +135,6 @@ class WikiParser():
 
                 self.read_count += 1
 
-                logging.info('read count: %s, end: %s', self.read_count, self.end)
-
                 if self.read_count <= self.start:
                     continue
                 
