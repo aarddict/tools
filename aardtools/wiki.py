@@ -107,6 +107,9 @@ class WikiParser():
         self.rss_threshold = options.rss_threshold
         self.rsz_threshold = options.rsz_threshold
         self.vsz_threshold = options.vsz_threshold
+        self.start = options.start
+        self.end = options.end
+        self.read_count = 0
         if options.nomp:
             logging.info('Disabling multiprocessing')
             self.parse = self.parse_simple
@@ -115,6 +118,8 @@ class WikiParser():
         
         
     def articles(self, f):
+        if self.start > 0:
+            logging.info('Skipping to article %d', self.start)        
         for event, element in etree.iterparse(f):
             if element.tag == NS+'sitename':                
                 self.consumer.add_metadata('title', element.text)
@@ -127,6 +132,17 @@ class WikiParser():
                     self.consumer.add_metadata("article_language", m.group(1))
                                     
             elif element.tag == NS+'page':
+
+                self.read_count += 1
+
+                logging.info('read count: %s, end: %s', self.read_count, self.end)
+
+                if self.read_count <= self.start:
+                    continue
+                
+                if self.end and self.read_count > self.end:
+                    logging.info('Reached article %d, stopping.', self.end)
+                    break
                 
                 for child in element.iter(NS+'text'):
                     text = child.text

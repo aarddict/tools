@@ -136,7 +136,22 @@ def make_opt_parser():
         '--work-dir',
         default='.',
         help='Directory for temporary file created during compilatiod. Default: %default'
+        )
+
+    parser.add_option(
+        '--start',
+        default=0,
+        type='int',
+        help='Starting article, skip all articles before. Default: %default'
         )                        
+
+    parser.add_option(
+        '--end',
+        default=None,
+        type='int',
+        help='End article, stop processing at this article. Default: %default'
+        )                        
+    
     return parser
 
 def utf8(func):
