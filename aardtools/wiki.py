@@ -136,21 +136,27 @@ class WikiParser():
                 self.read_count += 1
 
                 if self.read_count <= self.start:
+                    element.clear()
+                    if self.read_count % 10000 == 0:
+                        logging.info('Skipped %d', self.read_count)
                     continue
                 
                 if self.end and self.read_count > self.end:
                     logging.info('Reached article %d, stopping.', self.end)
+                    element.clear()
                     break
                 
                 for child in element.iter(NS+'text'):
                     text = child.text
                 
                 if not text:
+                    element.clear()
                     continue
                 
                 for child in element.iter(NS+'title'):
                     title = child.text
-
+                    
+                element.clear()
 
                 if self.special_article_re.match(title):
                     self.skipped_count += 1
@@ -158,8 +164,6 @@ class WikiParser():
                                  title.encode('utf8'), self.skipped_count)
                     continue
                     
-                element.clear()
-
                 if text.lstrip().lower().startswith("#redirect"): 
                     m = self.redirect_re.search(text)
                     if m:
