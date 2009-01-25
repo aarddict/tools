@@ -562,7 +562,7 @@ def main():
         opt_parser.print_help()
         raise SystemExit()    
     
-    if len(args) != 2:
+    if len(args) < 2:
         log.error('Not enough parameters') 
         opt_parser.print_help()
         raise SystemExit()
@@ -581,11 +581,21 @@ def main():
         log.setLevel(logging.INFO)
                     
     input_type = args[0]
-    input_file = args[1]
-    
-    if not input_file == '-' and not os.path.isfile(input_file):
-        log.error('No such file: %s', input_file)
+    input_files = args[1:]
+
+    if not input_files:
+        log.error('No input files specified') 
+        raise SystemExit()        
+
+    if '-' in input_files and len(input_files) != 1:
+        log.error('stdin is specified as input file, but other files \
+are specified too (%s), can''t proceed', input_files)
         raise SystemExit()
+
+    for input_file in input_files:
+        if not input_file == '-' and not os.path.isfile(input_file):
+            log.error('No such file: %s', input_file)
+            raise SystemExit()
 
     if input_type == 'wiki':
         if not options.templates:
@@ -596,7 +606,7 @@ def main():
             log.error("No such directory: %s", options.templates)
             raise SystemExit()
     
-    output_file_name = make_output_file_name(input_file, options)    
+    output_file_name = make_output_file_name(input_files[0], options)    
     max_volume_size = max_file_size(options)    
     log.info('Maximum file size is %d bytes', max_volume_size)
     if max_volume_size > MAX_FAT32_FILE_SIZE:
@@ -627,7 +637,9 @@ def main():
     make_input, collect_articles = known_types[input_type]
     import time    
     t0 = time.time()
-    collect_articles(make_input(input_file), options, compiler)
+    for input_file in input_files:
+        log.info('Collecting articles in %s', input_file)
+        collect_articles(make_input(input_file), options, compiler)        
     compiler.compile()
     logging.info('Compilation took %.1f s', (time.time() - t0))    
     
