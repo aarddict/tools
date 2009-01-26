@@ -226,7 +226,7 @@ class WikiParser():
                     title, serialized = result
                     self.consumer.add_article(title, serialized)
                     self.article_count += 1
-                    if self.article_count % self.mem_check_freq == 0:                
+                    if (self.mem_check_freq != 0) and ((self.article_count % self.mem_check_freq) == 0):                
                         processes = mem_check(rss_threshold=self.rss_threshold,
                                               rsz_threshold=self.rsz_threshold,
                                               vsz_threshold=self.vsz_threshold)
