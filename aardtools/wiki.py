@@ -28,6 +28,7 @@ import mwaardwriter
 tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
 
 NS = '{http://www.mediawiki.org/xml/export-0.3/}'
+XMLNS = '{http://www.w3.org/XML/1998/namespace}'
 
 import multiprocessing
 from multiprocessing import Pool, TimeoutError
@@ -36,12 +37,13 @@ from mwlib.cdbwiki import WikiDB
 import mem
 
 def convert(data):
-    title, text, templatesdir = data
+    title, text, templatesdir, lang = data
     templatedb = WikiDB(templatesdir) if templatesdir else None
     try:
         mwobject = uparser.parseString(title=title, 
                                        raw=text, 
-                                       wikidb=templatedb)
+                                       wikidb=templatedb,
+                                       lang=lang)        
         xhtmlwriter.preprocess(mwobject)
         text, tags = mwaardwriter.convert(mwobject)
     except RuntimeError:
@@ -94,8 +96,8 @@ class WikiParser():
         self.templatedir = options.templates
         self.mem_check_freq = options.mem_check_freq
         self.consumer = consumer
-        self.redirect_re = re.compile(r'\[\[(.*?)\]\]')
-        self.special_article_re = re.compile(r'^\w+:\S')
+        self.redirect_re = re.compile(r'\[\[(.*?)\]\]', re.UNICODE)
+        self.special_article_re = re.compile(r'^\w+:\S', re.UNICODE)
         self.article_count = 0
         self.skipped_count = 0
         self.processes = options.processes if options.processes else None 
@@ -110,26 +112,39 @@ class WikiParser():
         self.start = options.start
         self.end = options.end
         self.read_count = 0
+        self.lang = None
         if options.nomp:
             logging.info('Disabling multiprocessing')
             self.parse = self.parse_simple
         else:
             self.parse = self.parse_mp
         
+    def _set_lang(self, lang):
+        self.lang = lang
+        self.consumer.add_metadata("index_language", lang)
+        self.consumer.add_metadata("article_language", lang)
+        logging.info('Language: %s', self.lang)        
         
     def articles(self, f):
         if self.start > 0:
             logging.info('Skipping to article %d', self.start)        
-        for event, element in etree.iterparse(f):
+        for event, element in etree.iterparse(f, events=("start", "end")):
+            if event == "start":
+                if element.tag == NS+'mediawiki':
+                    lang_attr = XMLNS+'lang'
+                    if lang_attr in element.attrib:
+                        self._set_lang(element.attrib[lang_attr])
+                else:
+                    continue
+            
             if element.tag == NS+'sitename':                
                 self.consumer.add_metadata('title', element.text)
                 element.clear()
                 
-            elif element.tag == NS+'base':
+            elif not self.lang and element.tag == NS+'base':
                 m = re.compile(r"http://(.*?)\.wik").match(element.text)
                 if m:
-                    self.consumer.add_metadata("index_language", m.group(1))
-                    self.consumer.add_metadata("article_language", m.group(1))
+                    self._set_lang(m.group(1))
                                     
             elif element.tag == NS+'page':
 
@@ -173,7 +188,7 @@ class WikiParser():
                         self.consumer.add_article(title, tojson(('', [], meta)))
                     continue
                 logging.debug('Yielding "%s" for processing', title.encode('utf8'))                
-                yield title, text, self.templatedir
+                yield title, text, self.templatedir, self.lang
 
     def reset_pool(self):
         if self.pool:
