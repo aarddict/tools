@@ -16,7 +16,8 @@ import functools
 import re
 import logging
 
-from lxml import etree
+#from lxml import etree
+from xml.etree import cElementTree as etree
 import simplejson
 
 from mwlib import uparser, xhtmlwriter
@@ -127,68 +128,71 @@ class WikiParser():
         
     def articles(self, f):
         if self.start > 0:
-            logging.info('Skipping to article %d', self.start)        
-        for event, element in etree.iterparse(f, events=("start", "end")):
-            if event == "start":
-                if element.tag == NS+'mediawiki':
-                    lang_attr = XMLNS+'lang'
-                    if lang_attr in element.attrib:
-                        self._set_lang(element.attrib[lang_attr])
-                else:
-                    continue
-            
-            if element.tag == NS+'sitename':                
-                self.consumer.add_metadata('title', element.text)
-                element.clear()
-                
-            elif not self.lang and element.tag == NS+'base':
-                m = re.compile(r"http://(.*?)\.wik").match(element.text)
-                if m:
-                    self._set_lang(m.group(1))
-                                    
-            elif element.tag == NS+'page':
+            logging.info('Skipping to article %d', self.start)
 
-                self.read_count += 1
+        #context = etree.iterparse(f, events=("start", "end"), remove_blank_text=True, remove_comments=True, remove_pis=True)
+        context = etree.iterparse(f, events=("start", "end"))
+        context = iter(context)
 
-                if self.read_count <= self.start:
-                    element.clear()
-                    if self.read_count % 10000 == 0:
-                        logging.info('Skipped %d', self.read_count)
-                    continue
-                
-                if self.end and self.read_count > self.end:
-                    logging.info('Reached article %d, stopping.', self.end)
-                    element.clear()
-                    break
-                
-                for child in element.iter(NS+'text'):
-                    text = child.text
-                
-                if not text:
-                    element.clear()
-                    continue
-                
-                for child in element.iter(NS+'title'):
-                    title = child.text
-                    
-                element.clear()
+        event, root = context.next()
+        
+        lang_attr = XMLNS+'lang'
+        if lang_attr in root.attrib:
+            self._set_lang(root.attrib[lang_attr])
 
-                if self.special_article_re.match(title):
-                    self.skipped_count += 1
-                    logging.info('Special article %s, skipping (%d so far)',
-                                 title.encode('utf8'), self.skipped_count)
-                    continue
-                    
-                if text.lstrip().lower().startswith("#redirect"): 
-                    m = self.redirect_re.search(text)
+        for event, element in context:
+            if event == 'end':
+                if element.tag == NS+'sitename':                
+                    self.consumer.add_metadata('title', element.text)
+                elif element.tag == NS+'siteinfo':
+                    root.clear()
+                elif not self.lang and element.tag == NS+'base':
+                    m = re.compile(r"http://(.*?)\.wik").match(element.text)
                     if m:
-                        redirect = m.group(1)
-                        redirect = redirect.replace("_", " ")
-                        meta = {u'redirect': redirect}
-                        self.consumer.add_article(title, tojson(('', [], meta)))
-                    continue
-                logging.debug('Yielding "%s" for processing', title.encode('utf8'))                
-                yield title, text, self.templatedir, self.lang
+                        self._set_lang(m.group(1))
+                elif element.tag == NS+'page':
+
+                    self.read_count += 1
+
+                    if self.read_count <= self.start:
+                        root.clear()
+                        if self.read_count % 10000 == 0:
+                            logging.info('Skipped %d', self.read_count)
+                        continue
+
+                    if self.end and self.read_count > self.end:
+                        logging.info('Reached article %d, stopping.', self.end)
+                        root.clear()
+                        break
+
+                    for child in element.getiterator(NS+'text'):
+                        text = child.text
+
+                    if not text:
+                        root.clear()
+                        continue
+
+                    for child in element.getiterator(NS+'title'):
+                        title = child.text
+
+                    root.clear()
+
+                    if self.special_article_re.match(title):
+                        self.skipped_count += 1
+                        logging.info('Special article %s, skipping (%d so far)',
+                                     title.encode('utf8'), self.skipped_count)
+                        continue
+
+                    if text.lstrip().lower().startswith("#redirect"): 
+                        m = self.redirect_re.search(text)
+                        if m:
+                            redirect = m.group(1)
+                            redirect = redirect.replace("_", " ")
+                            meta = {u'redirect': redirect}
+                            self.consumer.add_article(title, tojson(('', [], meta)))
+                        continue
+                    logging.debug('Yielding "%s" for processing', title.encode('utf8'))                
+                    yield title, text, self.templatedir, self.lang
 
     def reset_pool(self):
         if self.pool:
