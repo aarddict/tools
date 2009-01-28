@@ -95,7 +95,7 @@ def make_opt_parser():
         '--mem-check-freq',
         type='int',
         default=1000,
-        help='Check memory usage every N articles. Default: %defaults'
+        help='Check memory usage every N articles. Set to 0 (zero) to disable. Default: %defaults'
         )    
     parser.add_option(
         '--rss-threshold',
