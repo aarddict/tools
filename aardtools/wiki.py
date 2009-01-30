@@ -216,7 +216,7 @@ class WikiParser():
             except RuntimeError:
                 self.log_runtime_error()
                 
-        self.consumer.add_metadata("self.article_count", self.article_count)
+        self.consumer.add_metadata("article_count", self.article_count)
         
     def parse_mp(self, f):
         try:
