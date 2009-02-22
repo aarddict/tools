@@ -76,7 +76,7 @@ def make_opt_parser():
     parser.add_option(
         '--timeout',
         type='float',
-        default=2.0,
+        default=10.0,
         help='Skip article if it was not process in the amount of time specified. Default: %defaults'
         )
     parser.add_option(
@@ -95,7 +95,7 @@ def make_opt_parser():
         '--mem-check-freq',
         type='int',
         default=0,
-        help='Check memory usage every N articles. Set to 0 (zero) to disable. Default: %defaults'
+        help='Check memory usage every N articles. Set to 0 (zero) to disable. Default: %defsaults'
         )    
     parser.add_option(
         '--rss-threshold',
