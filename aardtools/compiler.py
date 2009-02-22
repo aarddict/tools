@@ -449,15 +449,32 @@ class Compiler(object):
                 log.info('Renaming %s ==> %s', file_name, newname)
                 os.rename(file_name, newname)            
                                     
-        
+import zlib
+import bz2
+
+def _zlib(s):                                         
+    return zlib.compress(s)
+
+def _bz2(s):                             
+    return bz2.compress(s)
+
+from collections import defaultdict
+compress_counts = defaultdict(int)
+                                         
 def compress(text):
     compressed = text
-    for compress in compression:
-        c = compress(text)
+    cfunc = None
+    for func in (_zlib, _bz2):
+        c = func(text)
         if len(c) < len(compressed):
             compressed = c
-    return compressed            
-
+            cfunc = func
+    if cfunc:
+        compress_counts[cfunc.__name__] += 1
+    else:
+        compress_counts['none'] += 1    
+    return compressed
+        
 root_locale = Locale('root')
 collator4 =  Collator.createInstance(root_locale)
 collator4.setStrength(Collator.QUATERNARY)
@@ -640,7 +657,10 @@ are specified too (%s), can''t proceed', input_files)
     for input_file in input_files:
         log.info('Collecting articles in %s', input_file)
         collect_articles(make_input(input_file), options, compiler)        
-    compiler.compile()
+    compiler.compile()            
+    log.info('Compression: %s',
+             ', '.join('%s - %d' % item
+                      for item in compress_counts.iteritems()))
     logging.info('Compilation took %.1f s', (time.time() - t0))    
     
 
