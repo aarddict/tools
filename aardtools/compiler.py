@@ -94,7 +94,7 @@ def make_opt_parser():
     parser.add_option(
         '--mem-check-freq',
         type='int',
-        default=1000,
+        default=0,
         help='Check memory usage every N articles. Set to 0 (zero) to disable. Default: %defaults'
         )    
     parser.add_option(
