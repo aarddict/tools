@@ -1,3 +1,4 @@
+#coding: utf8
 # This file is part of Aard Dictionary Tools <http://aarddict.org>.
 #
 # This program is free software: you can redistribute it and/or modify
@@ -274,11 +275,16 @@ class MWAardWriter(object):
         if current_table:
             txt = u' '
             tabletext, tags, tabs = self.maketable(current_table, tabletext, tags)
-            tags = [maketag('tbl', txt, {u'text': tabletext, 
-                                         u'tags': tags,
-                                         u'tabs': tabs,
-                                         })]
-            return txt, tags
+            if not tabs:
+                tags.append(maketag('blockquote', tabletext))
+                tabletext += u'\n'
+                return tabletext, tags
+            else:
+                tags = [maketag('tbl', txt, {u'text': tabletext, 
+                                             u'tags': tags,
+                                             u'tabs': tabs,
+                                             })]
+                return txt, tags
         else:
             caption = obj.caption if obj.caption else u'' 
             logging.warn('Table %s has no data, skipping', 
@@ -362,18 +368,29 @@ class MWAardWriter(object):
 
         data = newdata2
 
+        one_nonempty_col = True
+        for row in data:
+            nonempty_cols = [cell for cell in row 
+                             if len(cell.text.strip(' “”"'.decode('utf8'))) > 0]
+            if len(nonempty_cols) > 1:
+                one_nonempty_col = False
+                break                                              
+
+        logging.debug('One empty col?: %s', one_nonempty_col)
+
         text = tabletext
         tags = [] if tabletags is None else tabletags
-        for i, row in enumerate(data):
+        for row in data:
             start = len(text)
             for cell in row:
                 offset = len(text)
                 text += cell.text
                 tags += [self.apply_offset(tag, offset) for tag in cell.tags]
-                text += u'\t'
+                text += u'\t' if not one_nonempty_col else u''
             text += u'\n'
             end = len(text)
-            tags.append((u'row', start, end))
+            if not one_nonempty_col:
+                tags.append((u'row', start, end))
                  
         globaltabs = [0 for i in range(tabcount)]
 
@@ -410,18 +427,21 @@ class MWAardWriter(object):
         for i, rawtab in enumerate(globaltabs):
             runningsum += rawtab
             globaltabs[i] = runningsum
-                
-        tabs = {'': globaltabs}
-        
-        for i, row in enumerate(data):
-            if any([cell.colspan > 1 for cell in row]):                
-                rowtabs = []
-                tabs[i] = rowtabs
-                j=0                 
-                for cell in row:
-                    pos = globaltabs[j+cell.colspan - 1]
-                    rowtabs.append(pos)
-                    j += cell.colspan
+              
+        if one_nonempty_col:
+            tabs = {}
+        else:            
+            tabs = {'': globaltabs}
+            
+            for i, row in enumerate(data):
+                if any([cell.colspan > 1 for cell in row]):                
+                    rowtabs = []
+                    tabs[i] = rowtabs
+                    j=0                 
+                    for cell in row:
+                        pos = globaltabs[j+cell.colspan - 1]
+                        rowtabs.append(pos)
+                        j += cell.colspan
                 
         return text, tags, tabs
         
