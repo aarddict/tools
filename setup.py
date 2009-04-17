@@ -3,7 +3,7 @@ import sys, os
 
 setup(
     name = "aardtools",
-    version = '0.7.1.dev',
+    version = '0.7.1',
     packages = find_packages(),
     entry_points = {
         'console_scripts': ['aardcompile = aardtools.compiler:main',
