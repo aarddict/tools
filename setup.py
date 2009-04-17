@@ -18,7 +18,7 @@ setup(
                          'multiprocessing'],
 
     author = "Igor Tkach",
-    author_email = "itkach@gmail.com",
+    author_email = "itkach@aarddict.org",
     description =  '''Tools to create dictionaries in aarddict format.''',
     license = "GPL 3",
     keywords = ['aarddict', 'aardtools', 'dict', 'dictionary', 'maemo'],
