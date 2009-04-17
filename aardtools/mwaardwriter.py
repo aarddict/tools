@@ -152,6 +152,11 @@ class MWAardWriter(object):
             tags.append(maketag(u'tt', txt))            
         return txt, tags           
 
+    def _Teletyped(self, obj):
+        txt, tags = self.process_children(obj)
+        tags.append(maketag(u'tt', txt))
+        return txt, tags
+        
     def _TagNode(self, obj):
         txt, tags = self.process_children(obj)
         tagname = obj.caption
