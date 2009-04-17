@@ -125,6 +125,18 @@ class MWAardWriter(object):
             txt = obj.target
         tags.append(maketag(u'a', txt, {u'href':obj.target}))
         return txt, tags
+
+    def _NamespaceLink(self, obj):
+        txt, tags = self.process_children(obj)
+        target = obj.target
+        if target and ':' in target:
+            target = target[target.index(':')+1:]
+        if not txt:
+            txt = obj.caption
+        if not txt:
+            txt = target
+        tags.append(maketag(u'a', txt, {u'href': target}))
+        return txt, tags
     
     _InterwikiLink = _ArticleLink
     
