@@ -150,7 +150,7 @@ class MWAardWriter(object):
             tags.append(maketag(u'b', txt))
         elif obj.caption == ";":
             tags.append(maketag(u'tt', txt))            
-        return tags           
+        return txt, tags           
 
     def _TagNode(self, obj):
         txt, tags = self.process_children(obj)
