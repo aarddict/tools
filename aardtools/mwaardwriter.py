@@ -190,6 +190,7 @@ class MWAardWriter(object):
     _Sub = _Generic
     _Sup = _Generic
     _Font = _Generic
+    _DefinitionDescription = _Generic
     _Div = newline(_Generic)
     
     def add_ref(self, obj):
