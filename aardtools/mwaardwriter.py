@@ -190,7 +190,7 @@ class MWAardWriter(object):
         
     def _Generic(self, obj):
         txt, tags = self.process_children(obj)
-        tagname = obj._tag if hasattr(obj, '_tag') else obj.caption
+        tagname = obj._tag
         tags.append(maketag(tagname, txt, obj.attributes))
         return txt, tags    
     
