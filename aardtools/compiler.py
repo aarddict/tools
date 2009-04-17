@@ -30,7 +30,7 @@ from PyICU import Locale, Collator
 import simplejson
 
 from sortexternal import SortExternal
-from aarddict.dictionary import HEADER_SPEC, spec_len, compression, calcsha1
+from aarddict.dictionary import HEADER_SPEC, spec_len, calcsha1
 
 logging.basicConfig(format='%(levelname)s: %(message)s')
 log = logging.getLogger()
