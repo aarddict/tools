@@ -181,6 +181,10 @@ class MWAardWriter(object):
         if tagname:
             tags.append(maketag(tagname, txt, obj.attributes))
         return txt, tags        
+
+    def _Math(self, obj):
+        txt, tags = self.process_children(obj)
+        return obj.caption + txt, tags        
     
     def _ImageLink(self, obj):
         return '', []
