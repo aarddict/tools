@@ -121,10 +121,12 @@ class MWAardWriter(object):
         txt, tags = self.process_children(obj)
         if not txt:
             txt = obj.caption
+        if not txt:
+            txt = obj.target
         tags.append(maketag(u'a', txt, {u'href':obj.target}))
         return txt, tags
     
-    _InterwikiLink = _ArticleLink       
+    _InterwikiLink = _ArticleLink
     
     def _NamedURL(self, obj):
         txt, tags = self.process_children(obj)
@@ -148,7 +150,7 @@ class MWAardWriter(object):
             tags.append(maketag(u'b', txt))
         elif obj.caption == ";":
             tags.append(maketag(u'tt', txt))            
-        return tags                
+        return tags           
 
     def _TagNode(self, obj):
         txt, tags = self.process_children(obj)
@@ -175,8 +177,14 @@ class MWAardWriter(object):
         tags.append(maketag(tagname, txt, obj.attributes))
         return txt, tags    
     
-    _Emphasized = _Strong = _Small = _Big = _Cite = _Sub = _Sup = _Generic
-    
+    _Emphasized = _Generic
+    _Strong = _Generic
+    _Small = _Generic
+    _Big = _Generic
+    _Cite = _Generic
+    _Sub = _Generic
+    _Sup = _Generic
+    _Font = _Generic
     _Div = newline(_Generic)
     
     def add_ref(self, obj):
