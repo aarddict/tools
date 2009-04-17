@@ -21,7 +21,8 @@ setup(
     author_email = "itkach@aarddict.org",
     description =  '''Tools to create dictionaries in aarddict format.''',
     license = "GPL 3",
-    keywords = ['aarddict', 'aardtools', 'dict', 'dictionary', 'maemo'],
+    keywords = ['aarddict', 'aardtools', 'wiki', 'wikipedia',
+                'xdxf', 'dict', 'dictionary', 'maemo'],
     url = "http://aarddict.org",  
     classifiers=[
                  'Development Status :: 3 - Alpha',
