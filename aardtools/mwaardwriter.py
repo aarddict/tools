@@ -170,10 +170,10 @@ class MWAardWriter(object):
     
     def _BreakingReturn(self, obj):
         return u'\n', []
-    
+        
     def _Generic(self, obj):
         txt, tags = self.process_children(obj)
-        tagname = obj._tag
+        tagname = obj._tag if hasattr(obj, '_tag') else obj.caption
         tags.append(maketag(tagname, txt, obj.attributes))
         return txt, tags    
     
