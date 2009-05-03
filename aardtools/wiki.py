@@ -179,7 +179,7 @@ class WikiParser():
 
                     if self.special_article_re.match(title):
                         self.skipped_count += 1
-                        logging.info('Special article %s, skipping (%d so far)',
+                        logging.debug('Special article %s, skipping (%d so far)',
                                      title.encode('utf8'), self.skipped_count)
                         continue
 
