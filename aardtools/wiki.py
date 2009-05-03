@@ -50,6 +50,8 @@ def convert(data):
     except RuntimeError:
         multiprocessing.get_logger().exception('Failed to process article %s', title)
         raise
+    finally:
+        templatedb.reader.fp.close()
     return title, tojson((text.rstrip(), tags))
 
 def mem_check(rss_threshold=0, rsz_threshold=0, vsz_threshold=0):
