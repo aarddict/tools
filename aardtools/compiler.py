@@ -532,20 +532,58 @@ known_types = {'wiki': (make_wiki_input, compile_wiki),
                'xdxf': (make_xdxf_input, compile_xdxf),
                'aard': (make_aard_input, compile_aard)}
 
-def make_output_file_name(input_file, options):    
+def make_output_file_name(input_file, options):
+    """
+    Return output file name based on input file name.
+
+    >>> from minimock import Mock
+    >>> opts = Mock('options')
+    >>> opts.output_file = 'abc'
+    >>> make_output_file_name('123.tar.bz2', opts)
+    'abc'
+    
+    >>> opts.output_file = None
+    >>> make_output_file_name('123.tar.bz2', opts)
+    '123.aar'
+    
+    >>> make_output_file_name('-', opts)
+    'dictionary.aar'
+    
+    """    
     if options.output_file:
         output_file = options.output_file
     elif input_file == '-':
         output_file = 'dictionary.aar'
     else:
-        output_file = os.path.basename(input_file)
-        output_file = output_file[:output_file.rfind('.')]
-        if (output_file.endswith('.tar') or 
-            output_file.endswith('.xml') or
-            output_file.endswith('.xdxf')):
-            output_file = output_file[:output_file.rfind('.')]
+        output_file = strip_ext(input_file)
         output_file += '.aar'
-    return output_file 
+    return output_file
+
+def strip_ext(fname):
+    """
+    Return file name with one or two extension stripped
+    (depending on extension).
+
+    >>> strip_ext('abc.def.txt')
+    'abc.def'
+    >>> strip_ext('abc.def.tar.bz2')
+    'abc.def'
+    >>> strip_ext('abc.def.tar.gz')
+    'abc.def'
+    >>> strip_ext('abc.def.xml.bz2')
+    'abc.def'
+    >>> strip_ext('abc.def.xdxf')
+    'abc.def'
+    
+    """
+    output_file = os.path.basename(fname)
+    output_file = output_file[:output_file.rfind('.')]
+    if (output_file.endswith('.tar') or 
+        output_file.endswith('.xml') or
+        output_file.endswith('.xdxf')):
+        output_file = output_file[:output_file.rfind('.')]
+    return output_file
+    
 
 def max_file_size(options):
     s = options.max_file_size
@@ -616,12 +654,23 @@ are specified too (%s), can''t proceed', input_files)
 
     if input_type == 'wiki':
         if not options.templates:
-            msg = ('Wikipedia templates database directory is not specified, templates will not be processed.',
-                   'Generate with mw-buildcdb, specify using -t option.')
-            log.warn('\n'.join(msg))    
+            cdb_dir = os.path.extsep.join((strip_ext(input_files[0]),
+                                           'cdb'))
+            if os.path.isdir(cdb_dir):
+                options.templates = cdb_dir
         elif not os.path.isdir(options.templates):
             log.error("No such directory: %s", options.templates)
             raise SystemExit()
+        if not options.templates:
+            log.warn('\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
+                     'Wikipedia templates database directory is not specified, '
+                     'templates will not be processed.\n'
+                     'Generate with mw-buildcdb, specify using -t option.\n'
+                     '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
+                     )
+        else:
+            log.info('Using cdb in %s', options.templates)
+        
     
     output_file_name = make_output_file_name(input_files[0], options)    
     max_volume_size = max_file_size(options)    
