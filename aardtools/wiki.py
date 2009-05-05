@@ -34,6 +34,7 @@ XMLNS = '{http://www.w3.org/XML/1998/namespace}'
 import multiprocessing
 from multiprocessing import Pool, TimeoutError
 from mwlib.cdbwiki import WikiDB
+from mwlib._version import version as mwlib_version
 
 import mem
 
@@ -100,6 +101,8 @@ class WikiParser():
         self.templatedir = options.templates
         self.mem_check_freq = options.mem_check_freq
         self.consumer = consumer
+        self.consumer.add_metadata('mwlib',
+                                   '.'.join(str(v) for v in mwlib_version))
         self.redirect_re = re.compile(r'\[\[(.*?)\]\]', re.UNICODE)
         self.special_article_re = re.compile(r'^\w+:\S', re.UNICODE)
         self.article_count = 0
