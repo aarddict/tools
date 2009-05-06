@@ -687,9 +687,14 @@ def main():
         if not options.templates:
             cdb_dir = os.path.extsep.join((strip_ext(input_files[0]),
                                            'cdb'))
-            print cdb_dir
             if os.path.isdir(cdb_dir):
                 options.templates = cdb_dir
+            else:
+                cdb_dir = os.path.join(os.path.dirname(input_files[0]),
+                                       cdb_dir)
+                if os.path.isdir(cdb_dir):
+                    options.templates = cdb_dir
+
         elif not os.path.isdir(options.templates):
             log.error("No such directory: %s", options.templates)
             raise SystemExit()
