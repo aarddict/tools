@@ -43,10 +43,14 @@ class Cell(object):
         self.tags = [] if tags is None else tags
 
     def __str__(self):
-        return 'Cell("""%s""", %s, %s, %s)' % (self.text.encode('utf8'), self.tags, self.colspan, self.rowspan)
+        return 'Cell("""%s""", %s, %s, %s)' % (self.text.encode('utf8'),
+                                               self.tags, self.colspan,
+                                               self.rowspan)
 
     def __repr__(self):
-        return 'Cell("""%s""", %s, %s, %s)' % (self.text.encode('utf8'), self.tags, self.colspan, self.rowspan)
+        return 'Cell("""%s""", %s, %s, %s)' % (self.text.encode('utf8'),
+                                               self.tags, self.colspan,
+                                               self.rowspan)
     
 
 class Row(list):
@@ -380,7 +384,9 @@ class MWAardWriter(object):
                                 newstart = start - prevcutpoint
                                 newtag = list(tag)
                                 newtag[1] = newstart
-                                newtag[2] = cutpoint - 1 if end > cutpoint else end - prevcutpoint
+                                newtag[2] = (cutpoint - 1
+                                             if end > cutpoint
+                                             else end - prevcutpoint)
                                 linetags[c].append(newtag)                                                
                                 if end > cutpoint:
                                     start = cutpoint                                    
@@ -390,7 +396,8 @@ class MWAardWriter(object):
                     
                     for j, line in enumerate(lines):
                         rowspan = 1 if j < count - 1 else cell.rowspan
-                        newcell = Cell(line,  linetags[j], cell.colspan, cell.rowspan)
+                        newcell = Cell(line,  linetags[j],
+                                       cell.colspan, cell.rowspan)
                         newrows[j].append(newcell)                                        
                 newdata2 += newrows
             else:
@@ -440,12 +447,15 @@ class MWAardWriter(object):
                             for k in range(colspan - 1):
                                 contrib -= globaltabs[n-k-1]
                             return contrib
-                        l = functools.partial(lencontrib, cell.text, cell.colspan)
+                        l = functools.partial(lencontrib,
+                                              cell.text,
+                                              cell.colspan)
                     else:
                         l = zero                    
                     rowentry.append(l)
             if len(rowentry) < tabcount:
-                logging.warn('Bad table, expected %d total column span, got only %d', tabcount, len(rowentry))
+                logging.warn('Bad table, expected %d total column '
+                             'span, got only %d', tabcount, len(rowentry))
                 while len(rowentry) < tabcount:
                     rowentry.append(zero)                                                                            
 

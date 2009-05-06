@@ -2,7 +2,7 @@
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License version 3
-# as published by the Free Software Foundation. 
+# as published by the Free Software Foundation.
 #
 # This program is distributed in the hope that it will be useful,
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -12,7 +12,7 @@
 #
 # Copyright (C) 2008-2009  Igor Tkach
 
-import functools 
+import functools
 import re
 import logging
 
@@ -42,10 +42,10 @@ def convert(data):
     title, text, templatesdir, lang = data
     templatedb = WikiDB(templatesdir) if templatesdir else None
     try:
-        mwobject = uparser.parseString(title=title, 
-                                       raw=text, 
+        mwobject = uparser.parseString(title=title,
+                                       raw=text,
                                        wikidb=templatedb,
-                                       lang=lang)        
+                                       lang=lang)
         xhtmlwriter.preprocess(mwobject)
         text, tags = mwaardwriter.convert(mwobject)
     except RuntimeError:
@@ -58,12 +58,14 @@ def convert(data):
 
 def mem_check(rss_threshold=0, rsz_threshold=0, vsz_threshold=0):
     """
-    Check memory usage for active child processes and return list of processes
-    that exceed specified memory usage threshold (in megabytes). Threshold considered not set
-    if it's value is 0 (which is default for all thresholds)
+    Check memory usage for active child processes and return list of
+    processes that exceed specified memory usage threshold (in
+    megabytes).  Threshold considered not set if it's value is 0
+    (which is default for all thresholds)
     """
     active = multiprocessing.active_children()
-    logging.info('Checking memory usage (%d child processes), thresholds: rss %.1fM rsz %.1fM vsz %.1fM',
+    logging.info('Checking memory usage (%d child processes), '
+                 'thresholds: rss %.1fM rsz %.1fM vsz %.1fM',
                  len(active), rss_threshold, rsz_threshold, vsz_threshold)
     processes = []
     for process in active:
@@ -75,28 +77,28 @@ def mem_check(rss_threshold=0, rsz_threshold=0, vsz_threshold=0):
             rss = mem.rss(pid) / 1024.0
             if rss_threshold <= rss:
                 logging.warn('Process %d exceeded rss memory limit of %.1fM',
-                             pid, rss_threshold)                
+                             pid, rss_threshold)
                 processes.append(process)
 
         if 0 < rsz_threshold:
             rsz = mem.rsz(pid) / 1024.0
             if rsz_threshold <= rsz:
                 logging.warn('Process %d exceeded rsz memory limit of %.1fM',
-                             pid, rsz_threshold)                                
+                             pid, rsz_threshold)
                 processes.append(process)
 
         if 0 < vsz_threshold:
             vsz = mem.vsz(pid) / 1024.0
             if vsz_threshold <= vsz:
                 logging.warn('Process %d exceeded vsz memory limit of %.1fM',
-                             pid, vsz_threshold)                                
+                             pid, vsz_threshold)
                 processes.append(process)
-                
+
         logging.info('Pid %d: rss %.1fM rsz %.1fM vsz %.1fM', pid, rss, rsz, vsz)
     return processes
 
 class WikiParser():
-    
+
     def __init__(self, options, consumer):
         self.templatedir = options.templates
         self.mem_check_freq = options.mem_check_freq
@@ -107,10 +109,10 @@ class WikiParser():
         self.special_article_re = re.compile(r'^\w+:\S', re.UNICODE)
         self.article_count = 0
         self.skipped_count = 0
-        self.processes = options.processes if options.processes else None 
+        self.processes = options.processes if options.processes else None
         self.pool = None
         self.active_processes = multiprocessing.active_children()
-        self.timeout = options.timeout         
+        self.timeout = options.timeout
         self.timedout_count = 0
         self.error_count = 0
         self.rss_threshold = options.rss_threshold
@@ -125,30 +127,29 @@ class WikiParser():
             self.parse = self.parse_simple
         else:
             self.parse = self.parse_mp
-        
+
     def _set_lang(self, lang):
         self.lang = lang
         self.consumer.add_metadata("index_language", lang)
         self.consumer.add_metadata("article_language", lang)
-        logging.info('Language: %s', self.lang)        
-        
+        logging.info('Language: %s', self.lang)
+
     def articles(self, f):
         if self.start > 0:
             logging.info('Skipping to article %d', self.start)
 
-        #context = etree.iterparse(f, events=("start", "end"), remove_blank_text=True, remove_comments=True, remove_pis=True)
         context = etree.iterparse(f, events=("start", "end"))
         context = iter(context)
 
         event, root = context.next()
-        
+
         lang_attr = XMLNS+'lang'
         if lang_attr in root.attrib:
             self._set_lang(root.attrib[lang_attr])
 
         for event, element in context:
             if event == 'end':
-                if element.tag == NS+'sitename':                
+                if element.tag == NS+'sitename':
                     self.consumer.add_metadata('title', element.text)
                 elif element.tag == NS+'siteinfo':
                     root.clear()
@@ -189,7 +190,7 @@ class WikiParser():
                                      title.encode('utf8'), self.skipped_count)
                         continue
 
-                    if text.lstrip().lower().startswith("#redirect"): 
+                    if text.lstrip().lower().startswith("#redirect"):
                         m = self.redirect_re.search(text)
                         if m:
                             redirect = m.group(1)
@@ -197,7 +198,7 @@ class WikiParser():
                             meta = {u'redirect': redirect}
                             self.consumer.add_article(title, tojson(('', [], meta)))
                         continue
-                    logging.debug('Yielding "%s" for processing', title.encode('utf8'))                
+                    logging.debug('Yielding "%s" for processing', title.encode('utf8'))
                     yield title, text, self.templatedir, self.lang
 
     def reset_pool(self):
@@ -222,9 +223,9 @@ class WikiParser():
                 self.article_count += 1
             except RuntimeError:
                 self.log_runtime_error()
-                
+
         self.consumer.add_metadata("article_count", self.article_count)
-        
+
     def parse_mp(self, f):
         try:
             self.consumer.add_metadata('article_format', 'json')
@@ -243,25 +244,28 @@ class WikiParser():
                                               rsz_threshold=self.rsz_threshold,
                                               vsz_threshold=self.vsz_threshold)
                         if processes:
-                            logging.warn('%d process(es) exceeded memory limit, resetting worker pool',
+                            logging.warn('%d process(es) exceeded memory limit, '
+                                         'resetting worker pool',
                                          len (processes))
                             self.reset_pool()
-                            resulti = self.pool.imap_unordered(convert, articles)
+                            resulti = self.pool.imap_unordered(convert,
+                                                               articles)
                 except StopIteration:
-                    break            
+                    break
                 except TimeoutError:
                     self.timedout_count += 1
-                    logging.error('Worker pool timed out (%d time(s) so far)', 
+                    logging.error('Worker pool timed out (%d time(s) so far)',
                                   self.timedout_count)
                     self.reset_pool()
                     resulti = self.pool.imap_unordered(convert, articles)
                 except RuntimeError:
                     self.log_runtime_error()
                 except KeyboardInterrupt:
-                    logging.error('Keyboard interrupt: terminating worker pool')
+                    logging.error('Keyboard interrupt: '
+                                  'terminating worker pool')
                     self.pool.terminate()
-                    raise                
-                    
+                    raise
+
             self.consumer.add_metadata("article_count", self.article_count)
         finally:
             self.pool.close()
