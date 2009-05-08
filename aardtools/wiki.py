@@ -38,22 +38,24 @@ from mwlib._version import version as mwlib_version
 
 import mem
 
+wikidb = None
+
+def create_wikidb(templatesdir):
+    global wikidb
+    wikidb = WikiDB(templatesdir) if templatesdir else None
+
 def convert(data):
-    title, text, templatesdir, lang = data
-    templatedb = WikiDB(templatesdir) if templatesdir else None
+    title, text, lang = data
     try:
         mwobject = uparser.parseString(title=title,
                                        raw=text,
-                                       wikidb=templatedb,
+                                       wikidb=wikidb,
                                        lang=lang)
         xhtmlwriter.preprocess(mwobject)
         text, tags = mwaardwriter.convert(mwobject)
     except RuntimeError:
         multiprocessing.get_logger().exception('Failed to process article %s', title)
         raise
-    finally:
-        if templatedb:
-            templatedb.reader.fp.close()
     return title, tojson((text.rstrip(), tags))
 
 def mem_check(rss_threshold=0, rsz_threshold=0, vsz_threshold=0):
@@ -124,6 +126,7 @@ class WikiParser():
         self.lang = None
         if options.nomp:
             logging.info('Disabling multiprocessing')
+            create_wikidb(self.templatedir)
             self.parse = self.parse_simple
         else:
             self.parse = self.parse_mp
@@ -199,14 +202,16 @@ class WikiParser():
                             self.consumer.add_article(title, tojson(('', [], meta)))
                         continue
                     logging.debug('Yielding "%s" for processing', title.encode('utf8'))
-                    yield title, text, self.templatedir, self.lang
+                    yield title, text, self.lang
 
     def reset_pool(self):
         if self.pool:
             logging.info('Terminating current worker pool')
             self.pool.terminate()
         logging.info('Creating new worker pool')
-        self.pool = Pool(processes=self.processes)
+        self.pool = Pool(processes=self.processes,
+                         initializer=create_wikidb,
+                         initargs=[self.templatedir])
 
     def log_runtime_error(self):
         self.error_count += 1
