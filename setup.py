@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name = "aardtools",
-    version = '0.7.2',
+    version = '0.7.3.dev',
     packages = find_packages(),
     entry_points = {
         'console_scripts': ['aardcompile = aardtools.compiler:main',
