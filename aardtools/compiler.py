@@ -515,6 +515,11 @@ def compile_wiki(input_file, options, compiler):
     p = wiki.WikiParser(options, compiler)
     p.parse(input_file)
 
+def compile_wikicdb(input_file, options, compiler):
+    import wikicdb
+    p = wikicdb.WikiParser(options, compiler)
+    p.parse(input_file)
+
 def compile_xdxf(input_file, options, compiler):
     import xdxf
     p = xdxf.XDXFParser(compiler)
@@ -524,6 +529,9 @@ def compile_aard(input_file, options, compiler):
     import aard
     p = aard.AardParser(compiler)
     p.parse(input_file)
+
+def make_wikicdb_input(input_file_name):
+    return input_file_name
 
 def make_wiki_input(input_file_name):
     if input_file_name == '-':
@@ -560,6 +568,7 @@ def make_aard_input(input_file_name):
     return open(input_file_name)
 
 known_types = {'wiki': (make_wiki_input, compile_wiki),
+               'wikicdb': (make_wikicdb_input, compile_wikicdb),
                'xdxf': (make_xdxf_input, compile_xdxf),
                'aard': (make_aard_input, compile_aard)}
 
@@ -679,7 +688,7 @@ def main():
         raise SystemExit()
 
     for input_file in input_files:
-        if not input_file == '-' and not os.path.isfile(input_file):
+        if not input_file == '-' and not os.path.exists(input_file):
             log.error('No such file: %s', input_file)
             raise SystemExit()
 
