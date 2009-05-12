@@ -16,8 +16,6 @@ import functools
 import re
 import logging
 
-#from lxml import etree
-from xml.etree import cElementTree as etree
 import simplejson
 
 from mwlib import uparser, xhtmlwriter
@@ -103,7 +101,6 @@ class WikiParser():
 
     def __init__(self, options, consumer):
         self.lang = 'en'
-        self.templatedir = options.templates
         self.mem_check_freq = options.mem_check_freq
         self.consumer = consumer
         self.consumer.add_metadata('mwlib',
@@ -127,7 +124,6 @@ class WikiParser():
         self.lang = None
         if options.nomp:
             logging.info('Disabling multiprocessing')
-            create_wikidb(self.templatedir)
             self.parse = self.parse_simple
         else:
             self.parse = self.parse_mp
@@ -179,21 +175,20 @@ class WikiParser():
             yield title, text, self.lang
 
 
-    def reset_pool(self):
+    def reset_pool(self, cdbdir):
         if self.pool:
             logging.info('Terminating current worker pool')
             self.pool.terminate()
-        logging.info('Creating new worker pool, wiki db %s', self.templatedir)
+        logging.info('Creating new worker pool with wiki cdb at %s', cdbdir)
         self.pool = Pool(processes=self.processes,
                          initializer=create_wikidb,
-                         initargs=[self.templatedir])
+                         initargs=[cdbdir])
 
     def log_runtime_error(self):
         self.error_count += 1
         logging.warn('Failed to process article (%d so far)', self.error_count)
 
     def parse_simple(self, f):
-        self.templatedir = f
         self.consumer.add_metadata('article_format', 'json')
         articles = self.articles(f)
         for a in articles:
@@ -209,10 +204,9 @@ class WikiParser():
 
     def parse_mp(self, f):
         try:
-            self.templatedir = f
             self.consumer.add_metadata('article_format', 'json')
             articles = self.articles(f)
-            self.reset_pool()
+            self.reset_pool(f)
             resulti = self.pool.imap_unordered(convert, articles)
             while True:
                 try:
@@ -229,7 +223,7 @@ class WikiParser():
                             logging.warn('%d process(es) exceeded memory limit, '
                                          'resetting worker pool',
                                          len (processes))
-                            self.reset_pool()
+                            self.reset_pool(f)
                             resulti = self.pool.imap_unordered(convert,
                                                                articles)
                 except StopIteration:
@@ -238,7 +232,7 @@ class WikiParser():
                     self.timedout_count += 1
                     logging.error('Worker pool timed out (%d time(s) so far)',
                                   self.timedout_count)
-                    self.reset_pool()
+                    self.reset_pool(f)
                     resulti = self.pool.imap_unordered(convert, articles)
                 except AssertionError:
                     self.log_runtime_error()
