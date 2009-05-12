@@ -31,11 +31,12 @@ XMLNS = '{http://www.w3.org/XML/1998/namespace}'
 
 import multiprocessing
 from multiprocessing import Pool, TimeoutError
-from mwlib.cdbwiki import WikiDB
+from mwlib.cdbwiki import WikiDB, normname
 from mwlib._version import version as mwlib_version
 
 import mem
 
+redirect_rex = WikiDB.redirect_rex
 wikidb = None
 
 def create_wikidb(templatesdir):
@@ -105,7 +106,6 @@ class WikiParser():
         self.consumer = consumer
         self.consumer.add_metadata('mwlib',
                                    '.'.join(str(v) for v in mwlib_version))
-        self.redirect_re = re.compile(r'\[\[(.*?)\]\]', re.UNICODE)
         self.special_article_re = re.compile(r'^\w+:\S', re.UNICODE)
         self.article_count = 0
         self.skipped_count = 0
@@ -151,7 +151,7 @@ class WikiParser():
                 logging.info('Reached article %d, stopping.', self.end)
                 break
 
-            text = wikidb.getRawArticle(title)
+            text = wikidb.getRawArticle(title, resolveRedirect=False)
 
             if not text:
                 continue
@@ -162,15 +162,15 @@ class WikiParser():
                               title.encode('utf8'), self.skipped_count)
                 continue
 
-            if text.lstrip().lower().startswith("#redirect"):
-                m = self.redirect_re.search(text)
-                if m:
-                    redirect = m.group(1)
-                    redirect = redirect.replace("_", " ")
-                    meta = {u'r': redirect}
-                    self.consumer.add_article(title, tojson(('', [], meta)))
-                    continue
-                logging.debug('Yielding "%s" for processing', title.encode('utf8'))
+            mo = redirect_rex.search(text)
+            if mo:
+                redirect = mo.group('redirect')
+                redirect = normname(redirect.split("|", 1)[0].split("#", 1)[0])
+                meta = {u'r': redirect}
+                self.consumer.add_article(title, tojson(('', [], meta)))
+                continue
+
+            logging.debug('Yielding "%s" for processing', title.encode('utf8'))
 
             yield title, text, self.lang
 
