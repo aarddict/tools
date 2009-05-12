@@ -263,6 +263,8 @@ class WikiParser():
                                   self.timedout_count)
                     self.reset_pool()
                     resulti = self.pool.imap_unordered(convert, articles)
+                except AssertionError:
+                    self.log_runtime_error()
                 except RuntimeError:
                     self.log_runtime_error()
                 except KeyboardInterrupt:
