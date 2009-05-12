@@ -256,10 +256,10 @@ class Compiler(object):
         self.index_count = 0
         self.work_dir = work_dir
         self.sortex = SortExternal(work_dir=work_dir)
-        self.tempDir = tempfile.mkdtemp(prefix='aardc-article-db-', dir=work_dir)
-        logging.info('Creating temp dir %s', self.tempDir)
-        self.indexDbFullname = os.path.join(self.tempDir, "index.db")
-        self.indexDb = shelve.open(self.indexDbFullname, 'n')
+        self.tempdir = tempfile.mkdtemp(prefix='aardc-article-db-', dir=work_dir)
+        logging.info('Creating temp dir %s', self.tempdir)
+        self.index_db_fname = os.path.join(self.tempdir, "index.db")
+        self.index_db = shelve.open(self.index_db_fname, 'n')
         self.metadata = metadata if metadata is not None else {}
         self.file_names = []
         log.info('Collecting articles')
@@ -281,19 +281,19 @@ class Compiler(object):
                           title, serialized_article)
                 return
 
-            if self.indexDb.has_key(title):
-                articles = self.indexDb[title]
+            if self.index_db.has_key(title):
+                articles = self.index_db[title]
                 log.debug('Adding article for "%s" (already have %d)',
                           title, len(articles))
             else:
                 log.debug('Article for "%s"', title)
-                collationKeyString4 = (collator4.
-                                       getCollationKey(title).
-                                       getByteArray())
-                self.sortex.put(collationKeyString4 + "___" + title)
+                coll_key4_str = (collator4.
+                                 getCollationKey(title).
+                                 getByteArray())
+                self.sortex.put(coll_key4_str + "___" + title)
                 articles = []
             articles.append(compress(serialized_article))
-            self.indexDb[title] = articles
+            self.index_db[title] = articles
             print_progress(self.running_count)
             self.running_count += 1
 
@@ -311,9 +311,9 @@ class Compiler(object):
             self.make_aar(volume)
             log.info("Volume %d created" % volume.number)
         self.sortex.cleanup()
-        self.indexDb.close()
-        os.remove(self.indexDbFullname)
-        os.rmdir(self.tempDir)
+        self.index_db.close()
+        os.remove(self.index_db_fname)
+        os.rmdir(self.tempdir)
         self.write_volume_count()
         self.write_sha1sum()
         self.rename_files()
@@ -328,7 +328,7 @@ class Compiler(object):
         for count, item in enumerate(self.sortex):
             print_progress(count)
             sortkey, title = item.split("___", 1)
-            serialized_articles = self.indexDb[title]
+            serialized_articles = self.index_db[title]
             for serialized_article in serialized_articles:
                 index1Unit = struct.pack(INDEX1_ITEM_FORMAT,
                                          volume.index2Length,
