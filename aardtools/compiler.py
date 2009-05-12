@@ -105,7 +105,7 @@ def make_opt_parser():
         default=0,
         help=
         'Check memory usage every N articles. Set to 0 (zero) '
-        'to disable. Default: %defsaults'
+        'to disable. Default: %defaults'
         )
     parser.add_option(
         '--rss-threshold',
