@@ -26,9 +26,6 @@ import mwaardwriter
 
 tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
 
-NS = '{http://www.mediawiki.org/xml/export-0.3/}'
-XMLNS = '{http://www.w3.org/XML/1998/namespace}'
-
 import multiprocessing
 from multiprocessing import Pool, TimeoutError
 from mwlib.cdbwiki import WikiDB, normname
