@@ -104,8 +104,6 @@ class WikiParser():
         self.consumer.add_metadata('mwlib',
                                    '.'.join(str(v) for v in mwlib_version))
         self.special_article_re = re.compile(r'^\w+:\S', re.UNICODE)
-        self.article_count = 0
-        self.skipped_count = 0
         self.processes = options.processes if options.processes else None
         self.pool = None
         self.active_processes = multiprocessing.active_children()
@@ -117,7 +115,6 @@ class WikiParser():
         self.vsz_threshold = options.vsz_threshold
         self.start = options.start
         self.end = options.end
-        self.read_count = 0
         self.lang = None
         if options.nomp:
             logging.info('Disabling multiprocessing')
@@ -135,16 +132,17 @@ class WikiParser():
         if self.start > 0:
             logging.info('Skipping to article %d', self.start)
         create_wikidb(f)
-        for title in wikidb.articles():
 
-            self.read_count += 1
+        skipped_count = 0
 
-            if self.read_count <= self.start:
-                if self.read_count % 10000 == 0:
-                    logging.info('Skipped %d', self.read_count)
-                    continue
+        for read_count, title in enumerate(wikidb.articles()):
 
-            if self.end and self.read_count > self.end:
+            if read_count <= self.start:
+                if read_count % 10000 == 0:
+                    logging.info('Skipped %d', read_count)
+                continue
+
+            if self.end and read_count > self.end:
                 logging.info('Reached article %d, stopping.', self.end)
                 break
 
@@ -154,9 +152,9 @@ class WikiParser():
                 continue
 
             if self.special_article_re.match(title):
-                self.skipped_count += 1
+                skipped_count += 1
                 logging.debug('Special article %s, skipping (%d so far)',
-                              title.encode('utf8'), self.skipped_count)
+                              title.encode('utf8'), skipped_count)
                 continue
 
             mo = redirect_rex.search(text)
@@ -188,16 +186,17 @@ class WikiParser():
     def parse_simple(self, f):
         self.consumer.add_metadata('article_format', 'json')
         articles = self.articles(f)
+        article_count = 0
         for a in articles:
             try:
                 result = convert(a)
                 title, serialized = result
                 self.consumer.add_article(title, serialized)
-                self.article_count += 1
+                article_count += 1
             except RuntimeError:
                 self.log_runtime_error()
 
-        self.consumer.add_metadata("article_count", self.article_count)
+        self.consumer.add_metadata("article_count", article_count)
 
     def parse_mp(self, f):
         try:
@@ -205,14 +204,15 @@ class WikiParser():
             articles = self.articles(f)
             self.reset_pool(f)
             resulti = self.pool.imap_unordered(convert, articles)
+            article_count = 0
             while True:
                 try:
                     result = resulti.next(self.timeout)
                     title, serialized = result
                     self.consumer.add_article(title, serialized)
-                    self.article_count += 1
+                    article_count += 1
                     if (self.mem_check_freq != 0 and
-                        (self.article_count % self.mem_check_freq) == 0):
+                        (article_count % self.mem_check_freq) == 0):
                         processes = mem_check(rss_threshold=self.rss_threshold,
                                               rsz_threshold=self.rsz_threshold,
                                               vsz_threshold=self.vsz_threshold)
@@ -241,7 +241,7 @@ class WikiParser():
                     self.pool.terminate()
                     raise
 
-            self.consumer.add_metadata("article_count", self.article_count)
+            self.consumer.add_metadata("article_count", article_count)
         finally:
             self.pool.close()
             self.pool.join()
