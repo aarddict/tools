@@ -324,7 +324,7 @@ class Compiler(object):
     def make_volumes(self, create_volume_func):
 
         volume = create_volume_func()
-
+        count = 0
         for count, item in enumerate(self.sortex):
             print_progress(count)
             sortkey, title = item.split("___", 1)
