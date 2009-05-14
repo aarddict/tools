@@ -34,11 +34,18 @@ from mwlib._version import version as mwlib_version
 import mem
 
 redirect_rex = WikiDB.redirect_rex
-wikidb = None
 
-def create_wikidb(templatesdir):
+wikidb = None
+log = logging.getLogger()
+
+def _create_wikidb(cdbdir):
     global wikidb
-    wikidb = WikiDB(templatesdir)
+    wikidb = WikiDB(cdbdir)
+
+def _init_process(cdbdir):
+    global log
+    log = multiprocessing.get_logger()
+    _create_wikidb(cdbdir)
 
 def convert(data):
     title, text, lang = data
@@ -51,7 +58,7 @@ def convert(data):
         text, tags = mwaardwriter.convert(mwobject)
     except Exception:
         msg = 'Failed to process article %r' % title
-        multiprocessing.get_logger().exception(msg)
+        log.exception(msg)
         raise RuntimeError(msg)
     return title, tojson((text.rstrip(), tags))
 
@@ -63,37 +70,37 @@ def mem_check(rss_threshold=0, rsz_threshold=0, vsz_threshold=0):
     (which is default for all thresholds)
     """
     active = multiprocessing.active_children()
-    logging.info('Checking memory usage (%d child processes), '
+    log.info('Checking memory usage (%d child processes), '
                  'thresholds: rss %.1fM rsz %.1fM vsz %.1fM',
                  len(active), rss_threshold, rsz_threshold, vsz_threshold)
     processes = []
     for process in active:
         pid = process.pid
-        logging.info('Checking memory usage for process %d', pid)
+        log.info('Checking memory usage for process %d', pid)
         rss = rsz = vsz = 0
 
         if 0 < rss_threshold:
             rss = mem.rss(pid) / 1024.0
             if rss_threshold <= rss:
-                logging.warn('Process %d exceeded rss memory limit of %.1fM',
+                log.warn('Process %d exceeded rss memory limit of %.1fM',
                              pid, rss_threshold)
                 processes.append(process)
 
         if 0 < rsz_threshold:
             rsz = mem.rsz(pid) / 1024.0
             if rsz_threshold <= rsz:
-                logging.warn('Process %d exceeded rsz memory limit of %.1fM',
+                log.warn('Process %d exceeded rsz memory limit of %.1fM',
                              pid, rsz_threshold)
                 processes.append(process)
 
         if 0 < vsz_threshold:
             vsz = mem.vsz(pid) / 1024.0
             if vsz_threshold <= vsz:
-                logging.warn('Process %d exceeded vsz memory limit of %.1fM',
+                log.warn('Process %d exceeded vsz memory limit of %.1fM',
                              pid, vsz_threshold)
                 processes.append(process)
 
-        logging.info('Pid %d: rss %.1fM rsz %.1fM vsz %.1fM', pid, rss, rsz, vsz)
+        log.info('Pid %d: rss %.1fM rsz %.1fM vsz %.1fM', pid, rss, rsz, vsz)
     return processes
 
 class WikiParser():
@@ -118,7 +125,7 @@ class WikiParser():
         self.end = options.end
         self.lang = None
         if options.nomp:
-            logging.info('Disabling multiprocessing')
+            log.info('Disabling multiprocessing')
             self.parse = self.parse_simple
         else:
             self.parse = self.parse_mp
@@ -127,24 +134,23 @@ class WikiParser():
         self.lang = lang
         self.consumer.add_metadata("index_language", lang)
         self.consumer.add_metadata("article_language", lang)
-        logging.info('Language: %s', self.lang)
+        log.info('Language: %s', self.lang)
 
     def articles(self, f):
         if self.start > 0:
-            logging.info('Skipping to article %d', self.start)
-        create_wikidb(f)
-
+            log.info('Skipping to article %d', self.start)
+        _create_wikidb(f)
         skipped_count = 0
 
         for read_count, title in enumerate(wikidb.articles()):
 
             if read_count <= self.start:
                 if read_count % 10000 == 0:
-                    logging.info('Skipped %d', read_count)
+                    log.info('Skipped %d', read_count)
                 continue
 
             if self.end and read_count > self.end:
-                logging.info('Reached article %d, stopping.', self.end)
+                log.info('Reached article %d, stopping.', self.end)
                 break
 
             text = wikidb.getRawArticle(title, resolveRedirect=False)
@@ -154,7 +160,7 @@ class WikiParser():
 
             if self.special_article_re.match(title):
                 skipped_count += 1
-                logging.debug('Special article %s, skipping (%d so far)',
+                log.debug('Special article %s, skipping (%d so far)',
                               title.encode('utf8'), skipped_count)
                 continue
 
@@ -166,23 +172,24 @@ class WikiParser():
                 self.consumer.add_article(title, tojson(('', [], meta)))
                 continue
 
-            logging.debug('Yielding "%s" for processing', title.encode('utf8'))
+            log.debug('Yielding "%s" for processing', title.encode('utf8'))
 
             yield title, text, self.lang
 
 
     def reset_pool(self, cdbdir):
         if self.pool:
-            logging.info('Terminating current worker pool')
+            log.info('Terminating current worker pool')
             self.pool.terminate()
-        logging.info('Creating new worker pool with wiki cdb at %s', cdbdir)
+        log.info('Creating new worker pool with wiki cdb at %s', cdbdir)
+
         self.pool = Pool(processes=self.processes,
-                         initializer=create_wikidb,
+                         initializer=_init_process,
                          initargs=[cdbdir])
 
     def log_runtime_error(self):
         self.error_count += 1
-        logging.warn('Failed to process article (%d so far)', self.error_count)
+        log.warn('Failed to process article (%d so far)', self.error_count)
 
     def parse_simple(self, f):
         self.consumer.add_metadata('article_format', 'json')
@@ -218,7 +225,7 @@ class WikiParser():
                                               rsz_threshold=self.rsz_threshold,
                                               vsz_threshold=self.vsz_threshold)
                         if processes:
-                            logging.warn('%d process(es) exceeded memory limit, '
+                            log.warn('%d process(es) exceeded memory limit, '
                                          'resetting worker pool',
                                          len (processes))
                             self.reset_pool(f)
@@ -228,7 +235,7 @@ class WikiParser():
                     break
                 except TimeoutError:
                     self.timedout_count += 1
-                    logging.error('Worker pool timed out (%d time(s) so far)',
+                    log.error('Worker pool timed out (%d time(s) so far)',
                                   self.timedout_count)
                     self.reset_pool(f)
                     resulti = self.pool.imap_unordered(convert, articles)
@@ -237,7 +244,7 @@ class WikiParser():
                 except RuntimeError:
                     self.log_runtime_error()
                 except KeyboardInterrupt:
-                    logging.error('Keyboard interrupt: '
+                    log.error('Keyboard interrupt: '
                                   'terminating worker pool')
                     self.pool.terminate()
                     raise
