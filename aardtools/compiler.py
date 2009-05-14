@@ -510,11 +510,6 @@ root_locale = Locale('root')
 collator4 =  Collator.createInstance(root_locale)
 collator4.setStrength(Collator.QUATERNARY)
 
-def compile_wiki(input_file, options, compiler):
-    import wiki
-    p = wiki.WikiParser(options, compiler)
-    p.parse(input_file)
-
 def compile_wikicdb(input_file, options, compiler):
     import wikicdb
     p = wikicdb.WikiParser(options, compiler)
@@ -532,20 +527,6 @@ def compile_aard(input_file, options, compiler):
 
 def make_wikicdb_input(input_file_name):
     return input_file_name
-
-def make_wiki_input(input_file_name):
-    if input_file_name == '-':
-        return sys.stdin
-    from bz2 import BZ2File
-    try:
-        bz2file = BZ2File(input_file_name)
-        bz2file.readline()
-    except:
-        #probably this is not bz2, open regular file
-        return open(input_file_name)
-    else:
-        bz2file.seek(0)
-        return bz2file
 
 def make_xdxf_input(input_file_name):
     if input_file_name == '-':
@@ -567,8 +548,7 @@ def make_aard_input(input_file_name):
         return sys.stdin
     return open(input_file_name)
 
-known_types = {'wiki': (make_wiki_input, compile_wiki),
-               'wikicdb': (make_wikicdb_input, compile_wikicdb),
+known_types = {'wikicdb': (make_wikicdb_input, compile_wikicdb),
                'xdxf': (make_xdxf_input, compile_xdxf),
                'aard': (make_aard_input, compile_aard)}
 
@@ -691,32 +671,6 @@ def main():
         if not input_file == '-' and not os.path.exists(input_file):
             log.error('No such file: %s', input_file)
             raise SystemExit()
-
-    if input_type == 'wiki':
-        if not options.templates:
-            cdb_dir = os.path.extsep.join((strip_ext(input_files[0]),
-                                           'cdb'))
-            if os.path.isdir(cdb_dir):
-                options.templates = cdb_dir
-            else:
-                cdb_dir = os.path.join(os.path.dirname(input_files[0]),
-                                       cdb_dir)
-                if os.path.isdir(cdb_dir):
-                    options.templates = cdb_dir
-
-        elif not os.path.isdir(options.templates):
-            log.error("No such directory: %s", options.templates)
-            raise SystemExit()
-        if not options.templates:
-            log.warn('\n!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!\n'
-                     'Wikipedia templates database directory is not specified:\n'
-                     'templates will not be processed.\n'
-                     'Generate with mw-buildcdb, specify using -t option.\n'
-                     '!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!'
-                     )
-        else:
-            log.info('Using cdb in %s', options.templates)
-
 
     output_file_name = make_output_file_name(input_files[0], options)
     max_volume_size = max_file_size(options)
