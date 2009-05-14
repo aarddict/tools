@@ -109,8 +109,6 @@ class WikiParser():
         for read_count, title in enumerate(wikidb.articles()):
 
             if read_count <= self.start:
-                if read_count % 10000 == 0:
-                    log.info('Skipped %d', read_count)
                 continue
 
             if self.end and read_count > self.end:
