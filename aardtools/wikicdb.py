@@ -49,9 +49,10 @@ def convert(data):
                                        lang=lang)
         xhtmlwriter.preprocess(mwobject)
         text, tags = mwaardwriter.convert(mwobject)
-    except RuntimeError:
-        multiprocessing.get_logger().exception('Failed to process article %s', title)
-        raise
+    except Exception:
+        msg = 'Failed to process article %r' % title
+        multiprocessing.get_logger().exception(msg)
+        raise RuntimeError(msg)
     return title, tojson((text.rstrip(), tags))
 
 def mem_check(rss_threshold=0, rsz_threshold=0, vsz_threshold=0):
