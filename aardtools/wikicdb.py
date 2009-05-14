@@ -31,8 +31,6 @@ from multiprocessing import Pool, TimeoutError
 from mwlib.cdbwiki import WikiDB, normname
 from mwlib._version import version as mwlib_version
 
-import mem
-
 redirect_rex = WikiDB.redirect_rex
 
 wikidb = None
@@ -62,52 +60,10 @@ def convert(data):
         raise RuntimeError(msg)
     return title, tojson((text.rstrip(), tags))
 
-def mem_check(rss_threshold=0, rsz_threshold=0, vsz_threshold=0):
-    """
-    Check memory usage for active child processes and return list of
-    processes that exceed specified memory usage threshold (in
-    megabytes).  Threshold considered not set if it's value is 0
-    (which is default for all thresholds)
-    """
-    active = multiprocessing.active_children()
-    log.info('Checking memory usage (%d child processes), '
-                 'thresholds: rss %.1fM rsz %.1fM vsz %.1fM',
-                 len(active), rss_threshold, rsz_threshold, vsz_threshold)
-    processes = []
-    for process in active:
-        pid = process.pid
-        log.info('Checking memory usage for process %d', pid)
-        rss = rsz = vsz = 0
-
-        if 0 < rss_threshold:
-            rss = mem.rss(pid) / 1024.0
-            if rss_threshold <= rss:
-                log.warn('Process %d exceeded rss memory limit of %.1fM',
-                             pid, rss_threshold)
-                processes.append(process)
-
-        if 0 < rsz_threshold:
-            rsz = mem.rsz(pid) / 1024.0
-            if rsz_threshold <= rsz:
-                log.warn('Process %d exceeded rsz memory limit of %.1fM',
-                             pid, rsz_threshold)
-                processes.append(process)
-
-        if 0 < vsz_threshold:
-            vsz = mem.vsz(pid) / 1024.0
-            if vsz_threshold <= vsz:
-                log.warn('Process %d exceeded vsz memory limit of %.1fM',
-                             pid, vsz_threshold)
-                processes.append(process)
-
-        log.info('Pid %d: rss %.1fM rsz %.1fM vsz %.1fM', pid, rss, rsz, vsz)
-    return processes
-
 class WikiParser():
 
     def __init__(self, options, consumer):
         self.lang = 'en'
-        self.mem_check_freq = options.mem_check_freq
         self.consumer = consumer
         self.consumer.add_metadata('mwlib',
                                    '.'.join(str(v) for v in mwlib_version))
@@ -118,9 +74,6 @@ class WikiParser():
         self.timeout = options.timeout
         self.timedout_count = 0
         self.error_count = 0
-        self.rss_threshold = options.rss_threshold
-        self.rsz_threshold = options.rsz_threshold
-        self.vsz_threshold = options.vsz_threshold
         self.start = options.start
         self.end = options.end
         self.lang = None
@@ -219,18 +172,6 @@ class WikiParser():
                     title, serialized = result
                     self.consumer.add_article(title, serialized)
                     article_count += 1
-                    if (self.mem_check_freq != 0 and
-                        (article_count % self.mem_check_freq) == 0):
-                        processes = mem_check(rss_threshold=self.rss_threshold,
-                                              rsz_threshold=self.rsz_threshold,
-                                              vsz_threshold=self.vsz_threshold)
-                        if processes:
-                            log.warn('%d process(es) exceeded memory limit, '
-                                         'resetting worker pool',
-                                         len (processes))
-                            self.reset_pool(f)
-                            resulti = self.pool.imap_unordered(convert,
-                                                               articles)
                 except StopIteration:
                     break
                 except TimeoutError:
