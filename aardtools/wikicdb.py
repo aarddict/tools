@@ -30,28 +30,29 @@ import multiprocessing
 from multiprocessing import Pool, TimeoutError
 from mwlib.cdbwiki import WikiDB, normname
 from mwlib._version import version as mwlib_version
+from mwlib.siteinfo import get_siteinfo
 
 redirect_rex = WikiDB.redirect_rex
 
 wikidb = None
 log = logging.getLogger()
 
-def _create_wikidb(cdbdir):
+def _create_wikidb(cdbdir, lang):
     global wikidb
-    wikidb = WikiDB(cdbdir)
+    wikidb = Wiki(cdbdir, lang)
 
-def _init_process(cdbdir):
+def _init_process(cdbdir, lang):
     global log
     log = multiprocessing.get_logger()
-    _create_wikidb(cdbdir)
+    _create_wikidb(cdbdir, lang)
 
 def convert(data):
-    title, text, lang = data
+    title, text  = data
     try:
         mwobject = uparser.parseString(title=title,
                                        raw=text,
                                        wikidb=wikidb,
-                                       lang=lang)
+                                       lang=wikidb.lang)
         xhtmlwriter.preprocess(mwobject)
         text, tags = mwaardwriter.convert(mwobject)
     except Exception:
@@ -60,11 +61,22 @@ def convert(data):
         raise RuntimeError(msg)
     return title, tojson((text.rstrip(), tags))
 
+class Wiki(WikiDB):
+
+    def __init__(self, cdbdir, lang):
+        WikiDB.__init__(self, cdbdir)
+        self.lang = lang
+        self.siteinfo = get_siteinfo(self.lang)
+
+    def get_siteinfo(self):
+        return self.siteinfo
+
 class WikiParser():
 
     def __init__(self, options, consumer):
-        self.lang = 'en'
         self.consumer = consumer
+        self.lang = None
+        self._set_lang(options.lang)
         self.consumer.add_metadata('mwlib',
                                    '.'.join(str(v) for v in mwlib_version))
         self.special_article_re = re.compile(r'^\w+:\S', re.UNICODE)
@@ -76,7 +88,6 @@ class WikiParser():
         self.error_count = 0
         self.start = options.start
         self.end = options.end
-        self.lang = None
         if options.nomp:
             log.info('Disabling multiprocessing')
             self.parse = self.parse_simple
@@ -92,7 +103,7 @@ class WikiParser():
     def articles(self, f):
         if self.start > 0:
             log.info('Skipping to article %d', self.start)
-        _create_wikidb(f)
+        _create_wikidb(f, self.lang)
         skipped_count = 0
 
         for read_count, title in enumerate(wikidb.articles()):
@@ -127,7 +138,7 @@ class WikiParser():
 
             log.debug('Yielding "%s" for processing', title.encode('utf8'))
 
-            yield title, text, self.lang
+            yield title, text
 
 
     def reset_pool(self, cdbdir):
@@ -138,7 +149,7 @@ class WikiParser():
 
         self.pool = Pool(processes=self.processes,
                          initializer=_init_process,
-                         initargs=[cdbdir])
+                         initargs=[cdbdir, self.lang])
 
     def log_runtime_error(self):
         self.error_count += 1

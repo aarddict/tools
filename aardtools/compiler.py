@@ -136,6 +136,11 @@ def make_opt_parser():
         help='End article, stop processing at this article. Default: %default'
         )
 
+    parser.add_option(
+        '--lang',
+        default='en',
+        help='Wikipedia language. Default: %default'
+        )
     return parser
 
 def utf8(func):
