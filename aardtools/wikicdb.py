@@ -32,8 +32,6 @@ from mwlib.cdbwiki import WikiDB, normname
 from mwlib._version import version as mwlib_version
 from mwlib.siteinfo import get_siteinfo
 
-redirect_rex = WikiDB.redirect_rex
-
 wikidb = None
 log = logging.getLogger()
 
@@ -46,9 +44,21 @@ def _init_process(cdbdir, lang):
     log = multiprocessing.get_logger()
     _create_wikidb(cdbdir, lang)
 
-def convert(data):
-    title, text  = data
+def convert(title):
+
     try:
+        text = wikidb.getRawArticle(title, resolveRedirect=False)
+
+        if not text:
+            raise RuntimeError('Article "%r" is empty' % title)
+
+        mo = wikidb.redirect_rex.search(text)
+        if mo:
+            redirect = mo.group('redirect')
+            redirect = normname(redirect.split("|", 1)[0].split("#", 1)[0])
+            meta = {u'r': redirect}
+            return title, tojson(('', [], meta))
+
         mwobject = uparser.parseString(title=title,
                                        raw=text,
                                        wikidb=wikidb,
@@ -59,7 +69,8 @@ def convert(data):
         msg = 'Failed to process article %r' % title
         log.exception(msg)
         raise RuntimeError(msg)
-    return title, tojson((text.rstrip(), tags))
+    else:            
+        return title, tojson((text.rstrip(), tags))
 
 class Wiki(WikiDB):
 
@@ -115,28 +126,15 @@ class WikiParser():
                 log.info('Reached article %d, stopping.', self.end)
                 break
 
-            text = wikidb.getRawArticle(title, resolveRedirect=False)
-
-            if not text:
-                continue
-
             if self.special_article_re.match(title):
                 skipped_count += 1
                 log.debug('Special article %s, skipping (%d so far)',
                               title.encode('utf8'), skipped_count)
                 continue
 
-            mo = redirect_rex.search(text)
-            if mo:
-                redirect = mo.group('redirect')
-                redirect = normname(redirect.split("|", 1)[0].split("#", 1)[0])
-                meta = {u'r': redirect}
-                self.consumer.add_article(title, tojson(('', [], meta)))
-                continue
-
             log.debug('Yielding "%s" for processing', title.encode('utf8'))
 
-            yield title, text
+            yield title
 
 
     def reset_pool(self, cdbdir):
