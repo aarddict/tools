@@ -478,9 +478,9 @@ root_locale = Locale('root')
 collator4 =  Collator.createInstance(root_locale)
 collator4.setStrength(Collator.QUATERNARY)
 
-def compile_wikicdb(input_file, options, compiler):
-    import wikicdb
-    p = wikicdb.WikiParser(options, compiler)
+def compile_wiki(input_file, options, compiler):
+    import wiki
+    p = wiki.WikiParser(options, compiler)
     p.parse(input_file)
 
 def compile_xdxf(input_file, options, compiler):
@@ -493,7 +493,7 @@ def compile_aard(input_file, options, compiler):
     p = aard.AardParser(compiler)
     p.parse(input_file)
 
-def make_wikicdb_input(input_file_name):
+def make_wiki_input(input_file_name):
     return input_file_name
 
 def make_xdxf_input(input_file_name):
@@ -516,7 +516,7 @@ def make_aard_input(input_file_name):
         return sys.stdin
     return open(input_file_name)
 
-known_types = {'wikicdb': (make_wikicdb_input, compile_wikicdb),
+known_types = {'wiki': (make_wiki_input, compile_wiki),
                'xdxf': (make_xdxf_input, compile_xdxf),
                'aard': (make_aard_input, compile_aard)}
 
