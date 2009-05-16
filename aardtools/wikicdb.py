@@ -32,6 +32,8 @@ from mwlib.cdbwiki import WikiDB, normname
 from mwlib._version import version as mwlib_version
 from mwlib.siteinfo import get_siteinfo
 
+import gc
+
 wikidb = None
 log = logging.getLogger()
 
@@ -45,7 +47,7 @@ def _init_process(cdbdir, lang):
     _create_wikidb(cdbdir, lang)
 
 def convert(title):
-
+    gc.collect()
     try:
         text = wikidb.getRawArticle(title, resolveRedirect=False)
 
@@ -118,7 +120,7 @@ class WikiParser():
         skipped_count = 0
 
         for read_count, title in enumerate(wikidb.articles()):
-
+            
             if read_count <= self.start:
                 continue
 
@@ -135,6 +137,7 @@ class WikiParser():
             log.debug('Yielding "%s" for processing', title.encode('utf8'))
 
             yield title
+            gc.collect()
 
 
     def reset_pool(self, cdbdir):
