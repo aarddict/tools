@@ -31,6 +31,7 @@ import simplejson
 
 from sortexternal import SortExternal
 from aarddict.dictionary import HEADER_SPEC, spec_len, calcsha1
+import aardtools
 
 logging.basicConfig(format='%(levelname)s: %(message)s')
 log = logging.getLogger()
@@ -650,7 +651,7 @@ def main():
                  'setting index item format to %s',
                  INDEX1_ITEM_FORMAT)
 
-    metadata = {}
+    metadata = {aardtools.__name__: aardtools.__version__}
     if options.metadata:
         from ConfigParser import ConfigParser
         c = ConfigParser()
