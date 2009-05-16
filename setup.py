@@ -9,10 +9,10 @@ setup(
                             'aardc = aardtools.compiler:main']
     },
 
-    install_requires = [ 'aarddict >= 0.7.0',
-                         'PyICU >= 0.8.1', 
-                         'mwlib >= 0.9.2', 
-                         'lxml >= 2.0', 
+    install_requires = [ 'aarddict >= 0.7.4',
+                         'PyICU >= 0.8.1',
+                         'mwlib >= 0.11.2',
+                         'lxml >= 2.0',
                          'simplejson',
                          'multiprocessing'],
 
@@ -22,7 +22,7 @@ setup(
     license = "GPL 3",
     keywords = ['aarddict', 'aardtools', 'wiki', 'wikipedia',
                 'xdxf', 'dict', 'dictionary', 'maemo'],
-    url = "http://aarddict.org",  
+    url = "http://aarddict.org",
     classifiers=[
                  'Development Status :: 3 - Alpha',
                  'Operating System :: OS Independent',
@@ -30,6 +30,6 @@ setup(
                  'License :: OSI Approved :: GNU General Public License (GPL)',
                  'Topic :: Utilities',
                  'Environment :: Console'
-    ]    
+    ]
 )
 
