@@ -1,8 +1,10 @@
 from setuptools import setup, find_packages
 
+import aardtools
+
 setup(
-    name = "aardtools",
-    version = '0.7.3.dev',
+    name = aardtools.__name__,
+    version = aardtools.__version__,
     packages = find_packages(),
     entry_points = {
         'console_scripts': ['aardcompile = aardtools.compiler:main',
