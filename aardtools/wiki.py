@@ -12,6 +12,7 @@
 #
 # Copyright (C) 2008-2009  Igor Tkach
 
+from __future__ import with_statement
 import functools
 import re
 import logging
