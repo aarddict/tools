@@ -25,6 +25,12 @@ from mwlib import uparser, xhtmlwriter
 from mwlib.log import Log
 Log.logfile = None
 
+from mwlib import lrucache, expr
+expr._cache = lrucache.mt_lrucache(100)
+
+from mwlib.templ.evaluate import Expander
+Expander.parsedTemplateCache = lrucache.lrucache(100)
+
 import mwaardwriter
 
 tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
