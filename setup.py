@@ -1,6 +1,12 @@
+import os
+import sys
 from setuptools import setup, find_packages
 
 import aardtools
+
+wiki_meta_en = ['wiki/en/copyright.txt',
+                'wiki/en/fdl-1.2.txt',
+                'wiki/en/metadata.ini']
 
 setup(
     name = aardtools.__name__,
@@ -17,6 +23,10 @@ setup(
                          'lxml >= 2.0',
                          'simplejson',
                          'multiprocessing'],
+
+    data_files = [
+        (os.path.join(sys.prefix,'share/aardtools/wiki/en'), wiki_meta_en)
+        ],
 
     author = "Igor Tkach",
     author_email = "itkach@aarddict.org",

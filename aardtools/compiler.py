@@ -25,6 +25,7 @@ import tempfile
 import shelve
 import optparse
 import functools
+import time
 
 from PyICU import Locale, Collator
 import simplejson
@@ -122,7 +123,6 @@ def make_opt_parser():
         'Directory for temporary file created during compilatiod. '
         'Default: %default'
         )
-
     parser.add_option(
         '--start',
         default=0,
@@ -138,10 +138,25 @@ def make_opt_parser():
         )
 
     parser.add_option(
-        '--lang',
-        default='en',
-        help='Wikipedia language. Default: %default'
+        '--dict-ver',
+        help='Version of the compiled dictionary'
         )
+
+    parser.add_option(
+        '--dict-update',
+        default='1',
+        help='Update number for the compiled dictionary. Default: %default'
+        )
+
+    parser.add_option(
+        '--wiki-lang',
+        help='Wikipedia language (like en, de, fr). This may be different from actual language '
+        'in which articles are written. For example, the value for Simple English Wikipedia  is "simple" '
+        '(although the actual articles language is "en"). This is inferred from input file name '
+        'if it follows same naming pattern as Wiki XML dumps and starts with "{lang}wiki". '
+        'Default: %default'
+        )
+
     return parser
 
 def utf8(func):
@@ -598,6 +613,33 @@ def erase_progress(progress):
     sys.stdout.write('\b'*len(s))
     sys.stdout.flush()
 
+def guess_version(input_file_name):
+    """ Guess dictionary version from input file name.
+    
+    >>> guess_version('simplewiki-20090506-pages-articles.cdb')
+    '20090506'
+
+    >>> guess_version('some-name')
+    
+    """
+    import re
+    m = re.match(r'\w+-?(\d+)-?\w+', input_file_name)
+    return m.group(1) if m else None
+
+def guess_wiki_lang(input_file_name):
+    """ Guess wiki language from input file name.
+
+    >>> guess_wiki_lang('simplewiki-20090506-pages-articles.cdb')
+    'simple'
+    >>> guess_wiki_lang('elwiki-20090512-pages-articles')
+    'el'
+    >>> guess_wiki_lang('somename')
+    
+    """
+    import re
+    m = re.match(r'([a-zA-Z]{2,})wiki.*', input_file_name)
+    return m.group(1) if m else None
+
 def main():
     opt_parser = make_opt_parser()
     options, args = opt_parser.parse_args()
@@ -651,14 +693,25 @@ def main():
                  'setting index item format to %s',
                  INDEX1_ITEM_FORMAT)
 
+    if input_type=='wiki': 
+        if not options.wiki_lang:        
+            options.wiki_lang = guess_wiki_lang(input_files[0])
+            if not options.wiki_lang:
+                log.fatal('Wiki language is neither specified with --wiki-lang '
+                          'not could be guessed from input file name')
+                raise SystemExit(1)
+        log.info('Wikipedia language: %s', options.wiki_lang)        
+
+    if not options.dict_ver:
+        options.dict_ver = guess_version(input_files[0])
+        if options.dict_ver:
+            log.info('Using %s as dictionary version', options.dict_ver)
+        else:
+            options.dict_ver = time.strftime('%Y%m%d%H%M%S')
+            log.warn('Dictionary version is not specified and couldn\'t '
+                     'be guessed from input file name, using %s', options.dict_ver)
+
     metadata = {aardtools.__name__: aardtools.__version__}
-    if options.metadata:
-        from ConfigParser import ConfigParser
-        c = ConfigParser()
-        c.read(options.metadata)
-        for opt in c.options('metadata'):
-            value = c.get('metadata', opt)
-            metadata[opt] = value
 
     if options.license:
         with open(options.license) as f:
@@ -673,7 +726,7 @@ def main():
     compiler = Compiler(output_file_name, max_volume_size,
                         options.work_dir, metadata)
     make_input, collect_articles = known_types[input_type]
-    import time
+
     t0 = time.time()
     for input_file in input_files:
         log.info('Collecting articles in %s', input_file)

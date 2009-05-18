@@ -62,22 +62,22 @@ xdxf
     Dictionaries in XDXF_ format (only XDXF-visual is supported).
 
 wiki
-    Wikipedia XML dump.
+    Wikipedia articles and templates :abbr:`CDB (Constant Database)`
+    built with :command:`mw-buildcdb` from Wikipedia XML dump.
 
 aard
     Dictionaries in aar format. This is useful for updating dictionary metadata
-    and changing the way it is split into volumes.
-
-    .. note::
-
-       Currently only one input file can be specified, so it is only possible to
-       split a large dictionary into several volumes. 
+    and changing the way it is split into volumes. Multiple input files can
+    be combined into one single or multi volume fictionary.
 
 .. _XDXF: http://xdxf.sourceforge.net/
 
 Synopsis::
 
-  aardc [options] (wiki|xdxf|aard) FILE
+  aardc [options] (wiki|xdxf|aard) FILE [FILE2 [FILE3 ...]]
+
+.. note::
+   Only `aard` input type allows multiple files.
 
 Compiling Wiki XML Dump
 -----------------------
@@ -90,9 +90,24 @@ Build mwlib article database::
 
   mw-buildcdb --input  simplewiki-20081227-pages-articles.xml.bz2 --output simplewiki-20081227-pages-articles.cdb
 
-Compile aar dictionary::
+Original dump is not needed after this, it may be deleted or moved to
+free up disk space. Compile aar dictionary from the article database::
 
- aardc wiki simplewiki-20081227-pages-articles.xml.bz2 -t simplewiki-20081227-pages-articles.cdb 
+ aardc wiki simplewiki-20081227-pages-articles.cdb
+
+Compiler infers from the input file name that Wikipedia language
+is "simple" and that version is 20081227. These need to be specified
+explicitely through command line options if cdb directory name doesn't
+follow the pattern of the xml dump file names. Compiler also
+looks for files with license and copyright notice texts and dictionary
+metadata, first in the language of the wiki and then in
+English. English versions of these files are included. 
+
+.. note::
+   Make sure :file:`{mwlibdir}/mwlib/siteinfo` directory contains
+   file :file:`siteinfo-{lang}.json` for language of wiki to be
+   compiled. If it doesn't - run
+   :samp:`{mwlibdir}/mwlib/siteinfo/fetch_siteinfo.py {lang}`.
 
 Compiling XDXF Dictionaries
 ---------------------------

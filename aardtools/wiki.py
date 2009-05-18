@@ -15,6 +15,8 @@
 import functools
 import re
 import logging
+import os
+import sys
 
 import simplejson
 
@@ -84,12 +86,88 @@ class Wiki(WikiDB):
     def get_siteinfo(self):
         return self.siteinfo
 
+default_lic_fname = 'fdl-1.2.txt'
+default_copyright_fname = 'copyright.txt'
+default_metadata_fname = 'metadata.ini'
+
 class WikiParser():
 
     def __init__(self, options, consumer):
         self.consumer = consumer
+
+        wiki_lang = options.wiki_lang
+        metadata_dir = os.path.join(sys.prefix,'share/aardtools/wiki/%s' % wiki_lang)
+        default_metadata_dir = os.path.join(sys.prefix,'share/aardtools/wiki/%s' % 'en')
+
+        try:
+            siteinfo = get_siteinfo(wiki_lang)
+            sitename = siteinfo['general']['sitename']
+            sitelang = siteinfo['general']['lang']
+        except:
+            log.fatal('Failed to read siteinfo for language %(lang)s, '
+                      'can''t proceed. '
+                      'Check that siteinfo-%(lang)s.json exists in mwlib.siteinfo, '
+                      'run fetch_siteinfo.py %(lang)s if not', dict(lang=wiki_lang))
+            raise SystemExit(1)
+
+        
+        metadata_files = []
+        if options.metadata:
+            metadata_files.append(options.metadata)
+        else:
+            metadata_files.append(os.path.join(default_metadata_dir, default_metadata_fname))
+            metadata_files.append(os.path.join(metadata_dir, default_metadata_fname))
+                                
+        from ConfigParser import ConfigParser
+        c = ConfigParser(defaults={'ver': options.dict_ver, 
+                                   'lang': wiki_lang,
+                                   'update': options.dict_update,
+                                   'name': sitename,
+                                   'sitelang': sitelang})
+        read_metadata_files = c.read(metadata_files)
+        if not read_metadata_files:
+            log.warn('No metadata files read.')
+        else:
+            log.info('Using metadata from %s', ', '.join(read_metadata_files))
+        for opt in c.options('metadata'):
+            value = c.get('metadata', opt)
+            self.consumer.add_metadata(opt, value)
+
+        if not options.license and 'license' not in self.consumer.metadata:
+            license_file = os.path.join(metadata_dir, default_lic_fname)
+            log.info('Looking for license text in %s', license_file)
+            if not os.path.exists(license_file):
+                log.info('File %s doesn\'t exist', license_file)
+                license_file = os.path.join(default_metadata_dir, default_lic_fname)
+                log.info('Looking for license text in %s', license_file)
+                try:
+                    with open(license_file) as f:
+                        license_text = f.read()
+                        self.consumer.add_metadata('license', license_text)
+                        log.info('Using license text from %s', license_file)
+                except IOError, e:
+                    log.warn('No license text will be written to the '
+                             'output dictionary: %s', str(e))
+
+        if not options.copyright and 'copyright' not in self.consumer.metadata:
+            copyright_file = os.path.join(metadata_dir, default_copyright_fname)
+            log.info('Looking for copyright notice text in %s', copyright_file)
+            if not os.path.exists(copyright_file):
+                log.info('File %s doesn\'t exist', copyright_file)
+                copyright_file = os.path.join(default_metadata_dir, default_copyright_fname)
+                log.info('Looking for copyright notice text in %s', copyright_file)
+                try:
+                    with open(copyright_file) as f:
+                        copyright_text = f.read()
+                        self.consumer.add_metadata('copyright', copyright_text)
+                        log.info('Using copyright notice text from %s', copyright_file)
+                except IOError, e:
+                    log.warn('No copyright notice text will be written to the '
+                             'output dictionary: %s', str(e))
+
         self.lang = None
-        self._set_lang(options.lang)
+        self._set_lang(wiki_lang)
+
         self.consumer.add_metadata('mwlib',
                                    '.'.join(str(v) for v in mwlib_version))
         self.special_article_re = re.compile(r'^\w+:\S', re.UNICODE)
