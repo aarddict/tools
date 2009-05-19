@@ -68,7 +68,7 @@ def convert(title):
             redirect = mo.group('redirect')
             redirect = normname(redirect.split("|", 1)[0].split("#", 1)[0])
             meta = {u'r': redirect}
-            return title, tojson(('', [], meta))
+            return title, tojson(('', [], meta)), True
 
         mwobject = uparser.parseString(title=title,
                                        raw=text,
@@ -81,7 +81,7 @@ def convert(title):
         log.exception(msg)
         raise RuntimeError(msg)
     else:            
-        return title, tojson((text.rstrip(), tags))
+        return title, tojson((text.rstrip(), tags)), False
 
 def fix_wikipedia_siteinfo(siteinfo):
     prefixes = [x['prefix'] for x in siteinfo['interwikimap']]
@@ -264,9 +264,10 @@ class WikiParser():
         for a in articles:
             try:
                 result = convert(a)
-                title, serialized = result
-                self.consumer.add_article(title, serialized)
-                article_count += 1
+                title, serialized, redirect = result
+                if not redirect:
+                    article_count += 1
+                self.consumer.add_article(title, serialized)                
             except RuntimeError:
                 self.log_runtime_error()
 
@@ -282,9 +283,10 @@ class WikiParser():
             while True:
                 try:
                     result = resulti.next(self.timeout)
-                    title, serialized = result
+                    title, serialized, redirect = result
+                    if not redirect:
+                        article_count += 1
                     self.consumer.add_article(title, serialized)
-                    article_count += 1
                 except StopIteration:
                     break
                 except TimeoutError:
