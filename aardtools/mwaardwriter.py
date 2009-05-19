@@ -408,7 +408,7 @@ class MWAardWriter(object):
         one_nonempty_col = True
         for row in data:
             nonempty_cols = [cell for cell in row 
-                             if len(cell.text.strip(' “”"'.decode('utf8'))) > 0]
+                             if len(cell.text.strip(' “”"«»'.decode('utf8'))) > 0]
             if len(nonempty_cols) > 1:
                 one_nonempty_col = False
                 break                                              
