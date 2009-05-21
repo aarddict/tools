@@ -19,7 +19,7 @@ setup(
 
     install_requires = [ 'aarddict >= 0.7.4',
                          'PyICU >= 0.8.1',
-                         'mwlib >= 0.11.2',
+                         'mwlib == 0.11.2',
                          'lxml >= 2.0',
                          'simplejson',
                          'multiprocessing'],
