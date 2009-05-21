@@ -126,8 +126,6 @@ class WikiParser():
 
         try:
             siteinfo = get_siteinfo(wiki_lang)
-            sitename = siteinfo['general']['sitename']
-            sitelang = siteinfo['general']['lang']
         except:
             log.fatal('Failed to read siteinfo for language %(lang)s, '
                       'can''t proceed. '
@@ -135,6 +133,8 @@ class WikiParser():
                       'run fetch_siteinfo.py %(lang)s if not', dict(lang=wiki_lang))
             raise SystemExit(1)
 
+        sitename = siteinfo['general']['sitename']
+        sitelang = siteinfo['general']['lang']
         
         metadata_files = []
         if options.metadata:
@@ -190,8 +190,11 @@ class WikiParser():
                     log.warn('No copyright notice text will be written to the '
                              'output dictionary: %s', str(e))
 
-        self.lang = None
-        self._set_lang(wiki_lang)
+
+        self.lang = wiki_lang
+        self.consumer.add_metadata("index_language", sitelang)
+        self.consumer.add_metadata("article_language", sitelang)
+        log.info('Language: %s (%s)', self.lang, sitelang)
 
         self.consumer.add_metadata('mwlib',
                                    '.'.join(str(v) for v in mwlib_version))
@@ -209,12 +212,6 @@ class WikiParser():
             self.parse = self.parse_simple
         else:
             self.parse = self.parse_mp
-
-    def _set_lang(self, lang):
-        self.lang = lang
-        self.consumer.add_metadata("index_language", lang)
-        self.consumer.add_metadata("article_language", lang)
-        log.info('Language: %s', self.lang)
 
     def articles(self, f):
         if self.start > 0:
