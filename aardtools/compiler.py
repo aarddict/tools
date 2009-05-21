@@ -82,7 +82,7 @@ def make_opt_parser():
     parser.add_option(
         '--timeout',
         type='float',
-        default=10.0,
+        default=2.0,
         help=
         'Skip article if it was not process in the amount of time '
         'specified. Default: %defaults'
