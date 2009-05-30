@@ -26,6 +26,7 @@ import shelve
 import optparse
 import functools
 import time
+import shutil
 
 from PyICU import Locale, Collator
 import simplejson
@@ -296,8 +297,7 @@ class Compiler(object):
             log.info("Volume %d created" % volume.number)
         self.sortex.cleanup()
         self.index_db.close()
-        os.remove(self.index_db_fname)
-        os.rmdir(self.tempdir)
+        shutil.rmtree(self.tempdir)
         self.write_volume_count()
         self.write_sha1sum()
         self.rename_files()
