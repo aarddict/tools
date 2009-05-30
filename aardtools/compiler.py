@@ -604,9 +604,13 @@ def max_file_size(options):
         return int(s)
 
 def print_progress(progress):
-    s = str(progress)
-    sys.stdout.write('\b'*len(s) + s)
-    sys.stdout.flush()
+    s = int(progress)
+    if ((s%1000)==0):
+        sys.stdout.write("\n"+str(s))
+        sys.stdout.flush()
+    if ((s%100)==0):
+        sys.stdout.write('.')
+        sys.stdout.flush()
 
 def erase_progress(progress):
     s = str(progress)
