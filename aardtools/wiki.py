@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 # This file is part of Aard Dictionary Tools <http://aarddict.org>.
 #
 # This program is free software: you can redistribute it and/or modify
@@ -63,10 +64,9 @@ def convert(title):
         if not text:
             raise RuntimeError('Article "%r" is empty' % title)
 
-        mo = wikidb.redirect_rex.search(text)
-        if mo:
-            redirect = mo.group('redirect')
-            redirect = normname(redirect.split("|", 1)[0].split("#", 1)[0])
+        redirect = wikidb.get_redirect(text)
+        if redirect:
+            redirect = normname(redirect)
             meta = {u'r': redirect}
             return title, tojson(('', [], meta)), True
 
@@ -100,6 +100,48 @@ def fix_wikipedia_siteinfo(siteinfo):
                 'local': '',
                 })
 
+
+class BadRedirect(Exception): pass
+
+
+def parse_redirect(text, aliases):
+    """
+    >>> aliases = [u"#PATRZ", u"#PRZEKIERUJ", u"#TAM", u"#REDIRECT"]
+    >>> parse_redirect(u'#PATRZ [[Zmora]]', aliases)
+    u'Zmora'
+    >>> parse_redirect(u'#PATRZ[[Zmora]]', aliases)
+    u'Zmora'
+    >>> parse_redirect(u'#PRZEKIERUJ [[Uwierzytelnianie]]', aliases)
+    u'Uwierzytelnianie'
+    
+    >>> parse_redirect('#TAM[[Żuraw samochodowy]]'.decode('utf8'), aliases)    
+    u'\u017buraw samochodowy'
+
+    >>> parse_redirect(u'abc', aliases)
+
+    >>> parse_redirect(u'#REDIRECT [[abc', aliases)
+    Traceback (most recent call last):
+    ...
+    BadRedirect: [[abc
+
+    >>> parse_redirect(u'#REDIRECT abc', aliases)
+    Traceback (most recent call last):
+    ...
+    BadRedirect: abc
+
+    """ 
+    for alias in aliases:
+        if text.startswith(alias):
+            text = text[len(alias):].lstrip()
+            begin = text.find('[[')
+            if begin < 0:
+                raise BadRedirect(text)
+            end = text.find(']]')
+            if end < 0:
+                raise BadRedirect(text)
+            return text[begin+2:end]
+    return None
+
 class Wiki(WikiDB):
 
     def __init__(self, cdbdir, lang):
@@ -107,9 +149,36 @@ class Wiki(WikiDB):
         self.lang = lang
         self.siteinfo = get_siteinfo(self.lang)
         fix_wikipedia_siteinfo(self.siteinfo)
+        self.redirect_aliases = [magicword['aliases']
+                                 for magicword in self.siteinfo['magicwords'] 
+                                 if magicword['name'] == 'redirect'][0]
 
     def get_siteinfo(self):
         return self.siteinfo
+
+    def get_redirect(self, text):
+        return parse_redirect(text, self.redirect_aliases)
+
+    def getTemplate(self, title, followRedirects=True):
+        if ":" in title:
+            title = title.split(':', 1)[1]
+
+        title = normname(title)
+        try:
+            res = self.reader["Template:"+title]
+        except KeyError:
+            return ''
+
+        redirect = parse_redirect(res, self.redirect_aliases)
+        if redirect:
+            redirect = normname(redirect.split("|", 1)[0].split("#", 1)[0])
+            if followRedirects:
+                return self.getTemplate(redirect, followRedirects=followRedirects)
+            else:
+                log.warn('Template redirect not followed: %r -> %r' % (title, redirect))
+        return res
+
+                
 
 default_lic_fname = 'fdl-1.2.txt'
 default_copyright_fname = 'copyright.txt'
