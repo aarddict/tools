@@ -194,13 +194,13 @@ class Volume(object):
         logging.info('Work dir %s', work_dir)
         self.header_meta_len = header_meta_len
         self.max_file_size = max_file_size
-        self.index1 = tempfile.NamedTemporaryFile(prefix='aardc-index1-',
+        self.index1 = tempfile.NamedTemporaryFile(prefix='index1',
                                                   dir=work_dir)
         logging.info('Creating temporary index 1 file %s', self.index1.name)
-        self.index2 = tempfile.NamedTemporaryFile(prefix='aardc-index2-',
+        self.index2 = tempfile.NamedTemporaryFile(prefix='index2',
                                                   dir=work_dir)
         logging.info('Creating temporary index 2 file %s', self.index2.name)
-        self.articles =  tempfile.NamedTemporaryFile(prefix='aardc-articles-',
+        self.articles =  tempfile.NamedTemporaryFile(prefix='articles',
                                                      dir=work_dir)
         logging.info('Creating temporary articles file %s', self.articles.name)
         self.index1Length = 0
@@ -249,11 +249,17 @@ class Compiler(object):
         self.max_file_size = max_file_size
         self.running_count = 0
         self.index_count = 0
-        self.work_dir = work_dir
-        self.sortex = SortExternal(work_dir=work_dir)
-        self.tempdir = tempfile.mkdtemp(prefix='aardc-article-db-', dir=work_dir)
-        logging.info('Creating temp dir %s', self.tempdir)
-        self.index_db_fname = os.path.join(self.tempdir, "index.db")
+        self.session_dir = os.path.join(work_dir, 
+                                        'aardc-'+('%.2f' % time.time()).replace('.','-'))
+
+        if os.path.exists(self.session_dir):
+            raise Exception('Session directory %s already'
+                            ' exists, can\'t proceed' % self.session_dir)
+        else:
+            logging.info('Creating session dir %s', self.session_dir)
+            os.mkdir(self.session_dir)
+        
+        self.index_db_fname = os.path.join(self.session_dir, "articles.db")
         self.index_db = shelve.open(self.index_db_fname, 'n')
         self.metadata = metadata if metadata is not None else {}
         self.file_names = []
@@ -282,10 +288,6 @@ class Compiler(object):
                           title, len(articles))
             else:
                 log.debug('Article for "%s"', title)
-                coll_key4_str = (collator4.
-                                 getCollationKey(title).
-                                 getByteArray())
-                self.sortex.put(coll_key4_str + "___" + title)
                 articles = []
             articles.append(compress(serialized_article))
             self.index_db[title] = articles
@@ -293,35 +295,45 @@ class Compiler(object):
             self.running_count += 1
 
     def compile(self):
-        erase_progress(self.running_count)
-        log.info('Sorting')
-        self.sortex.sort()
+        erase_progress(self.running_count)        
+        sortex = self.sort()
         log.info('Compiling %s', self.output_file_name)
         metadata = compress(tojson(self.metadata))
         header_meta_len = spec_len(HEADER_SPEC) + len(metadata)
         create_volume_func = functools.partial(self.create_volume,
                                                header_meta_len)
-        for volume in self.make_volumes(create_volume_func):
+        for volume in self.make_volumes(create_volume_func, sortex):
             log.info("Creating volume %d" % volume.number)
             self.make_aar(volume)
             log.info("Volume %d created" % volume.number)
-        self.sortex.cleanup()
+        sortex.cleanup()
         self.index_db.close()
-        shutil.rmtree(self.tempdir)
+        shutil.rmtree(self.session_dir)
         self.write_volume_count()
         self.write_sha1sum()
         self.rename_files()
 
+    def sort(self):
+        log.info('Sorting')
+        work_dir=os.path.join(self.session_dir, "sort")        
+        sortex = SortExternal(work_dir=work_dir)
+        for title in self.index_db:
+            coll_key4_str = (collator4.
+                             getCollationKey(title).
+                             getByteArray())            
+            sortex.put(coll_key4_str + "___" + title)
+        sortex.sort()
+        return sortex
+
     def create_volume(self, header_meta_len):
-        return Volume(header_meta_len, self.max_file_size, self.work_dir)
+        return Volume(header_meta_len, self.max_file_size, self.session_dir)
 
-    def make_volumes(self, create_volume_func):
-
+    def make_volumes(self, create_volume_func, sortex):
         volume = create_volume_func()
         count = 0
-        for count, item in enumerate(self.sortex):
+        for count, item in enumerate(sortex):
             print_progress(count)
-            sortkey, title = item.split("___", 1)
+            title = item.split("___", 1)[1]
             serialized_articles = self.index_db[title]
             for serialized_article in serialized_articles:
                 index1Unit = struct.pack(INDEX1_ITEM_FORMAT,
@@ -346,7 +358,6 @@ class Compiler(object):
         erase_progress(count)
         volume.flush()
         yield volume
-
 
     def write_header(self, output_file, meta_length, index1Length,
                      index2Length, index_count, volume):

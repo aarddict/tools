@@ -1,5 +1,4 @@
 #!/usr/bin/python
-
 """
 sortexternal.py:  Sort files larger than available memory
 
@@ -25,23 +24,23 @@ You should have received a copy of the GNU General Public License
 along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 Copyright (C) 2008  Jeremy Mortis
+
 """
 
-from heapq import heapify, heappop, heappush
-import tempfile
+from heapq import heappop, heappush
 import os
+import tempfile
 import sys
 import struct
 
 class VariableLengthRecordFile(file):
 
-    def __init__(self, name, mode, bufsize = -1):
+    def __init__(self, name, mode, bufsize=-1):
         file.__init__(self, name, mode, bufsize)
         self.headerFormat = "i"
         self.headerLength = struct.calcsize(self.headerFormat)
     
     def readline(self):
-
         header = self.read(self.headerLength)
         if header == "":
             return (-2, "")
@@ -52,23 +51,23 @@ class VariableLengthRecordFile(file):
 
         return (1, self.read(recordLength))
 
-    def writeline(self, s):
-
-            
+    def writeline(self, s):            
         self.write(struct.pack(self.headerFormat, len(s)))
         self.write(s)
 
-        #sys.stderr.write("wrote: %s %s\n" % (s, self.name))
-
     def mark(self):
-        
         self.write(struct.pack(self.headerFormat, -1))
 
 class SortExternal:
 
     def __init__(self, buffer_size=200000, filenum=16, work_dir=None):
         self.buffer_size = buffer_size
-        self.tempdir = tempfile.mkdtemp(dir=work_dir)
+        if work_dir:
+            if not os.path.exists(work_dir):
+                os.mkdir(work_dir)            
+            self.work_dir = work_dir
+        else:            
+            self.work_dir = tempfile.tempdir()
         self.chunk = []
         self.chunksize = 0
         
@@ -76,10 +75,10 @@ class SortExternal:
         self.outputChunkFiles = []
         
         for i in range(filenum):
-            filename = os.path.join(self.tempdir, "sort-%06i" % i)
+            filename = os.path.join(self.work_dir, "sort-%06i" % i)
             self.inputChunkFiles.append(VariableLengthRecordFile(filename,'w+b',64*1024))
         for i in range(filenum, filenum * 2):
-            filename = os.path.join(self.tempdir, "sort-%06i" %i )
+            filename = os.path.join(self.work_dir, "sort-%06i" %i )
             self.outputChunkFiles.append(VariableLengthRecordFile(filename,'w+b',64*1024))
 
         self.currOutputFile = -1
@@ -203,7 +202,7 @@ class SortExternal:
             chunkFile.close()
             os.remove(chunkFile.name)
 
-        os.rmdir(self.tempdir)
+        os.rmdir(self.work_dir)
 
 if __name__ == '__main__':
     import random
@@ -221,11 +220,4 @@ if __name__ == '__main__':
     for line in s:
         #sys.stderr.write("<" + repr(line) + "\n")
         sys.stdout.write(line + "\n")
-
-
-
-
-
-
-
 
