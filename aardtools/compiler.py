@@ -35,7 +35,7 @@ from sortexternal import SortExternal
 from aarddict.dictionary import HEADER_SPEC, spec_len, calcsha1
 import aardtools
 
-logging.basicConfig(format='%(levelname)s: %(message)s')
+
 log = logging.getLogger()
 
 tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
@@ -167,6 +167,10 @@ def make_opt_parser():
         'there should be no need to change the default value.'
         'Default: %default'
         )
+    
+    parser.add_option('--log-file', 
+                       help='Log file name. By default derived from output '
+                       'file name by adding .log extension')
 
     return parser
 
@@ -243,22 +247,13 @@ article_add_lock = threading.RLock()
 
 class Compiler(object):
 
-    def __init__(self, output_file_name, max_file_size, work_dir, metadata=None):
+    def __init__(self, output_file_name, max_file_size, session_dir, metadata=None):
         self.uuid = uuid.uuid4()
         self.output_file_name = output_file_name
         self.max_file_size = max_file_size
         self.running_count = 0
         self.index_count = 0
-        self.session_dir = os.path.join(work_dir, 
-                                        'aardc-'+('%.2f' % time.time()).replace('.','-'))
-
-        if os.path.exists(self.session_dir):
-            raise Exception('Session directory %s already'
-                            ' exists, can\'t proceed' % self.session_dir)
-        else:
-            logging.info('Creating session dir %s', self.session_dir)
-            os.mkdir(self.session_dir)
-        
+        self.session_dir = session_dir        
         self.index_db_fname = os.path.join(self.session_dir, "articles.db")
         self.index_db = shelve.open(self.index_db_fname, 'n')
         self.metadata = metadata if metadata is not None else {}
@@ -307,8 +302,7 @@ class Compiler(object):
             self.make_aar(volume)
             log.info("Volume %d created" % volume.number)
         sortex.cleanup()
-        self.index_db.close()
-        shutil.rmtree(self.session_dir)
+        self.index_db.close()        
         self.write_volume_count()
         self.write_sha1sum()
         self.rename_files()
@@ -679,41 +673,54 @@ def main():
         raise SystemExit(1)
 
     if len(args) < 2:
-        log.error('Not enough parameters')
+        sys.stderr.write('Not enough parameters\n')
         opt_parser.print_help()
         raise SystemExit(1)
 
-    if args[0] not in known_types:
-        log.error('Unknown input type %s, expected one of %s',
-                  args[0], ', '.join(known_types.keys()))
+    if args[0] not in known_types:        
+        sys.stderr.write('Unknown input type %s, expected one of %s\n' %
+                         (args[0], ', '.join(known_types.keys())))
         opt_parser.print_help()
         raise SystemExit(1)
-
-    if options.quite:
-        log.setLevel(logging.ERROR)
-    elif options.debug:
-        log.setLevel(logging.DEBUG)
-    else:
-        log.setLevel(logging.INFO)
 
     input_type = args[0]
     input_files = args[1:]
 
     if not input_files:
-        log.error('No input files specified')
+        sys.stderr.write('No input files specified\n')
         raise SystemExit(1)
 
     if '-' in input_files and len(input_files) != 1:
-        log.error('stdin is specified as input file, but other files '
-                  'are specified too (%s), can''t proceed', input_files)
+        sys.stderr.write('stdin is specified as input file, but other files '
+                         'are specified too (%s), can\'t proceed\n' % input_files)
         raise SystemExit(1)
 
     for input_file in input_files:
         if not input_file == '-' and not os.path.exists(input_file):
-            log.error('No such file: %s', input_file)
+            sys.stderr.write('No such file: %s\n' % input_file)
             raise SystemExit(1)
 
     output_file_name = make_output_file_name(input_files[0], options)
+
+    if options.quite:
+        log_level = logging.ERROR
+    elif options.debug:
+        log_level = logging.DEBUG
+    else:
+        log_level = logging.INFO
+    
+    if options.log_file:
+        log_file_name = options.log_file
+    else:
+        log_file_name = os.path.extsep.join((output_file_name, 'log'))
+
+    print 
+
+    log.handlers[:] = []
+    logging.basicConfig(format='%(levelname)s: %(message)s', 
+                        level=log_level,
+                        filename=log_file_name)
+    
     max_volume_size = max_file_size(options)
     log.info('Maximum file size is %d bytes', max_volume_size)
     if max_volume_size > MAX_FAT32_FILE_SIZE:
@@ -727,8 +734,8 @@ def main():
         if not options.wiki_lang:        
             options.wiki_lang = guess_wiki_lang(input_files[0])
             if not options.wiki_lang:
-                log.fatal('Wiki language is neither specified with --wiki-lang '
-                          'not could be guessed from input file name')
+                sys.stderr.write('Wiki language is neither specified with --wiki-lang '
+                                 'not could be guessed from input file name\n')
                 raise SystemExit(1)
         log.info('Wikipedia language: %s', options.wiki_lang)        
 
@@ -753,20 +760,34 @@ def main():
 
     log.debug('Metadata: %s', metadata)
 
+    session_dir = os.path.join(options.work_dir, 
+                               'aardc-'+('%.2f' % time.time()).replace('.','-'))
+
+    if os.path.exists(session_dir):
+        sys.stderr.write('Session directory %s already'
+                         ' exists, can\'t proceed\n' % session_dir)
+        raise SystemExit(1)
+    else:
+        log.info('Creating session dir %s', session_dir)
+        os.mkdir(session_dir)
+
     compiler = Compiler(output_file_name, max_volume_size,
-                        options.work_dir, metadata)
+                        session_dir, metadata)
     make_input, collect_articles = known_types[input_type]
 
-    t0 = time.time()
+    t0 = time.time()    
+    print 'Compiling %s' % ', '.join(input_files)
     for input_file in input_files:
         log.info('Collecting articles in %s', input_file)
         collect_articles(make_input(input_file), options, compiler)
     compiler.compile()
+    shutil.rmtree(session_dir)
     log.info('Compression: %s',
              ', '.join('%s - %d' % item
                       for item in compress_counts.iteritems()))
-    logging.info('Compilation took %.1f s', (time.time() - t0))
-
+    dt = time.time() - t0
+    logging.info('Compilation took %.1f s', dt)
+    print 'Done (took %.1f s)' % dt
 
 if __name__ == '__main__':
     main()
