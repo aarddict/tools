@@ -158,6 +158,16 @@ def make_opt_parser():
         'Default: %default'
         )
 
+    parser.add_option(
+        '--mp-chunk-size',
+        default=10000,
+        type='int',
+        help='This value defines maximum number articles to be processed by pool'
+        'of worker processes before it is closed and new pool is created. Typically'
+        'there should be no need to change the default value.'
+        'Default: %default'
+        )
+
     return parser
 
 def utf8(func):

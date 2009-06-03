@@ -19,6 +19,7 @@ import re
 import logging
 import os
 import sys
+from itertools import islice
 
 import simplejson
 
@@ -283,6 +284,7 @@ class WikiParser():
             self.parse = self.parse_simple
         else:
             self.parse = self.parse_mp
+        self.mp_chunk_size = options.mp_chunk_size
 
     def articles(self, f):
         if self.start > 0:
@@ -311,8 +313,8 @@ class WikiParser():
             gc.collect()
 
 
-    def reset_pool(self, cdbdir):
-        if self.pool:
+    def reset_pool(self, cdbdir, terminate=True):
+        if self.pool and terminate:
             log.info('Terminating current worker pool')
             self.pool.terminate()
         log.info('Creating new worker pool with wiki cdb at %s', cdbdir)
@@ -345,33 +347,45 @@ class WikiParser():
         try:
             self.consumer.add_metadata('article_format', 'json')
             articles = self.articles(f)
-            self.reset_pool(f)
-            resulti = self.pool.imap_unordered(convert, articles)
+            self.reset_pool(f)            
             article_count = 0
-            while True:
-                try:
-                    result = resulti.next(self.timeout)
-                    title, serialized, redirect = result
-                    if not redirect:
-                        article_count += 1
-                    self.consumer.add_article(title, serialized)
-                except StopIteration:
+            iter_count = 1
+            while True:                
+                if iter_count:
+                    chunk = islice(articles, self.mp_chunk_size)
+                    iter_count = 0
+                else:
                     break
-                except TimeoutError:
-                    self.timedout_count += 1
-                    log.error('Worker pool timed out (%d time(s) so far)',
+                
+                resulti = self.pool.imap_unordered(convert, chunk)
+                while True:
+                    try:
+                        result = resulti.next(self.timeout)
+                        iter_count += 1
+                        title, serialized, redirect = result
+                        if not redirect:
+                            article_count += 1
+                        self.consumer.add_article(title, serialized)
+                    except StopIteration:
+                        break
+                    except TimeoutError:
+                        self.timedout_count += 1
+                        log.error('Worker pool timed out (%d time(s) so far)',
                                   self.timedout_count)
-                    self.reset_pool(f)
-                    resulti = self.pool.imap_unordered(convert, articles)
-                except AssertionError:
-                    self.log_runtime_error()
-                except RuntimeError:
-                    self.log_runtime_error()
-                except KeyboardInterrupt:
-                    log.error('Keyboard interrupt: '
+                        self.reset_pool(f)
+                        resulti = self.pool.imap_unordered(convert, chunk)
+                    except AssertionError:
+                        self.log_runtime_error()
+                    except RuntimeError:
+                        self.log_runtime_error()
+                    except KeyboardInterrupt:
+                        log.error('Keyboard interrupt: '
                                   'terminating worker pool')
-                    self.pool.terminate()
-                    raise
+                        self.pool.terminate()
+                        raise
+                
+                self.pool.close()
+                self.reset_pool(f, terminate=False)
 
             self.consumer.add_metadata("article_count", article_count)
         finally:
