@@ -67,7 +67,7 @@ class SortExternal:
                 os.mkdir(work_dir)            
             self.work_dir = work_dir
         else:            
-            self.work_dir = tempfile.tempdir()
+            self.work_dir = tempfile.mkdtemp()
         self.chunk = []
         self.chunksize = 0
         
@@ -203,21 +203,3 @@ class SortExternal:
             os.remove(chunkFile.name)
 
         os.rmdir(self.work_dir)
-
-if __name__ == '__main__':
-    import random
-    
-    s = SortExternal(buffer_size=100000, filenum=32)
-
-    for i in range(100000):
-        line = "%08i" % random.randint(0, 99999999)
-        s.put(line)
-        #sys.stderr.write(">" + repr(line) + "\n")
-        sys.stderr.write(line + "\n")
-
-    s.sort()
-        
-    for line in s:
-        #sys.stderr.write("<" + repr(line) + "\n")
-        sys.stdout.write(line + "\n")
-
