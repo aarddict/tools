@@ -676,18 +676,18 @@ def main():
 
     if not args:
         opt_parser.print_help()
-        raise SystemExit()
+        raise SystemExit(1)
 
     if len(args) < 2:
         log.error('Not enough parameters')
         opt_parser.print_help()
-        raise SystemExit()
+        raise SystemExit(1)
 
     if args[0] not in known_types:
         log.error('Unknown input type %s, expected one of %s',
                   args[0], ', '.join(known_types.keys()))
         opt_parser.print_help()
-        raise SystemExit()
+        raise SystemExit(1)
 
     if options.quite:
         log.setLevel(logging.ERROR)
@@ -701,17 +701,17 @@ def main():
 
     if not input_files:
         log.error('No input files specified')
-        raise SystemExit()
+        raise SystemExit(1)
 
     if '-' in input_files and len(input_files) != 1:
         log.error('stdin is specified as input file, but other files '
                   'are specified too (%s), can''t proceed', input_files)
-        raise SystemExit()
+        raise SystemExit(1)
 
     for input_file in input_files:
         if not input_file == '-' and not os.path.exists(input_file):
             log.error('No such file: %s', input_file)
-            raise SystemExit()
+            raise SystemExit(1)
 
     output_file_name = make_output_file_name(input_files[0], options)
     max_volume_size = max_file_size(options)
