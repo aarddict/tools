@@ -46,7 +46,7 @@ from mwlib.siteinfo import get_siteinfo
 import gc
 
 wikidb = None
-log = logging.getLogger()
+log = logging.getLogger('wiki')
 
 def _create_wikidb(cdbdir, lang):
     global wikidb
@@ -370,7 +370,7 @@ class WikiParser():
                         break
                     except TimeoutError:
                         self.timedout_count += 1
-                        log.error('Worker pool timed out (%d time(s) so far)',
+                        log.warn('Worker pool timed out (%d time(s) so far)',
                                   self.timedout_count)
                         self.reset_pool(f)
                         resulti = self.pool.imap_unordered(convert, chunk)

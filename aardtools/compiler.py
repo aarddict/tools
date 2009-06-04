@@ -36,7 +36,7 @@ from aarddict.dictionary import HEADER_SPEC, spec_len, calcsha1
 import aardtools
 
 
-log = logging.getLogger()
+log = logging.getLogger('compiler')
 
 tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
 
@@ -195,18 +195,17 @@ class Volume(object):
     number = 0
 
     def __init__(self, header_meta_len, max_file_size, work_dir):
-        logging.info('Work dir %s', work_dir)
         self.header_meta_len = header_meta_len
         self.max_file_size = max_file_size
         self.index1 = tempfile.NamedTemporaryFile(prefix='index1',
                                                   dir=work_dir)
-        logging.info('Creating temporary index 1 file %s', self.index1.name)
+        log.info('Creating temporary index 1 file %s', self.index1.name)
         self.index2 = tempfile.NamedTemporaryFile(prefix='index2',
                                                   dir=work_dir)
-        logging.info('Creating temporary index 2 file %s', self.index2.name)
+        log.info('Creating temporary index 2 file %s', self.index2.name)
         self.articles =  tempfile.NamedTemporaryFile(prefix='articles',
                                                      dir=work_dir)
-        logging.info('Creating temporary articles file %s', self.articles.name)
+        log.info('Creating temporary articles file %s', self.articles.name)
         self.index1Length = 0
         self.index2Length = 0
         self.articles_len = 0
@@ -724,10 +723,12 @@ def main():
 
     print 
 
-    log.handlers[:] = []
-    logging.basicConfig(format='%(levelname)s: %(message)s', 
+    logging.getLogger().handlers[:] = []
+    logging.basicConfig(format='%(asctime)s %(levelname)s [%(name)s] %(message)s', 
                         level=log_level,
-                        filename=log_file_name)
+                        filename=log_file_name,
+                        datefmt="%X")
+    logging.getLogger('multiprocessing').setLevel(logging.WARN)
     
     max_volume_size = max_file_size(options)
     log.info('Maximum file size is %d bytes', max_volume_size)
@@ -794,7 +795,7 @@ def main():
              ', '.join('%s - %d' % item
                       for item in compress_counts.iteritems()))
     dt = time.time() - t0
-    logging.info('Compilation took %.1f s', dt)
+    log.info('Compilation took %.1f s', dt)
     print 'Done (took %.1f s)' % dt
 
 if __name__ == '__main__':
