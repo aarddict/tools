@@ -643,6 +643,9 @@ def guess_version(input_file_name):
 
     >>> guess_version('some-name')
     
+    >>> guess_version('ruwiktionary-20090122-pages-articles.cdb')
+    '20090122'    
+
     """
     import re
     m = re.match(r'\w+-?(\d+)-?\w+', os.path.basename(input_file_name))
@@ -653,15 +656,20 @@ def guess_wiki_lang(input_file_name):
 
     >>> guess_wiki_lang('simplewiki-20090506-pages-articles.cdb')
     'simple'
+    >>> guess_wiki_lang('simplewiki-20090506-pages-articles.cdb/')
+    'simple'
     >>> guess_wiki_lang('~/wikidumps/simplewiki-20090506-pages-articles.cdb')
     'simple'
     >>> guess_wiki_lang('elwiki-20090512-pages-articles')
     'el'
     >>> guess_wiki_lang('somename')
     
+    >>> guess_wiki_lang('ruwiktionary-20090122-pages-articles')
+    'ru'
+
     """
     import re    
-    m = re.match(r'([a-zA-Z]{2,})wiki.*', os.path.basename(input_file_name))
+    m = re.match(r'([a-zA-Z]{2,})wik[i|t].*', os.path.basename(input_file_name))
     return m.group(1) if m else None
 
 def main():
