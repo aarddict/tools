@@ -244,6 +244,7 @@ class Volume(object):
 import threading
 article_add_lock = threading.RLock()
 
+
 class Compiler(object):
 
     def __init__(self, output_file_name, max_file_size, session_dir, metadata=None):
@@ -643,7 +644,7 @@ def guess_version(input_file_name):
     >>> guess_version('some-name')
     
     >>> guess_version('ruwiktionary-20090122-pages-articles.cdb')
-    '20090122'    
+    '20090122'
 
     """
     import re
@@ -668,7 +669,8 @@ def guess_wiki_lang(input_file_name):
 
     """
     import re    
-    m = re.match(r'([a-zA-Z]{2,})wik[i|t].*', os.path.basename(input_file_name))
+    m = re.match(r'([a-zA-Z]{2,})wik[i|t].*', 
+                 os.path.basename(input_file_name.rstrip(os.path.sep)))
     return m.group(1) if m else None
 
 def main():
