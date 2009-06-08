@@ -167,8 +167,8 @@ def make_opt_parser():
         'there should be no need to change the default value.'
         'Default: %default'
         )
-    
-    parser.add_option('--log-file', 
+
+    parser.add_option('--log-file',
                        help='Log file name. By default derived from output '
                        'file name by adding .log extension')
 
@@ -244,6 +244,29 @@ class Volume(object):
 import threading
 article_add_lock = threading.RLock()
 
+class Stats(object):
+
+    def __init__(self):
+        self.total = 0
+        self.skipped = 0
+        self.failed = 0
+        self.empty = 0
+        self.timedout = 0
+        self.articles = 0
+        self.redirects = 0
+
+    def __str__(self):
+        return ('total: %d, skipped: %d, failed: %d, '
+                'empty: %d, timed out: %d, articles: %d, '
+                'redirects: %d' % (self.total, 
+                                   self.skipped,
+                                   self.failed,
+                                   self.empty,
+                                   self.timedout,
+                                   self.articles,
+                                   self.redirects
+                                   ))
+
 
 class Compiler(object):
 
@@ -251,13 +274,13 @@ class Compiler(object):
         self.uuid = uuid.uuid4()
         self.output_file_name = output_file_name
         self.max_file_size = max_file_size
-        self.running_count = 0
         self.index_count = 0
-        self.session_dir = session_dir        
+        self.session_dir = session_dir
         self.index_db_fname = os.path.join(self.session_dir, "articles.db")
         self.index_db = shelve.open(self.index_db_fname, 'n')
         self.metadata = metadata if metadata is not None else {}
         self.file_names = []
+        self.stats = Stats()
         log.info('Collecting articles')
 
     @utf8
@@ -270,11 +293,14 @@ class Compiler(object):
                      key, value)
 
     @utf8
-    def add_article(self, title, serialized_article):
+    def add_article(self, title, serialized_article, redirect=False):
         with article_add_lock:
-            if (not title) or (not serialized_article):
-                log.debug('Skipped blank article: "%s" -> "%s"',
-                          title, serialized_article)
+            if not title:
+                log.warn('Blank title, ignoring article "%s"', serialized_article)
+                return
+
+            if not serialized_article:
+                self.empty_article(title)
                 return
 
             if self.index_db.has_key(title):
@@ -286,11 +312,41 @@ class Compiler(object):
                 articles = []
             articles.append(compress(serialized_article))
             self.index_db[title] = articles
-            print_progress(self.running_count)
-            self.running_count += 1
+            if not redirect:
+                self.stats.articles += 1
+            else:
+                self.stats.redirects += 1
+            print_progress(self.stats)
+
+    @utf8
+    def fail_article(self, title):
+        self.stats.failed += 1
+        print_progress(self.stats)
+
+    @utf8
+    def empty_article(self, title):
+        self.stats.empty += 1
+        print_progress(self.stats)
+
+    @utf8
+    def skip_article(self, title):
+        self.stats.skipped += 1
+        print_progress(self.stats)
+
+    def timedout(self, count=1):
+        self.stats.timedout += count
+        print_progress(self.stats)
+
+    def total(self, value):
+        if self.stats.total is None:
+            self.stats.total = value
+        else:
+            self.stats.total += total
 
     def compile(self):
-        erase_progress(self.running_count)        
+        
+        self.add_metadata("article_count", self.stats.articles)
+        #erase_progress(self.stats.processed)
         sortex = self.sort()
         log.info('Compiling %s', self.output_file_name)
         metadata = compress(tojson(self.metadata))
@@ -298,23 +354,29 @@ class Compiler(object):
         create_volume_func = functools.partial(self.create_volume,
                                                header_meta_len)
         for volume in self.make_volumes(create_volume_func, sortex):
-            log.info("Creating volume %d" % volume.number)
-            self.make_aar(volume)
-            log.info("Volume %d created" % volume.number)
+            m = "Creating volume %d" % volume.number
+            log.info(m)
+            msg(m)
+            file_name = self.make_aar(volume)
+            self.file_names.append(file_name)
+            m = "Wrote volume %d" % volume.number
+            log.info(m)
+            msg(m)
         sortex.cleanup()
-        self.index_db.close()        
+        self.index_db.close()
         self.write_volume_count()
         self.write_sha1sum()
         self.rename_files()
 
     def sort(self):
         log.info('Sorting')
-        work_dir=os.path.join(self.session_dir, "sort")        
+        msg('Sorting')
+        work_dir=os.path.join(self.session_dir, "sort")
         sortex = SortExternal(work_dir=work_dir)
         for title in self.index_db:
             coll_key4_str = (collator4.
                              getCollationKey(title).
-                             getByteArray())            
+                             getByteArray())
             sortex.put(coll_key4_str + "___" + title)
         sortex.sort()
         return sortex
@@ -324,9 +386,7 @@ class Compiler(object):
 
     def make_volumes(self, create_volume_func, sortex):
         volume = create_volume_func()
-        count = 0
         for count, item in enumerate(sortex):
-            print_progress(count)
             title = item.split("___", 1)[1]
             serialized_articles = self.index_db[title]
             for serialized_article in serialized_articles:
@@ -340,7 +400,6 @@ class Compiler(object):
                 try:
                     volume.add(index1Unit, index2Unit, article_unit)
                 except Volume.ExceedsMaxSize:
-                    erase_progress(count)
                     volume.flush()
                     yield volume
                     volume = create_volume_func()
@@ -348,8 +407,6 @@ class Compiler(object):
                                              volume.index2Length,
                                              volume.articles_len)
                     volume.add(index1Unit, index2Unit, article_unit)
-
-        erase_progress(count)
         volume.flush()
         yield volume
 
@@ -377,54 +434,49 @@ class Compiler(object):
         output_file.write(metadata)
 
     def write_index1(self, output_file, index1):
+        log.debug('Writing index 1')
         index1.seek(0)
-        writeCount = 0
+        count = 0
         while True:
-            print_progress(writeCount)
             unit = index1.read(struct.calcsize(INDEX1_ITEM_FORMAT))
             if len(unit) == 0:
                 break
             index2ptr, offset = struct.unpack(INDEX1_ITEM_FORMAT, unit)
             unit = struct.pack(INDEX1_ITEM_FORMAT, index2ptr, offset)
-            writeCount += 1
             output_file.write(unit)
-        erase_progress(writeCount)
-        log.debug('Wrote %d items to index 1', writeCount)
+            count += 1
+        log.debug('Wrote %d items to index 1', count)
         index1.close()
 
     def write_index2(self, output_file, index2):
-        log.debug('Writing index 2...')
+        log.debug('Writing index 2')
         index2.seek(0)
-        writeCount = 0
+        count = 0
         while True:
-            print_progress(writeCount)
             unitLengthString = index2.read(struct.calcsize(KEY_LENGTH_FORMAT))
             if len(unitLengthString) == 0:
                 break
-            writeCount += 1
+            count += 1
             unitLength, = struct.unpack(KEY_LENGTH_FORMAT, unitLengthString)
             unit = index2.read(unitLength)
             output_file.write(unitLengthString + unit)
-        erase_progress(writeCount)
-        log.debug('Wrote %d items to index 2', writeCount)
+        log.debug('Wrote %d items to index 2', count)
         index2.close()
 
     def write_articles(self, output_file, articles):
         articles.seek(0)
-        writeCount = 0
+        count = 0
         while True:
-            print_progress(writeCount)
             unitLengthString = articles.read(struct.
                                              calcsize(ARTICLE_LENGTH_FORMAT))
             if len(unitLengthString) == 0:
                 break
-            writeCount += 1
+            count += 1
             unitLength, = struct.unpack(ARTICLE_LENGTH_FORMAT,
                                         unitLengthString)
             unit = articles.read(unitLength)
             output_file.write(unitLengthString + unit)
-        erase_progress(writeCount)
-        log.debug('Wrote %d items to articles', writeCount)
+        log.debug('Wrote %d items to articles', count)
         articles.close()
 
     def write_sha1sum(self):
@@ -451,8 +503,8 @@ class Compiler(object):
         self.write_index2(output_file, index2)
         self.write_articles(output_file, articles)
         output_file.close()
-        self.file_names.append(file_name)
         log.info("Done with %s", file_name)
+        return file_name        
 
     def write_volume_count(self):
         name, fmt = HEADER_SPEC[5]
@@ -471,12 +523,14 @@ class Compiler(object):
             base, ext, vol = file_name.rsplit('.', 2)
             newname = "%s.%s" % (base, ext)
             log.info('Renaming %s ==> %s', file_name, newname)
+            msg('Created %s' % bold(newname))
             os.rename(file_name, newname)
         else:
             for file_name in self.file_names:
                 base, ext, vol = file_name.rsplit('.', 2)
                 newname = "%s.%s_of_%s.%s" % (base,vol,Volume.number,ext)
                 log.info('Renaming %s ==> %s', file_name, newname)
+                msg('Created %s' % bold(newname))
                 os.rename(file_name, newname)
 
 import zlib
@@ -547,9 +601,13 @@ def make_aard_input(input_file_name):
         return sys.stdin
     return open(input_file_name)
 
-known_types = {'wiki': (make_wiki_input, compile_wiki),
-               'xdxf': (make_xdxf_input, compile_xdxf),
-               'aard': (make_aard_input, compile_aard)}
+def wiki_total(inputfile, options):
+    import wiki
+    return wiki.total(inputfile, options)
+
+known_types = {'wiki': (make_wiki_input, compile_wiki, wiki_total),
+               'xdxf': (make_xdxf_input, compile_xdxf, None),
+               'aard': (make_aard_input, compile_aard, None)}
 
 def make_output_file_name(input_file, options):
     """
@@ -618,14 +676,80 @@ def max_file_size(options):
     else:
         return int(s)
 
-def print_progress(progress):
-    s = int(progress)
-    if ((s%1000)==0):
-        sys.stdout.write("\n"+str(s))
-        sys.stdout.flush()
-    if ((s%100)==0):
-        sys.stdout.write('.')
-        sys.stdout.flush()
+ERASE_LINE = '\033[2K'
+ERASE_START_OF_LINE = '\033[1K'
+BOLD='\033[1m'
+RED = '\033[91m'
+YELLOW = '\033[93m'
+GREEN = '\033[92m'
+BLUE = '\033[94m'
+ENDC = '\033[0m'
+SAVE_CURSOR='\033[s'		
+UNSAVE_CURSOR='\033[u'		
+CURSOR_HOME='\033[h'
+
+def ok(text):
+    return GREEN + text + ENDC
+
+def warn(text):
+    return YELLOW + text + ENDC
+
+def fail(text):
+    return RED + text + ENDC
+
+def bold(text):
+    return BOLD + text + ENDC
+
+def cursor_position():
+    sys.stdout.write('\033[6n')
+
+def cursor_back(count):
+    sys.stdout.write('\033[%sD'%count)
+
+def printc(text):
+    sys.stdout.write(text)
+
+def print_progress(stats):
+    sys.stdout.write(ERASE_START_OF_LINE)
+    length = 0
+    
+    if stats.total:        
+        processed = (stats.articles + 
+                     stats.redirects +
+                     stats.skipped +
+                     stats.empty +
+                     stats.timedout +
+                     stats.failed
+                     )
+        progress = '%.2f' % (100*float(processed)/stats.total)
+    else:
+        progress = '?'
+    text = '%s%% ' % progress
+    length += len(text)
+    printc(bold(text))
+
+    text = 'articles: %d redirects: %d ' % (stats.articles, 
+                                                      stats.redirects)
+    length += len(text)
+    printc(ok(text))
+
+    text = 'skipped: %d ' % stats.skipped
+    length += len(text)
+    printc(warn(text))
+
+    text = 'empty: %d ' % stats.empty
+    length += len(text)
+    printc(warn(text))
+
+    text = 'timed out: %d ' % stats.timedout
+    length += len(text)
+    printc(warn(text))
+
+    text = 'failed: %d ' % stats.failed
+    length += len(text)
+    printc(fail(text))
+    cursor_back(length)
+    sys.stdout.flush()
 
 def erase_progress(progress):
     s = str(progress)
@@ -634,7 +758,7 @@ def erase_progress(progress):
 
 def guess_version(input_file_name):
     """ Guess dictionary version from input file name.
-    
+
     >>> guess_version('simplewiki-20090506-pages-articles.cdb')
     '20090506'
 
@@ -642,7 +766,7 @@ def guess_version(input_file_name):
     '20090506'
 
     >>> guess_version('some-name')
-    
+
     >>> guess_version('ruwiktionary-20090122-pages-articles.cdb')
     '20090122'
 
@@ -663,17 +787,23 @@ def guess_wiki_lang(input_file_name):
     >>> guess_wiki_lang('elwiki-20090512-pages-articles')
     'el'
     >>> guess_wiki_lang('somename')
-    
+
     >>> guess_wiki_lang('ruwiktionary-20090122-pages-articles')
     'ru'
 
     """
-    import re    
-    m = re.match(r'([a-zA-Z]{2,})wik[i|t].*', 
+    import re
+    m = re.match(r'([a-zA-Z]{2,})wik[i|t].*',
                  os.path.basename(input_file_name.rstrip(os.path.sep)))
     return m.group(1) if m else None
 
+def msg(text):
+    sys.stdout.write(text)
+    sys.stdout.write('\n')
+    sys.stdout.flush()
+
 def main():
+
     opt_parser = make_opt_parser()
     options, args = opt_parser.parse_args()
 
@@ -686,7 +816,7 @@ def main():
         opt_parser.print_help()
         raise SystemExit(1)
 
-    if args[0] not in known_types:        
+    if args[0] not in known_types:
         sys.stderr.write('Unknown input type %s, expected one of %s\n' %
                          (args[0], ', '.join(known_types.keys())))
         opt_parser.print_help()
@@ -717,21 +847,21 @@ def main():
         log_level = logging.DEBUG
     else:
         log_level = logging.INFO
-    
+
     if options.log_file:
         log_file_name = options.log_file
     else:
         log_file_name = os.path.extsep.join((output_file_name, 'log'))
 
-    print 
+    print
 
     logging.getLogger().handlers[:] = []
-    logging.basicConfig(format='%(asctime)s %(levelname)s [%(name)s] %(message)s', 
+    logging.basicConfig(format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
                         level=log_level,
                         filename=log_file_name,
                         datefmt="%X")
     logging.getLogger('multiprocessing').setLevel(logging.WARN)
-    
+
     max_volume_size = max_file_size(options)
     log.info('Maximum file size is %d bytes', max_volume_size)
     if max_volume_size > MAX_FAT32_FILE_SIZE:
@@ -741,14 +871,14 @@ def main():
                  'setting index item format to %s',
                  INDEX1_ITEM_FORMAT)
 
-    if input_type=='wiki': 
-        if not options.wiki_lang:        
+    if input_type=='wiki':
+        if not options.wiki_lang:
             options.wiki_lang = guess_wiki_lang(input_files[0])
             if not options.wiki_lang:
                 sys.stderr.write('Wiki language is neither specified with --wiki-lang '
                                  'not could be guessed from input file name\n')
                 raise SystemExit(1)
-        log.info('Wikipedia language: %s', options.wiki_lang)        
+        log.info('Wikipedia language: %s', options.wiki_lang)
 
     if not options.dict_ver:
         options.dict_ver = guess_version(input_files[0])
@@ -771,7 +901,7 @@ def main():
 
     log.debug('Metadata: %s', metadata)
 
-    session_dir = os.path.join(options.work_dir, 
+    session_dir = os.path.join(options.work_dir,
                                'aardc-'+('%.2f' % time.time()).replace('.','-'))
 
     if os.path.exists(session_dir):
@@ -784,21 +914,30 @@ def main():
 
     compiler = Compiler(output_file_name, max_volume_size,
                         session_dir, metadata)
-    make_input, collect_articles = known_types[input_type]
+    make_input, collect_articles, total_func = known_types[input_type]
 
-    t0 = time.time()    
-    print 'Compiling %s' % ', '.join(input_files)
+    t0 = time.time()
+    msg('Converting %s' % ', '.join(input_files))
+
+    if total_func:
+        for input_file in input_files:
+            compiler.stats.total += total_func(input_file, options)        
+    msg('total: %d' % compiler.stats.total)
+
     for input_file in input_files:
         log.info('Collecting articles in %s', input_file)
         collect_articles(make_input(input_file), options, compiler)
+        msg('')
+    msg('Compiling .aar files')
     compiler.compile()
     shutil.rmtree(session_dir)
+    log.info(compiler.stats)
     log.info('Compression: %s',
              ', '.join('%s - %d' % item
                       for item in compress_counts.iteritems()))
     dt = time.time() - t0
     log.info('Compilation took %.1f s', dt)
-    print 'Done (took %.1f s)' % dt
+    msg('Compilation took %.1f s' % dt)
 
 if __name__ == '__main__':
     main()

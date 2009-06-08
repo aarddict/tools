@@ -57,13 +57,21 @@ def _init_process(cdbdir, lang):
     log = multiprocessing.get_logger()
     _create_wikidb(cdbdir, lang)
 
+class ConvertError(Exception):
+    
+    def __init__(self, title, *args, **kwargs):
+        Exception.__init__(self, *args, **kwargs)
+        self.title = title
+
+class EmptyArticleError(ConvertError): pass
+
 def convert(title):
     gc.collect()
     try:
         text = wikidb.getRawArticle(title, resolveRedirect=False)
 
         if not text:
-            raise RuntimeError('Article "%r" is empty' % title)
+            raise EmptyArticleError(title)
 
         redirect = wikidb.get_redirect(text)
         if redirect:
@@ -78,9 +86,8 @@ def convert(title):
         xhtmlwriter.preprocess(mwobject)
         text, tags = mwaardwriter.convert(mwobject)
     except Exception:
-        msg = 'Failed to process article %r' % title
-        log.exception(msg)
-        raise RuntimeError(msg)
+        log.exception('Failed to process article %s', title.encode('utf8'))
+        raise ConvertError(title)
     else:            
         return title, tojson((text.rstrip(), tags)), False
 
@@ -179,7 +186,16 @@ class Wiki(WikiDB):
                 log.warn('Template redirect not followed: %r -> %r' % (title, redirect))
         return res
 
-                
+
+def total(inputfile, options):
+    w = WikiDB(inputfile)
+    for i, a in enumerate(islice(w.articles(), options.start, options.end)):
+        pass
+    try:
+        return i+1
+    except:
+        return 0
+         
 
 default_lic_fname = 'fdl-1.2.txt'
 default_copyright_fname = 'copyright.txt'
@@ -273,10 +289,8 @@ class WikiParser():
         self.special_article_re = re.compile(r'^\w+:\S', re.UNICODE)
         self.processes = options.processes if options.processes else None
         self.pool = None
-        self.active_processes = multiprocessing.active_children()
         self.timeout = options.timeout
         self.timedout_count = 0
-        self.error_count = 0
         self.start = options.start
         self.end = options.end
         if options.nomp:
@@ -290,28 +304,13 @@ class WikiParser():
         if self.start > 0:
             log.info('Skipping to article %d', self.start)
         _create_wikidb(f, self.lang)
-        skipped_count = 0
-
-        for read_count, title in enumerate(wikidb.articles()):
-            
-            if read_count <= self.start:
-                continue
-
-            if self.end and read_count > self.end:
-                log.info('Reached article %d, stopping.', self.end)
-                break
-
+        for title in islice(wikidb.articles(), self.start, self.end):            
             if self.special_article_re.match(title):
-                skipped_count += 1
-                log.debug('Special article %s, skipping (%d so far)',
-                              title.encode('utf8'), skipped_count)
+                self.consumer.skip_article(title)
                 continue
-
             log.debug('Yielding "%s" for processing', title.encode('utf8'))
-
             yield title
             gc.collect()
-
 
     def reset_pool(self, cdbdir, terminate=True):
         if self.pool and terminate:
@@ -321,34 +320,26 @@ class WikiParser():
 
         self.pool = Pool(processes=self.processes,
                          initializer=_init_process,
-                         initargs=[cdbdir, self.lang])
-
-    def log_runtime_error(self):
-        self.error_count += 1
-        log.warn('Failed to process article (%d so far)', self.error_count)
-
+                         initargs=[cdbdir, self.lang])        
+        
     def parse_simple(self, f):
         self.consumer.add_metadata('article_format', 'json')
         articles = self.articles(f)
-        article_count = 0
         for a in articles:
             try:
                 result = convert(a)
                 title, serialized, redirect = result
-                if not redirect:
-                    article_count += 1
-                self.consumer.add_article(title, serialized)                
-            except RuntimeError:
-                self.log_runtime_error()
-
-        self.consumer.add_metadata("article_count", article_count)
+                self.consumer.add_article(title, serialized, redirect)                
+            except EmptyArticleError, e:
+                self.consumer.empty_article(e.title)
+            except ConvertError, e:
+                self.consumer.fail_article(e.title)
 
     def parse_mp(self, f):
         try:
             self.consumer.add_metadata('article_format', 'json')
             articles = self.articles(f)
             self.reset_pool(f)            
-            article_count = 0
             iter_count = 1
             while True:                
                 if iter_count:
@@ -363,21 +354,20 @@ class WikiParser():
                         result = resulti.next(self.timeout)
                         iter_count += 1
                         title, serialized, redirect = result
-                        if not redirect:
-                            article_count += 1
-                        self.consumer.add_article(title, serialized)
+                        self.consumer.add_article(title, serialized,redirect)
                     except StopIteration:
                         break
                     except TimeoutError:
-                        self.timedout_count += 1
-                        log.warn('Worker pool timed out (%d time(s) so far)',
-                                  self.timedout_count)
+                        log.warn('Worker pool timed out')
+                        self.consumer.timedout(count=len(multiprocessing.active_children()))
                         self.reset_pool(f)
                         resulti = self.pool.imap_unordered(convert, chunk)
                     except AssertionError:
-                        self.log_runtime_error()
-                    except RuntimeError:
-                        self.log_runtime_error()
+                        log.exception()
+                    except EmptyArticleError, e:
+                        self.consumer.empty_article(e.title)
+                    except ConvertError, e:
+                        self.consumer.fail_article(e.title)
                     except KeyboardInterrupt:
                         log.error('Keyboard interrupt: '
                                   'terminating worker pool')
@@ -386,8 +376,6 @@ class WikiParser():
                 
                 self.pool.close()
                 self.reset_pool(f, terminate=False)
-
-            self.consumer.add_metadata("article_count", article_count)
         finally:
             self.pool.close()
             self.pool.join()
