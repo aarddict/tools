@@ -372,7 +372,7 @@ class Compiler(object):
         log.info('Sorting')
         msg('Sorting')
         work_dir=os.path.join(self.session_dir, "sort")
-        sortex = SortExternal(work_dir=work_dir)
+        sortex = SortExternal(work_dir=work_dir, buffer_size=200000000)
         for title in self.index_db:
             coll_key4_str = (collator4.
                              getCollationKey(title).
