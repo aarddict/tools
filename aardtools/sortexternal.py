@@ -31,6 +31,7 @@ from heapq import heappop, heappush
 import os
 import tempfile
 import struct
+from functools import partial
 
 class VariableLengthRecordFile(file):
 
@@ -38,6 +39,7 @@ class VariableLengthRecordFile(file):
         file.__init__(self, name, mode, bufsize)
         self.headerFormat = "i"
         self.headerLength = struct.calcsize(self.headerFormat)
+        self._pack = partial(struct.pack, self.headerFormat)
 
     def readline(self):
         header = self.read(self.headerLength)
@@ -51,11 +53,11 @@ class VariableLengthRecordFile(file):
         return (1, self.read(recordLength))
 
     def writeline(self, s):
-        self.write(struct.pack(self.headerFormat, len(s)))
+        self.write(self._pack(len(s)))
         self.write(s)
 
     def mark(self):
-        self.write(struct.pack(self.headerFormat, -1))
+        self.write(self._pack(-1))
 
 class SortExternal:
 
@@ -77,12 +79,12 @@ class SortExternal:
             filename = os.path.join(self.work_dir, "sort-%06i" % i)
             self.inputChunkFiles.append(VariableLengthRecordFile(filename,
                                                                  'w+b',
-                                                                 64*1024))
+                                                                 8*1024))
         for i in range(filenum, filenum * 2):
             filename = os.path.join(self.work_dir, "sort-%06i" %i )
             self.outputChunkFiles.append(VariableLengthRecordFile(filename,
                                                                   'w+b',
-                                                                  64*1024))
+                                                                  8*1024))
 
         self.currOutputFile = -1
         self.chunkDepth = 1
@@ -94,7 +96,7 @@ class SortExternal:
     def put(self, value):
 
         self.chunk.append(value)
-        self.chunksize = self.chunksize + len(value)
+        self.chunksize += len(value)
 
         if self.chunksize < self.buffer_size:
             return
@@ -106,15 +108,15 @@ class SortExternal:
 
     def put_chunk(self, valueIterator):
 
-        self.currOutputFile = self.currOutputFile + 1
+        self.currOutputFile += 1
         if self.currOutputFile >= len(self.outputChunkFiles):
             self.currOutputFile = 0
-            self.chunkDepth = self.chunkDepth + 1
+            self.chunkDepth += 1
 
+        out_file = self.outputChunkFiles[self.currOutputFile]
         for value in valueIterator:
-            self.outputChunkFiles[self.currOutputFile].writeline(value)
-
-        self.outputChunkFiles[self.currOutputFile].mark()
+            out_file.writeline(value)
+        out_file.mark()
 
     def sort(self):
 
