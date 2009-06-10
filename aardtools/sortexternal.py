@@ -30,7 +30,6 @@ Copyright (C) 2008  Jeremy Mortis
 from heapq import heappop, heappush
 import os
 import tempfile
-import sys
 import struct
 
 class VariableLengthRecordFile(file):
@@ -39,7 +38,7 @@ class VariableLengthRecordFile(file):
         file.__init__(self, name, mode, bufsize)
         self.headerFormat = "i"
         self.headerLength = struct.calcsize(self.headerFormat)
-    
+
     def readline(self):
         header = self.read(self.headerLength)
         if header == "":
@@ -51,7 +50,7 @@ class VariableLengthRecordFile(file):
 
         return (1, self.read(recordLength))
 
-    def writeline(self, s):            
+    def writeline(self, s):
         self.write(struct.pack(self.headerFormat, len(s)))
         self.write(s)
 
@@ -64,22 +63,26 @@ class SortExternal:
         self.buffer_size = buffer_size
         if work_dir:
             if not os.path.exists(work_dir):
-                os.mkdir(work_dir)            
+                os.mkdir(work_dir)
             self.work_dir = work_dir
-        else:            
+        else:
             self.work_dir = tempfile.mkdtemp()
         self.chunk = []
         self.chunksize = 0
-        
+
         self.inputChunkFiles = []
         self.outputChunkFiles = []
-        
+
         for i in range(filenum):
             filename = os.path.join(self.work_dir, "sort-%06i" % i)
-            self.inputChunkFiles.append(VariableLengthRecordFile(filename,'w+b',64*1024))
+            self.inputChunkFiles.append(VariableLengthRecordFile(filename,
+                                                                 'w+b',
+                                                                 64*1024))
         for i in range(filenum, filenum * 2):
             filename = os.path.join(self.work_dir, "sort-%06i" %i )
-            self.outputChunkFiles.append(VariableLengthRecordFile(filename,'w+b',64*1024))
+            self.outputChunkFiles.append(VariableLengthRecordFile(filename,
+                                                                  'w+b',
+                                                                  64*1024))
 
         self.currOutputFile = -1
         self.chunkDepth = 1
@@ -87,12 +90,12 @@ class SortExternal:
 
     def __iter__(self):
         return self
-    
+
     def put(self, value):
-    
+
         self.chunk.append(value)
         self.chunksize = self.chunksize + len(value)
-        
+
         if self.chunksize < self.buffer_size:
             return
 
@@ -108,10 +111,7 @@ class SortExternal:
             self.currOutputFile = 0
             self.chunkDepth = self.chunkDepth + 1
 
-        #sys.stderr.write("writing chunk %i:%i\n"%(self.currOutputFile, self.chunkDepth))
-
         for value in valueIterator:
-            #sys.stderr.write(value + "\n")
             self.outputChunkFiles[self.currOutputFile].writeline(value)
 
         self.outputChunkFiles[self.currOutputFile].mark()
@@ -128,15 +128,15 @@ class SortExternal:
         t = self.inputChunkFiles
         self.inputChunkFiles = self.outputChunkFiles
         self.outputChunkFiles = t
-        
+
         for f in self.inputChunkFiles:
             f.flush()
             f.seek(0)
 
         self.prepareChunkMerge()
-        
+
     def prepareChunkMerge(self):
-        
+
         self.chunkHeap = []
 
         for chunkFile in self.inputChunkFiles:
@@ -144,11 +144,7 @@ class SortExternal:
             if status > 0:
                 heappush(self.chunkHeap,(value,chunkFile))
 
-        #sys.stderr.write("prepare: %i\n" % len(self.chunkHeap))
-
     def mergeFiles(self):
-
-        #sys.stderr.write("merging files\n")
 
         t = self.inputChunkFiles
         self.inputChunkFiles = self.outputChunkFiles
@@ -161,22 +157,20 @@ class SortExternal:
             f.flush()
             f.truncate(0)
             f.seek(0)
-        
+
         for f in self.inputChunkFiles:
             f.flush()
             f.seek(0)
 
         # for each layer of chunks
         while True:
-            #sys.stderr.write("merge layer\n")
             self.prepareChunkMerge()
             if not self.chunkHeap:
                 break
             self.put_chunk(self)
-        
+
     def next(self):
         # merges current chunk layer
-        
         if not self.chunkHeap:
             raise StopIteration
 
@@ -187,10 +181,8 @@ class SortExternal:
         if status > 0:
             heappush(self.chunkHeap, (value, chunkFile))
 
-        #sys.stderr.write("Value: %s\n" % returnValue)
-
         return returnValue
-        
+
 
     def cleanup(self):
 
