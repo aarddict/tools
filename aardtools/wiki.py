@@ -253,14 +253,14 @@ class WikiParser():
                 log.info('File %s doesn\'t exist', license_file)
                 license_file = os.path.join(default_metadata_dir, default_lic_fname)
                 log.info('Looking for license text in %s', license_file)
-                try:
-                    with open(license_file) as f:
-                        license_text = f.read()
-                        self.consumer.add_metadata('license', license_text)
-                        log.info('Using license text from %s', license_file)
-                except IOError, e:
-                    log.warn('No license text will be written to the '
-                             'output dictionary: %s', str(e))
+            try:
+                with open(license_file) as f:
+                    license_text = f.read()
+                    self.consumer.add_metadata('license', license_text)
+                    log.info('Using license text from %s', license_file)
+            except IOError, e:
+                log.warn('No license text will be written to the '
+                         'output dictionary: %s', str(e))
 
         if not options.copyright and 'copyright' not in self.consumer.metadata:
             copyright_file = os.path.join(metadata_dir, default_copyright_fname)
@@ -269,14 +269,14 @@ class WikiParser():
                 log.info('File %s doesn\'t exist', copyright_file)
                 copyright_file = os.path.join(default_metadata_dir, default_copyright_fname)
                 log.info('Looking for copyright notice text in %s', copyright_file)
-                try:
-                    with open(copyright_file) as f:
-                        copyright_text = f.read()
-                        self.consumer.add_metadata('copyright', copyright_text)
-                        log.info('Using copyright notice text from %s', copyright_file)
-                except IOError, e:
-                    log.warn('No copyright notice text will be written to the '
-                             'output dictionary: %s', str(e))
+            try:
+                with open(copyright_file) as f:
+                    copyright_text = f.read()
+                    self.consumer.add_metadata('copyright', copyright_text)
+                    log.info('Using copyright notice text from %s', copyright_file)
+            except IOError, e:
+                log.warn('No copyright notice text will be written to the '
+                         'output dictionary: %s', str(e))
 
 
         self.lang = wiki_lang
