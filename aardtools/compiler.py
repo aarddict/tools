@@ -258,7 +258,7 @@ class Stats(object):
     def __str__(self):
         return ('total: %d, skipped: %d, failed: %d, '
                 'empty: %d, timed out: %d, articles: %d, '
-                'redirects: %d' % (self.total, 
+                'redirects: %d' % (self.total,
                                    self.skipped,
                                    self.failed,
                                    self.empty,
@@ -338,7 +338,7 @@ class Compiler(object):
         print_progress(self.stats)
 
     def compile(self):
-        
+
         self.add_metadata("article_count", self.stats.articles)
         sortex = self.sort()
         log.info('Compiling %s', self.output_file_name)
@@ -359,7 +359,7 @@ class Compiler(object):
         self.index_db.close()
         self.write_volume_count()
         self.write_sha1sum()
-        self.rename_files()
+        rename_files(self.file_names)
 
     def sort(self):
         log.info('Sorting')
@@ -497,7 +497,7 @@ class Compiler(object):
         self.write_articles(output_file, articles)
         output_file.close()
         log.info("Done with %s", file_name)
-        return file_name        
+        return file_name
 
     def write_volume_count(self):
         name, fmt = HEADER_SPEC[5]
@@ -510,21 +510,56 @@ class Compiler(object):
             output_file.write(struct.pack(fmt, Volume.number))
             output_file.close()
 
-    def rename_files(self):
-        if len(self.file_names) == 1:
-            file_name = self.file_names[0]
-            base, ext, vol = file_name.rsplit('.', 2)
-            newname = "%s.%s" % (base, ext)
-            log.info('Renaming %s ==> %s', file_name, newname)
-            msg('Created %s' % bold(newname))
-            os.rename(file_name, newname)
+def rename_files(file_names):
+    """
+    >>> from minimock import mock
+    >>> import compiler
+    >>> mock('compiler.rename_file', returns_func=lambda f, p, args: None)
+
+    >>> rename_files(['enwiki-20090530-2.1.aar'])
+    Called compiler.rename_file(
+        'enwiki-20090530-2.1.aar',
+        '%s.%s',
+        ('enwiki-20090530-2', 'aar', 0, '1'))
+
+    >>> rename_files(['enwiki-20090530-2.1.aar', 'enwiki-20090530-2.2.aar'])
+    Called compiler.rename_file(
+        'enwiki-20090530-2.1.aar',
+        '%s.%s_of_%s.%s',
+        ('enwiki-20090530-2', 'aar', 0, '1'))
+    Called compiler.rename_file(
+        'enwiki-20090530-2.2.aar',
+        '%s.%s_of_%s.%s',
+        ('enwiki-20090530-2', 'aar', 0, '2'))
+
+    >>> rename_files(['enwiki-20090530-2.1', 'enwiki-20090530-2.2'])
+    Called compiler.rename_file(
+        'enwiki-20090530-2.1',
+        '%s.%s_of_%s.%s',
+        ('enwiki-20090530-2', '1', 0, 'aar'))
+    Called compiler.rename_file(
+        'enwiki-20090530-2.2',
+        '%s.%s_of_%s.%s',
+        ('enwiki-20090530-2', '2', 0, 'aar'))
+    """
+    one = len(file_names) == 1
+    pattern = '%s.%s' if one else '%s.%s_of_%s.%s'
+    for file_name in file_names:
+        if file_name.count('.') == 1:
+            base, vol = file_name.split('.')
+            ext = 'aar'
         else:
-            for file_name in self.file_names:
-                base, ext, vol = file_name.rsplit('.', 2)
-                newname = "%s.%s_of_%s.%s" % (base,vol,Volume.number,ext)
-                log.info('Renaming %s ==> %s', file_name, newname)
-                msg('Created %s' % bold(newname))
-                os.rename(file_name, newname)
+            base, ext, vol = file_name.rsplit('.', 2)
+        args = (base,ext) if one else (base,vol,Volume.number,ext)
+        rename_file(file_name, pattern, args)
+
+def rename_file(file_name, newname_pattern, args):
+    newname = newname_pattern % args
+    log.info('Renaming %s ==> %s', file_name, newname)
+    msg('Created %s' % bold(newname))
+    os.rename(file_name, newname)
+
+
 
 import zlib
 import bz2
@@ -677,8 +712,8 @@ YELLOW = '\033[93m'
 GREEN = '\033[92m'
 BLUE = '\033[94m'
 ENDC = '\033[0m'
-SAVE_CURSOR='\033[s'		
-UNSAVE_CURSOR='\033[u'		
+SAVE_CURSOR='\033[s'
+UNSAVE_CURSOR='\033[u'
 CURSOR_HOME='\033[h'
 
 def ok(text):
@@ -705,9 +740,9 @@ def printc(text):
 def print_progress(stats):
     sys.stdout.write(ERASE_START_OF_LINE)
     length = 0
-    
-    if stats.total:        
-        processed = (stats.articles + 
+
+    if stats.total:
+        processed = (stats.articles +
                      stats.redirects +
                      stats.skipped +
                      stats.empty +
@@ -721,7 +756,7 @@ def print_progress(stats):
     length += len(text)
     printc(bold(text))
 
-    text = 'articles: %d redirects: %d ' % (stats.articles, 
+    text = 'articles: %d redirects: %d ' % (stats.articles,
                                                       stats.redirects)
     length += len(text)
     printc(ok(text))
