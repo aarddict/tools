@@ -337,16 +337,9 @@ class Compiler(object):
         self.stats.timedout += count
         print_progress(self.stats)
 
-    def total(self, value):
-        if self.stats.total is None:
-            self.stats.total = value
-        else:
-            self.stats.total += total
-
     def compile(self):
         
         self.add_metadata("article_count", self.stats.articles)
-        #erase_progress(self.stats.processed)
         sortex = self.sort()
         log.info('Compiling %s', self.output_file_name)
         metadata = compress(tojson(self.metadata))
@@ -921,7 +914,7 @@ def main():
 
     if total_func:
         for input_file in input_files:
-            compiler.stats.total += total_func(input_file, options)        
+            compiler.stats.total += total_func(input_file, options)
     msg('total: %d' % compiler.stats.total)
 
     for input_file in input_files:
