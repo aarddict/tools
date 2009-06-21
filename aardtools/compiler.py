@@ -349,12 +349,12 @@ class Compiler(object):
         for volume in self.make_volumes(create_volume_func, sortex):
             m = "Creating volume %d" % volume.number
             log.info(m)
-            msg(m)
+            writeln(m)
             file_name = self.make_aar(volume)
             self.file_names.append(file_name)
             m = "Wrote volume %d" % volume.number
             log.info(m)
-            msg(m)
+            writeln(m)
         sortex.cleanup()
         self.index_db.close()
         self.write_volume_count()
@@ -363,7 +363,7 @@ class Compiler(object):
 
     def sort(self):
         log.info('Sorting')
-        msg('Sorting')
+        writeln('Sorting')
         work_dir=os.path.join(self.session_dir, "sort")
         sortex = SortExternal(work_dir=work_dir, buffer_size=200000000)
         for title in self.index_db:
@@ -556,7 +556,7 @@ def rename_files(file_names):
 def rename_file(file_name, newname_pattern, args):
     newname = newname_pattern % args
     log.info('Renaming %s ==> %s', file_name, newname)
-    msg('Created %s' % bold(newname))
+    display.write('Created ').bold(newname).writeln()
     os.rename(file_name, newname)
 
 
@@ -704,85 +704,74 @@ def max_file_size(options):
     else:
         return int(s)
 
-ERASE_LINE = '\033[2K'
-ERASE_START_OF_LINE = '\033[1K'
-BOLD='\033[1m'
-RED = '\033[91m'
-YELLOW = '\033[93m'
-GREEN = '\033[92m'
-BLUE = '\033[94m'
-ENDC = '\033[0m'
-SAVE_CURSOR='\033[s'
-UNSAVE_CURSOR='\033[u'
-CURSOR_HOME='\033[h'
+class Display:    
 
-def ok(text):
-    return GREEN + text + ENDC
+    ERASE_LINE = '\033[2K'
+    BOLD='\033[1m'
+    RED = '\033[91m'
+    YELLOW = '\033[93m'
+    GREEN = '\033[92m'
+    ENDC = '\033[0m'
 
-def warn(text):
-    return YELLOW + text + ENDC
+    def ok(self, text):
+        sys.stdout.write(self.GREEN + text + self.ENDC)
+        return self
 
-def fail(text):
-    return RED + text + ENDC
+    def warn(self, text):
+        sys.stdout.write(self.YELLOW + text + self.ENDC)
+        return self
 
-def bold(text):
-    return BOLD + text + ENDC
+    def fail(self, text):
+        sys.stdout.write(self.RED + text + self.ENDC)
+        return self
 
-def cursor_position():
-    sys.stdout.write('\033[6n')
+    def bold(self, text):
+        sys.stdout.write(self.BOLD + text + self.ENDC)
+        return self
 
-def cursor_back(count):
-    sys.stdout.write('\033[%sD'%count)
+    def erase_line(self):
+        sys.stdout.write(self.ERASE_LINE)        
+        return self
 
-def printc(text):
-    sys.stdout.write(text)
+    def write(self, text):
+        sys.stdout.write(text)
+        return self
+    
+    def writeln(self, text=''):
+        self.write(text)
+        sys.stdout.write('\n')
+        return self
+
+    def cr(self):
+        sys.stdout.write('\r')
+        sys.stdout.flush()
+
+display = Display()
+writeln = display.writeln
 
 def print_progress(stats):
-    sys.stdout.write(ERASE_START_OF_LINE)
-    length = 0
 
-    if stats.total:
+    if not stats.total:
+        progress = '?'
+    else:
         processed = (stats.articles +
                      stats.redirects +
                      stats.skipped +
                      stats.empty +
                      stats.timedout +
-                     stats.failed
-                     )
+                     stats.failed)
         progress = '%.2f' % (100*float(processed)/stats.total)
-    else:
-        progress = '?'
-    text = '%s%% ' % progress
-    length += len(text)
-    printc(bold(text))
+            
+    (display
+     .erase_line()
+     .bold('%s%% ' % progress)
+     .ok('articles: %d redirects: %d ' % (stats.articles, stats.redirects))
+     .warn('skipped: %d ' % stats.skipped)
+     .warn('empty: %d ' % stats.empty)
+     .fail('timed out: %d ' % stats.timedout)
+     .fail('failed: %d ' % stats.failed)
+     .cr())
 
-    text = 'articles: %d redirects: %d ' % (stats.articles,
-                                                      stats.redirects)
-    length += len(text)
-    printc(ok(text))
-
-    text = 'skipped: %d ' % stats.skipped
-    length += len(text)
-    printc(warn(text))
-
-    text = 'empty: %d ' % stats.empty
-    length += len(text)
-    printc(warn(text))
-
-    text = 'timed out: %d ' % stats.timedout
-    length += len(text)
-    printc(warn(text))
-
-    text = 'failed: %d ' % stats.failed
-    length += len(text)
-    printc(fail(text))
-    cursor_back(length)
-    sys.stdout.flush()
-
-def erase_progress(progress):
-    s = str(progress)
-    sys.stdout.write('\b'*len(s))
-    sys.stdout.flush()
 
 def guess_version(input_file_name):
     """ Guess dictionary version from input file name.
@@ -825,10 +814,6 @@ def guess_wiki_lang(input_file_name):
                  os.path.basename(input_file_name.rstrip(os.path.sep)))
     return m.group(1) if m else None
 
-def msg(text):
-    sys.stdout.write(text)
-    sys.stdout.write('\n')
-    sys.stdout.flush()
 
 def main():
 
@@ -945,18 +930,18 @@ def main():
     make_input, collect_articles, total_func = known_types[input_type]
 
     t0 = time.time()
-    msg('Converting %s' % ', '.join(input_files))
+    writeln('Converting %s' % ', '.join(input_files))
 
     if total_func:
         for input_file in input_files:
             compiler.stats.total += total_func(input_file, options)
-    msg('total: %d' % compiler.stats.total)
+    writeln('total: %d' % compiler.stats.total)
 
     for input_file in input_files:
         log.info('Collecting articles in %s', input_file)
         collect_articles(make_input(input_file), options, compiler)
-        msg('')
-    msg('Compiling .aar files')
+        writeln()
+    writeln('Compiling .aar files')
     compiler.compile()
     shutil.rmtree(session_dir)
     log.info(compiler.stats)
@@ -965,7 +950,7 @@ def main():
                       for item in compress_counts.iteritems()))
     dt = time.time() - t0
     log.info('Compilation took %.1f s', dt)
-    msg('Compilation took %.1f s' % dt)
+    writeln('Compilation took %.1f s' % dt)
 
 if __name__ == '__main__':
     main()
