@@ -103,7 +103,9 @@ def convert(title):
                                        wikidb=wikidb,
                                        lang=wikidb.lang)
         xhtmlwriter.preprocess(mwobject)
-        text, tags = mwaardwriter.convert(mwobject)        
+        text, tags = mwaardwriter.convert(mwobject)    
+    except EmptyArticleError:
+        raise
     except Exception:
         log.exception('Failed to process article %s', title.encode('utf8'))
         raise ConvertError(title)
