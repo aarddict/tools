@@ -58,10 +58,28 @@ def _init_process(cdbdir, lang):
     _create_wikidb(cdbdir, lang)
 
 class ConvertError(Exception):
-    
-    def __init__(self, title, *args, **kwargs):
-        Exception.__init__(self, *args, **kwargs)
+
+    def __init__(self, title):
         self.title = title
+
+    def __str__(self):
+        """
+        >>> e = ConvertError('абвгд'.decode('utf8'))
+        >>> print str(e)
+        ConvertError: абвгд
+
+        """
+        return 'ConvertError: %s' % self.title.encode('utf8')
+
+    def __repr__(self):
+        """
+        >>> e = ConvertError('абвгд'.decode('utf8'))
+        >>> print repr(e)
+        ConvertError: u'\u0430\u0431\u0432\u0433\u0434'
+
+        """
+        return 'ConvertError: %r' % self.title
+
 
 class EmptyArticleError(ConvertError): pass
 
@@ -88,7 +106,7 @@ def convert(title):
     except Exception:
         log.exception('Failed to process article %s', title.encode('utf8'))
         raise ConvertError(title)
-    else:            
+    else:
         return title, tojson((text.rstrip(), tags)), False
 
 def fix_wikipedia_siteinfo(siteinfo):
@@ -121,8 +139,8 @@ def parse_redirect(text, aliases):
     u'Zmora'
     >>> parse_redirect(u'#PRZEKIERUJ [[Uwierzytelnianie]]', aliases)
     u'Uwierzytelnianie'
-    
-    >>> parse_redirect('#TAM[[Żuraw samochodowy]]'.decode('utf8'), aliases)    
+
+    >>> parse_redirect('#TAM[[Żuraw samochodowy]]'.decode('utf8'), aliases)
     u'\u017buraw samochodowy'
 
     >>> parse_redirect(u'abc', aliases)
@@ -137,7 +155,7 @@ def parse_redirect(text, aliases):
     ...
     BadRedirect: abc
 
-    """ 
+    """
     for alias in aliases:
         if text.startswith(alias):
             text = text[len(alias):].lstrip()
@@ -158,7 +176,7 @@ class Wiki(WikiDB):
         self.siteinfo = get_siteinfo(self.lang)
         fix_wikipedia_siteinfo(self.siteinfo)
         self.redirect_aliases = [magicword['aliases']
-                                 for magicword in self.siteinfo['magicwords'] 
+                                 for magicword in self.siteinfo['magicwords']
                                  if magicword['name'] == 'redirect'][0]
 
     def get_siteinfo(self):
@@ -195,7 +213,7 @@ def total(inputfile, options):
         return i+1
     except:
         return 0
-         
+
 
 default_lic_fname = 'fdl-1.2.txt'
 default_copyright_fname = 'copyright.txt'
@@ -223,16 +241,16 @@ class WikiParser():
 
         sitename = siteinfo['general']['sitename']
         sitelang = siteinfo['general']['lang']
-        
+
         metadata_files = []
         if options.metadata:
             metadata_files.append(options.metadata)
         else:
             metadata_files.append(os.path.join(default_metadata_dir, default_metadata_fname))
             metadata_files.append(os.path.join(metadata_dir, default_metadata_fname))
-                                
+
         from ConfigParser import ConfigParser
-        c = ConfigParser(defaults={'ver': options.dict_ver, 
+        c = ConfigParser(defaults={'ver': options.dict_ver,
                                    'lang': wiki_lang,
                                    'update': options.dict_update,
                                    'name': sitename,
@@ -304,7 +322,7 @@ class WikiParser():
         if self.start > 0:
             log.info('Skipping to article %d', self.start)
         _create_wikidb(f, self.lang)
-        for title in islice(wikidb.articles(), self.start, self.end):            
+        for title in islice(wikidb.articles(), self.start, self.end):
             if self.special_article_re.match(title):
                 self.consumer.skip_article(title)
                 continue
@@ -320,8 +338,8 @@ class WikiParser():
 
         self.pool = Pool(processes=self.processes,
                          initializer=_init_process,
-                         initargs=[cdbdir, self.lang])        
-        
+                         initargs=[cdbdir, self.lang])
+
     def parse_simple(self, f):
         self.consumer.add_metadata('article_format', 'json')
         articles = self.articles(f)
@@ -329,7 +347,7 @@ class WikiParser():
             try:
                 result = convert(a)
                 title, serialized, redirect = result
-                self.consumer.add_article(title, serialized, redirect)                
+                self.consumer.add_article(title, serialized, redirect)
             except EmptyArticleError, e:
                 self.consumer.empty_article(e.title)
             except ConvertError, e:
@@ -339,15 +357,15 @@ class WikiParser():
         try:
             self.consumer.add_metadata('article_format', 'json')
             articles = self.articles(f)
-            self.reset_pool(f)            
+            self.reset_pool(f)
             iter_count = 1
-            while True:                
+            while True:
                 if iter_count:
                     chunk = islice(articles, self.mp_chunk_size)
                     iter_count = 0
                 else:
                     break
-                
+
                 resulti = self.pool.imap_unordered(convert, chunk)
                 while True:
                     try:
@@ -373,7 +391,7 @@ class WikiParser():
                                   'terminating worker pool')
                         self.pool.terminate()
                         raise
-                
+
                 self.pool.close()
                 self.reset_pool(f, terminate=False)
         finally:
