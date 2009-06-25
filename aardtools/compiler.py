@@ -254,18 +254,32 @@ class Stats(object):
         self.timedout = 0
         self.articles = 0
         self.redirects = 0
+        self.start_time = time.time()
+
+    processed = property(lambda self: (self.articles +
+                                       self.redirects +
+                                       self.skipped +
+                                       self.empty +
+                                       self.timedout +
+                                       self.failed))
+
+
+    average = property(lambda self: (self.processed/(time.time() -
+                                                     self.start_time)))
+
 
     def __str__(self):
         return ('total: %d, skipped: %d, failed: %d, '
                 'empty: %d, timed out: %d, articles: %d, '
-                'redirects: %d' % (self.total,
-                                   self.skipped,
-                                   self.failed,
-                                   self.empty,
-                                   self.timedout,
-                                   self.articles,
-                                   self.redirects
-                                   ))
+                'redirects: %d, average: %.2f/s' % (self.total,
+                                                    self.skipped,
+                                                    self.failed,
+                                                    self.empty,
+                                                    self.timedout,
+                                                    self.articles,
+                                                    self.redirects,
+                                                    self.average,
+                                                    ))
 
 
 class Compiler(object):
@@ -777,20 +791,11 @@ writeln = display.writeln
 
 def print_progress(stats):
     try:
-        if not stats.total:
-            progress = '?'
-        else:
-            processed = (stats.articles +
-                         stats.redirects +
-                         stats.skipped +
-                         stats.empty +
-                         stats.timedout +
-                         stats.failed)
-            progress = '%.2f' % (100*float(processed)/stats.total)
-
+        progress = '%.2f' % (100*float(stats.processed)/stats.total) if stats.total else '?'
         (display
          .erase_line()
          .bold('%s%% ' % progress)
+         .bold('avg: %.1f/s ' % stats.average)
          .ok('articles: %d redirects: %d ' % (stats.articles, stats.redirects))
          .warn('skipped: %d ' % stats.skipped)
          .warn('empty: %d ' % stats.empty)
@@ -966,7 +971,7 @@ def main():
 
     for input_file in input_files:
         log.info('Collecting articles in %s', input_file)
-        collect_articles(make_input(input_file), options, compiler)        
+        collect_articles(make_input(input_file), options, compiler)
     compiler.compile()
     shutil.rmtree(session_dir)
     log.info(compiler.stats)
