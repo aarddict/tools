@@ -168,6 +168,12 @@ def make_opt_parser():
         'there should be no need to change the default value.'
         'Default: %default'
         )
+    parser.add_option(
+        '--show-legend',
+        action='store_true',
+        help='Show progress legend'
+        )
+
 
     parser.add_option('--log-file',
                        help='Log file name. By default derived from output '
@@ -268,7 +274,7 @@ class Stats(object):
     average = property(lambda self: (self.processed/(time.time() -
                                                      self.start_time)))
 
-    elapsed = property(lambda self: timedelta(seconds=(int(time.time() - 
+    elapsed = property(lambda self: timedelta(seconds=(int(time.time() -
                                                            self.start_time))))
 
     def __str__(self):
@@ -300,7 +306,7 @@ class Compiler(object):
         self.file_names = []
         self.stats = Stats()
         self.last_stat_update = 0
-        log.info('Collecting articles')
+        log.info('Collecting articles')        
 
     @utf8
     def add_metadata(self, key, value):
@@ -793,6 +799,18 @@ class Display:
 display = Display()
 writeln = display.writeln
 
+def print_legend():
+    (display
+    .bold('t').writeln(' - time elapsed')
+    .bold('avg').writeln(' - average number of articles processed per second')
+    .ok('a').writeln(' - number of processed articles')
+    .ok('r').writeln(' - number of processed redirects')
+    .warn('s').writeln(' - number of skipped articles')
+    .warn('e').writeln(' - number of articles with no text (empty)')
+    .fail('to').writeln(' - approximate number of articles that couldn\'t be converted fast enough (timed out)')
+    .fail('f').writeln(' - number of articles that couldn\'t be converted (failed)'))
+
+
 def print_progress(stats):
     try:
         progress = '%.2f' % (100*float(stats.processed)/stats.total) if stats.total else '?'
@@ -801,11 +819,11 @@ def print_progress(stats):
          .bold('%s%% ' % progress)
          .bold('t: %s ' % stats.elapsed)
          .bold('avg: %.1f/s ' % stats.average)
-         .ok('articles: %d redirects: %d ' % (stats.articles, stats.redirects))
-         .warn('skipped: %d ' % stats.skipped)
-         .warn('empty: %d ' % stats.empty)
-         .fail('timed out: %d ' % stats.timedout)
-         .fail('failed: %d ' % stats.failed)
+         .ok('a: %d r: %d ' % (stats.articles, stats.redirects))
+         .warn('s: %d ' % stats.skipped)
+         .warn('e: %d ' % stats.empty)
+         .fail('to: %d ' % stats.timedout)
+         .fail('f: %d ' % stats.failed)
          .cr().flush())
     except KeyboardInterrupt:
         display.reset_att()
@@ -973,6 +991,9 @@ def main():
         for input_file in input_files:
             compiler.stats.total += total_func(make_input(input_file), options)
     display.erase_line().writeln('total: %d' % compiler.stats.total)
+
+    if options.show_legend:
+        print_legend()
 
     for input_file in input_files:
         log.info('Collecting articles in %s', input_file)
