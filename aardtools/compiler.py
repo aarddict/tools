@@ -281,6 +281,7 @@ class Compiler(object):
         self.metadata = metadata if metadata is not None else {}
         self.file_names = []
         self.stats = Stats()
+        self.last_stat_update = 0
         log.info('Collecting articles')
 
     @utf8
@@ -296,7 +297,8 @@ class Compiler(object):
     def add_article(self, title, serialized_article, redirect=False):
         with article_add_lock:
             if not title:
-                log.warn('Blank title, ignoring article "%s"', serialized_article)
+                log.warn('Blank title, ignoring article "%s"',
+                         serialized_article)
                 return
 
             if not serialized_article:
@@ -316,29 +318,37 @@ class Compiler(object):
                 self.stats.articles += 1
             else:
                 self.stats.redirects += 1
-            print_progress(self.stats)
+            self.print_stats()
 
     @utf8
     def fail_article(self, title):
         self.stats.failed += 1
-        print_progress(self.stats)
+        self.print_stats()
 
     @utf8
     def empty_article(self, title):
         self.stats.empty += 1
-        print_progress(self.stats)
+        self.print_stats()
 
     @utf8
     def skip_article(self, title):
         self.stats.skipped += 1
-        print_progress(self.stats)
+        self.print_stats()
 
     def timedout(self, count=1):
         self.stats.timedout += count
-        print_progress(self.stats)
+        self.print_stats()
+
+    def print_stats(self):
+        t = time.time()
+        if (t - self.last_stat_update) > 1.0:
+            self.last_stat_update = t
+            print_progress(self.stats)
 
     def compile(self):
-
+        print_progress(self.stats)
+        writeln()
+        writeln('Compiling .aar files')
         self.add_metadata("article_count", self.stats.articles)
         sortex = self.sort()
         log.info('Compiling %s', self.output_file_name)
@@ -633,9 +643,17 @@ def wiki_total(inputfile, options):
     import wiki
     return wiki.total(inputfile, options)
 
+def aard_total(inputfile, options):
+    import aard
+    return aard.total(inputfile, options)
+
+def xdxf_total(inputfile, options):
+    import xdxf
+    return xdxf.total(inputfile, options)
+
 known_types = {'wiki': (make_wiki_input, compile_wiki, wiki_total),
-               'xdxf': (make_xdxf_input, compile_xdxf, None),
-               'aard': (make_aard_input, compile_aard, None)}
+               'xdxf': (make_xdxf_input, compile_xdxf, xdxf_total),
+               'aard': (make_aard_input, compile_aard, aard_total)}
 
 def make_output_file_name(input_file, options):
     """
@@ -704,7 +722,7 @@ def max_file_size(options):
     else:
         return int(s)
 
-class Display:    
+class Display:
 
     ERASE_LINE = '\033[2K'
     BOLD='\033[1m'
@@ -712,6 +730,10 @@ class Display:
     YELLOW = '\033[93m'
     GREEN = '\033[92m'
     ENDC = '\033[0m'
+
+    def reset_att(self):
+        sys.stdout.write(self.ENDC)
+        return self
 
     def ok(self, text):
         sys.stdout.write(self.GREEN + text + self.ENDC)
@@ -730,13 +752,13 @@ class Display:
         return self
 
     def erase_line(self):
-        sys.stdout.write(self.ERASE_LINE)        
+        sys.stdout.write(self.ERASE_LINE)
         return self
 
     def write(self, text):
         sys.stdout.write(text)
         return self
-    
+
     def writeln(self, text=''):
         self.write(text)
         sys.stdout.write('\n')
@@ -744,33 +766,39 @@ class Display:
 
     def cr(self):
         sys.stdout.write('\r')
+        return self
+
+    def flush(self):
         sys.stdout.flush()
+        return self
 
 display = Display()
 writeln = display.writeln
 
 def print_progress(stats):
+    try:
+        if not stats.total:
+            progress = '?'
+        else:
+            processed = (stats.articles +
+                         stats.redirects +
+                         stats.skipped +
+                         stats.empty +
+                         stats.timedout +
+                         stats.failed)
+            progress = '%.2f' % (100*float(processed)/stats.total)
 
-    if not stats.total:
-        progress = '?'
-    else:
-        processed = (stats.articles +
-                     stats.redirects +
-                     stats.skipped +
-                     stats.empty +
-                     stats.timedout +
-                     stats.failed)
-        progress = '%.2f' % (100*float(processed)/stats.total)
-            
-    (display
-     .erase_line()
-     .bold('%s%% ' % progress)
-     .ok('articles: %d redirects: %d ' % (stats.articles, stats.redirects))
-     .warn('skipped: %d ' % stats.skipped)
-     .warn('empty: %d ' % stats.empty)
-     .fail('timed out: %d ' % stats.timedout)
-     .fail('failed: %d ' % stats.failed)
-     .cr())
+        (display
+         .erase_line()
+         .bold('%s%% ' % progress)
+         .ok('articles: %d redirects: %d ' % (stats.articles, stats.redirects))
+         .warn('skipped: %d ' % stats.skipped)
+         .warn('empty: %d ' % stats.empty)
+         .fail('timed out: %d ' % stats.timedout)
+         .fail('failed: %d ' % stats.failed)
+         .cr().flush())
+    except KeyboardInterrupt:
+        display.reset_att()
 
 
 def guess_version(input_file_name):
@@ -866,8 +894,6 @@ def main():
     else:
         log_file_name = os.path.extsep.join((output_file_name, 'log'))
 
-    print
-
     logging.getLogger().handlers[:] = []
     logging.basicConfig(format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
                         level=log_level,
@@ -930,18 +956,17 @@ def main():
     make_input, collect_articles, total_func = known_types[input_type]
 
     t0 = time.time()
-    writeln('Converting %s' % ', '.join(input_files))
+    display.write('Converting ').bold(', '.join(input_files)).writeln()
 
     if total_func:
+        display.write('Calculating total number of articles...').cr().flush()
         for input_file in input_files:
-            compiler.stats.total += total_func(input_file, options)
-    writeln('total: %d' % compiler.stats.total)
+            compiler.stats.total += total_func(make_input(input_file), options)
+    display.erase_line().writeln('total: %d' % compiler.stats.total)
 
     for input_file in input_files:
         log.info('Collecting articles in %s', input_file)
-        collect_articles(make_input(input_file), options, compiler)
-        writeln()
-    writeln('Compiling .aar files')
+        collect_articles(make_input(input_file), options, compiler)        
     compiler.compile()
     shutil.rmtree(session_dir)
     log.info(compiler.stats)
