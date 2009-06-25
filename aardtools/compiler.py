@@ -27,6 +27,7 @@ import optparse
 import functools
 import time
 import shutil
+from datetime import timedelta
 
 from PyICU import Locale, Collator
 import simplejson
@@ -267,19 +268,22 @@ class Stats(object):
     average = property(lambda self: (self.processed/(time.time() -
                                                      self.start_time)))
 
+    elapsed = property(lambda self: timedelta(seconds=(int(time.time() - 
+                                                           self.start_time))))
 
     def __str__(self):
         return ('total: %d, skipped: %d, failed: %d, '
                 'empty: %d, timed out: %d, articles: %d, '
-                'redirects: %d, average: %.2f/s' % (self.total,
-                                                    self.skipped,
-                                                    self.failed,
-                                                    self.empty,
-                                                    self.timedout,
-                                                    self.articles,
-                                                    self.redirects,
-                                                    self.average,
-                                                    ))
+                'redirects: %d, average: %.2f/s'
+                'elapsed: %s' % (self.total,
+                                 self.skipped,
+                                 self.failed,
+                                 self.empty,
+                                 self.timedout,
+                                 self.articles,
+                                 self.redirects,
+                                 self.average,
+                                 self.elapsed))
 
 
 class Compiler(object):
@@ -795,6 +799,7 @@ def print_progress(stats):
         (display
          .erase_line()
          .bold('%s%% ' % progress)
+         .bold('t: %s ' % stats.elapsed)
          .bold('avg: %.1f/s ' % stats.average)
          .ok('articles: %d redirects: %d ' % (stats.articles, stats.redirects))
          .warn('skipped: %d ' % stats.skipped)
