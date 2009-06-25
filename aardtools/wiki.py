@@ -60,6 +60,7 @@ def _init_process(cdbdir, lang):
 class ConvertError(Exception):
 
     def __init__(self, title):
+        Exception.__init__(self, title)
         self.title = title
 
     def __str__(self):
@@ -102,7 +103,7 @@ def convert(title):
                                        wikidb=wikidb,
                                        lang=wikidb.lang)
         xhtmlwriter.preprocess(mwobject)
-        text, tags = mwaardwriter.convert(mwobject)
+        text, tags = mwaardwriter.convert(mwobject)        
     except Exception:
         log.exception('Failed to process article %s', title.encode('utf8'))
         raise ConvertError(title)
