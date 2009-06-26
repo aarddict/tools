@@ -179,6 +179,10 @@ def make_opt_parser():
                        help='Log file name. By default derived from output '
                        'file name by adding .log extension')
 
+    parser.add_option('-r', '--remove-session-dir',
+                      action='store_true',
+                      help='Remove session directory after compilation.')
+
     return parser
 
 def utf8(func):
@@ -1006,7 +1010,9 @@ def main():
         log.info('Collecting articles in %s', input_file)
         collect_articles(make_input(input_file), options, compiler)
     compiler.compile()
-    shutil.rmtree(session_dir)
+    if options.remove_session_dir:
+        writeln('Removing session dir')
+        shutil.rmtree(session_dir)
     log.info(compiler.stats)
     log.info('Compression: %s',
              ', '.join('%s - %d' % item
