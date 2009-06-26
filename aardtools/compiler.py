@@ -549,42 +549,43 @@ def rename_files(file_names):
     >>> from minimock import mock
     >>> import compiler
     >>> mock('compiler.rename_file', returns_func=lambda f, p, args: None)
-
-    >>> rename_files(['enwiki-20090530-2.1.aar'])
+    >>> Volume.number = 2
+    >>> rename_files(['enwiki-20090530-2.aar.1'])
     Called compiler.rename_file(
-        'enwiki-20090530-2.1.aar',
+        'enwiki-20090530-2.aar.1',
         '%s.%s',
-        ('enwiki-20090530-2', 'aar', 0, '1'))
+        ('enwiki-20090530-2', 'aar'))
 
-    >>> rename_files(['enwiki-20090530-2.1.aar', 'enwiki-20090530-2.2.aar'])
+    >>> rename_files(['enwiki-20090530-2.aar.1', 'enwiki-20090530-2.aar.2'])
     Called compiler.rename_file(
-        'enwiki-20090530-2.1.aar',
+        'enwiki-20090530-2.aar.1',
         '%s.%s_of_%s.%s',
-        ('enwiki-20090530-2', 'aar', 0, '1'))
+        ('enwiki-20090530-2', '1', 2, 'aar'))
     Called compiler.rename_file(
-        'enwiki-20090530-2.2.aar',
+        'enwiki-20090530-2.aar.2',
         '%s.%s_of_%s.%s',
-        ('enwiki-20090530-2', 'aar', 0, '2'))
+        ('enwiki-20090530-2', '2', 2, 'aar'))
 
     >>> rename_files(['enwiki-20090530-2.1', 'enwiki-20090530-2.2'])
     Called compiler.rename_file(
         'enwiki-20090530-2.1',
         '%s.%s_of_%s.%s',
-        ('enwiki-20090530-2', '1', 0, 'aar'))
+        ('enwiki-20090530-2', '1', 2, 'aar'))
     Called compiler.rename_file(
         'enwiki-20090530-2.2',
         '%s.%s_of_%s.%s',
-        ('enwiki-20090530-2', '2', 0, 'aar'))
+        ('enwiki-20090530-2', '2', 2, 'aar'))
+
     """
     one = len(file_names) == 1
     pattern = '%s.%s' if one else '%s.%s_of_%s.%s'
     for file_name in file_names:
         if file_name.count('.') == 1:
             base, vol = file_name.split('.')
-            ext = 'aar'
+            ext = 'aar'            
         else:
             base, ext, vol = file_name.rsplit('.', 2)
-        args = (base,ext) if one else (base,vol,Volume.number,ext)
+        args = (base, ext) if one else (base, vol, Volume.number, ext)
         rename_file(file_name, pattern, args)
 
 def rename_file(file_name, newname_pattern, args):
@@ -835,6 +836,9 @@ def guess_version(input_file_name):
     >>> guess_version('simplewiki-20090506-pages-articles.cdb')
     '20090506'
 
+    >>> guess_version('~/wikidumps/simplewiki-20090506-pages-articles.cdb/')
+    '20090506'
+
     >>> guess_version('~/wikidumps/simplewiki-20090506-pages-articles.cdb')
     '20090506'
 
@@ -845,7 +849,8 @@ def guess_version(input_file_name):
 
     """
     import re
-    m = re.match(r'\w+-?(\d+)-?\w+', os.path.basename(input_file_name))
+    m = re.match(r'\w+-?(\d+)-?\w+', 
+                 os.path.basename(input_file_name.rstrip(os.path.sep)))
     return m.group(1) if m else None
 
 def guess_wiki_lang(input_file_name):
@@ -854,6 +859,8 @@ def guess_wiki_lang(input_file_name):
     >>> guess_wiki_lang('simplewiki-20090506-pages-articles.cdb')
     'simple'
     >>> guess_wiki_lang('simplewiki-20090506-pages-articles.cdb/')
+    'simple'
+    >>> guess_wiki_lang('~/wikidumps/simplewiki-20090506-pages-articles.cdb/')
     'simple'
     >>> guess_wiki_lang('~/wikidumps/simplewiki-20090506-pages-articles.cdb')
     'simple'
