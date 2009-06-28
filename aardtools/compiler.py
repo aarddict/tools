@@ -627,7 +627,7 @@ def compress(text):
     return compressed
 
 root_locale = Locale('root')
-collator4 =  Collator.createInstance(root_locale)
+collator4 = Collator.createInstance(root_locale)
 collator4.setStrength(Collator.QUATERNARY)
 
 def compile_wiki(input_file, options, compiler):
@@ -919,6 +919,17 @@ def main():
             sys.stderr.write('No such file: %s\n' % input_file)
             raise SystemExit(1)
 
+    session_dir = os.path.join(options.work_dir,
+                               'aardc-'+('%.2f' % time.time()).replace('.','-'))
+
+    if os.path.exists(session_dir):
+        sys.stderr.write('Session directory %s already'
+                         ' exists, can\'t proceed\n' % session_dir)
+        raise SystemExit(1)
+    else:
+        os.mkdir(session_dir)
+        display.write('Session dir ').bold(session_dir).writeln()
+
     output_file_name = make_output_file_name(input_files[0], options)
 
     if options.quite:
@@ -931,8 +942,9 @@ def main():
     if options.log_file:
         log_file_name = options.log_file
     else:
-        log_file_name = os.path.extsep.join((output_file_name, 'log'))
-
+        log_file_name = os.path.join(session_dir, 'log')
+    
+    display.write('Writing log to ').bold(log_file_name).writeln()
     logging.getLogger().handlers[:] = []
     logging.basicConfig(format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
                         level=log_level,
@@ -978,17 +990,6 @@ def main():
             metadata['copyright'] = f.read()
 
     log.debug('Metadata: %s', metadata)
-
-    session_dir = os.path.join(options.work_dir,
-                               'aardc-'+('%.2f' % time.time()).replace('.','-'))
-
-    if os.path.exists(session_dir):
-        sys.stderr.write('Session directory %s already'
-                         ' exists, can\'t proceed\n' % session_dir)
-        raise SystemExit(1)
-    else:
-        log.info('Creating session dir %s', session_dir)
-        os.mkdir(session_dir)
 
     compiler = Compiler(output_file_name, max_volume_size,
                         session_dir, metadata)
