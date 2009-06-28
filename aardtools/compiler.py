@@ -306,11 +306,14 @@ class Compiler(object):
         self.session_dir = session_dir
         self.index_db_fname = os.path.join(self.session_dir, "articles.db")
         self.index_db = shelve.open(self.index_db_fname, 'n')
+        self.failed_articles = open(os.path.join(self.session_dir, "failed.txt"), 'w')
+        self.empty_articles = open(os.path.join(self.session_dir, "empty.txt"), 'w')
+        self.skipped_articles = open(os.path.join(self.session_dir, "skipped.txt"), 'w')
         self.metadata = metadata if metadata is not None else {}
         self.file_names = []
         self.stats = Stats()
         self.last_stat_update = 0
-        log.info('Collecting articles')        
+        log.info('Collecting articles')
 
     @utf8
     def add_metadata(self, key, value):
@@ -351,16 +354,19 @@ class Compiler(object):
     @utf8
     def fail_article(self, title):
         self.stats.failed += 1
+        self.failed_articles.write(title+'\n')
         self.print_stats()
 
     @utf8
     def empty_article(self, title):
         self.stats.empty += 1
+        self.empty_articles.write(title+'\n')
         self.print_stats()
 
     @utf8
     def skip_article(self, title):
         self.stats.skipped += 1
+        self.skipped_articles.write(title+'\n')
         self.print_stats()
 
     def timedout(self, count=1):
@@ -376,6 +382,9 @@ class Compiler(object):
     def compile(self):
         print_progress(self.stats)
         writeln()
+        self.failed_articles.close()
+        self.empty_articles.close()
+        self.skipped_articles.close()
         writeln('Compiling .aar files')
         self.add_metadata("article_count", self.stats.articles)
         sortex = self.sort()
@@ -586,7 +595,7 @@ def rename_files(file_names):
     for file_name in file_names:
         if file_name.count('.') == 1:
             base, vol = file_name.split('.')
-            ext = 'aar'            
+            ext = 'aar'
         else:
             base, ext, vol = file_name.rsplit('.', 2)
         args = (base, ext) if one else (base, vol, Volume.number, ext)
@@ -853,7 +862,7 @@ def guess_version(input_file_name):
 
     """
     import re
-    m = re.match(r'\w+-?(\d+)-?\w+', 
+    m = re.match(r'\w+-?(\d+)-?\w+',
                  os.path.basename(input_file_name.rstrip(os.path.sep)))
     return m.group(1) if m else None
 
@@ -943,7 +952,7 @@ def main():
         log_file_name = options.log_file
     else:
         log_file_name = os.path.join(session_dir, 'log')
-    
+
     display.write('Writing log to ').bold(log_file_name).writeln()
     logging.getLogger().handlers[:] = []
     logging.basicConfig(format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
