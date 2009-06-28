@@ -130,7 +130,7 @@ def fix_wikipedia_siteinfo(siteinfo):
                 })
 
 
-class BadRedirect(Exception): pass
+class BadRedirect(ConvertError): pass
 
 
 def parse_redirect(text, aliases):
@@ -146,21 +146,34 @@ def parse_redirect(text, aliases):
     >>> parse_redirect('#TAM[[Żuraw samochodowy]]'.decode('utf8'), aliases)
     u'\u017buraw samochodowy'
 
+    >>> parse_redirect('#перенапр[[абв]]'.decode('utf8'), [u"#\u043f\u0435\u0440\u0435\u043d\u0430\u043f\u0440"])
+    u'\u0430\u0431\u0432'
+
+    >>> parse_redirect('#Перенапр[[абв]]'.decode('utf8'), 
+    ...                [u"#\u043f\u0435\u0440\u0435\u043d\u0430\u043f\u0440",
+    ...                 u"#\u043f\u0435\u0440\u0435\u043d\u0430\u043f\u0440".upper()])
+    u'\u0430\u0431\u0432'
+
     >>> parse_redirect(u'abc', aliases)
 
     >>> parse_redirect(u'#REDIRECT [[abc', aliases)
     Traceback (most recent call last):
     ...
-    BadRedirect: [[abc
+    BadRedirect: ConvertError: [[abc
 
     >>> parse_redirect(u'#REDIRECT abc', aliases)
     Traceback (most recent call last):
     ...
-    BadRedirect: abc
+    BadRedirect: ConvertError: abc
+
+    >>> parse_redirect('#REDIRECT абв'.decode('utf8'), aliases)
+    Traceback (most recent call last):
+    ...
+    BadRedirect: ConvertError: абв
 
     """
     for alias in aliases:
-        if text.startswith(alias):
+        if text.startswith(alias) or text.upper().startswith(alias):
             text = text[len(alias):].lstrip()
             begin = text.find('[[')
             if begin < 0:
@@ -173,14 +186,21 @@ def parse_redirect(text, aliases):
 
 class Wiki(WikiDB):
 
-    def __init__(self, cdbdir, lang):
-        WikiDB.__init__(self, cdbdir)
+    def __init__(self, cdbdir, lang): 
+        WikiDB.__init__(self, cdbdir) 
         self.lang = lang
         self.siteinfo = get_siteinfo(self.lang)
         fix_wikipedia_siteinfo(self.siteinfo)
-        self.redirect_aliases = [magicword['aliases']
+        self.redirect_aliases = set()
+        aliases = [magicword['aliases']
                                  for magicword in self.siteinfo['magicwords']
                                  if magicword['name'] == 'redirect'][0]
+        
+        for alias in aliases:
+            self.redirect_aliases.add(alias)
+            self.redirect_aliases.add(alias.lower())
+            self.redirect_aliases.add(alias.upper())
+
 
     def get_siteinfo(self):
         return self.siteinfo
