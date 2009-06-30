@@ -103,7 +103,7 @@ def convert(title):
                                        wikidb=wikidb,
                                        lang=wikidb.lang)
         xhtmlwriter.preprocess(mwobject)
-        text, tags = mwaardwriter.convert(mwobject)    
+        text, tags = mwaardwriter.convert(mwobject)
     except EmptyArticleError:
         raise
     except Exception:
@@ -149,7 +149,7 @@ def parse_redirect(text, aliases):
     >>> parse_redirect('#перенапр[[абв]]'.decode('utf8'), [u"#\u043f\u0435\u0440\u0435\u043d\u0430\u043f\u0440"])
     u'\u0430\u0431\u0432'
 
-    >>> parse_redirect('#Перенапр[[абв]]'.decode('utf8'), 
+    >>> parse_redirect('#Перенапр[[абв]]'.decode('utf8'),
     ...                [u"#\u043f\u0435\u0440\u0435\u043d\u0430\u043f\u0440",
     ...                 u"#\u043f\u0435\u0440\u0435\u043d\u0430\u043f\u0440".upper()])
     u'\u0430\u0431\u0432'
@@ -186,8 +186,8 @@ def parse_redirect(text, aliases):
 
 class Wiki(WikiDB):
 
-    def __init__(self, cdbdir, lang): 
-        WikiDB.__init__(self, cdbdir) 
+    def __init__(self, cdbdir, lang):
+        WikiDB.__init__(self, cdbdir)
         self.lang = lang
         self.siteinfo = get_siteinfo(self.lang)
         fix_wikipedia_siteinfo(self.siteinfo)
@@ -195,7 +195,7 @@ class Wiki(WikiDB):
         aliases = [magicword['aliases']
                                  for magicword in self.siteinfo['magicwords']
                                  if magicword['name'] == 'redirect'][0]
-        
+
         for alias in aliases:
             self.redirect_aliases.add(alias)
             self.redirect_aliases.add(alias.lower())
@@ -211,16 +211,18 @@ class Wiki(WikiDB):
     def getTemplate(self, title, followRedirects=True):
         if ":" in title:
             title = title.split(':', 1)[1]
-
-        title = normname(title)
-        try:
+        try:            
             res = self.reader["Template:"+title]
         except KeyError:
-            return ''
+            title = normname(title)
+            try:
+                res = self.reader["Template:"+title]
+            except KeyError:
+                return ''
 
         redirect = parse_redirect(res, self.redirect_aliases)
         if redirect:
-            redirect = normname(redirect.split("|", 1)[0].split("#", 1)[0])
+            redirect = redirect.split("|", 1)[0].split("#", 1)[0]
             if followRedirects:
                 return self.getTemplate(redirect, followRedirects=followRedirects)
             else:
