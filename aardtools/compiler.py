@@ -284,7 +284,7 @@ class Stats(object):
     def __str__(self):
         return ('total: %d, skipped: %d, failed: %d, '
                 'empty: %d, timed out: %d, articles: %d, '
-                'redirects: %d, average: %.2f/s'
+                'redirects: %d, average: %.2f/s '
                 'elapsed: %s' % (self.total,
                                  self.skipped,
                                  self.failed,
