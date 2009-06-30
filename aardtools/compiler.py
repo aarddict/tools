@@ -1027,9 +1027,8 @@ def main():
     log.info('Compression: %s',
              ', '.join('%s - %d' % item
                       for item in compress_counts.iteritems()))
-    dt = time.time() - t0
-    log.info('Compilation took %.1f s', dt)
-    writeln('Compilation took %.1f s' % dt)
+    log.info('Compilation took %s', timedelta(seconds=time.time() - t0))
+    writeln('Compilation took %s' % timedelta(seconds=int(time.time() - t0)))
 
 if __name__ == '__main__':
     main()
