@@ -15,16 +15,30 @@ lookups and high compression. `aardtools` is a collection of tools to produce
 Installation
 ============
 
+.. note::
+   Examples below use ``apt-get`` on Ubuntu Linux. Consult your
+   distibution's packaging system to find corresponding package names
+   and commands to install them. 
+
 Prerequisits
 ------------
-You need to have Python setuptools_ installed. If you would like to get source code 
-repository you will need Mercurial_. `aardtools` rely on Python interfaces to several 
-C libraries which must be installed beforehand:
+
+Your system must be able to compile C and C++ programs::
+
+  sudo apt-get install build-essential
+
+You will also need to have Python headers and setuptools_ installed::
+
+  sudo apt-get install python-dev python-setuptools  
+ 
+If you would like to get source code repository you will need
+Mercurial_. `aardtools` rely on Python interfaces to several C
+libraries:
   
 - `International Components for Unicode`_
 - libxml2 and libxslt
 
-For example, on Ubuntu::
+which must be installed beforehand::
 
   sudo apt-get install libicu38 libicu-dev
   sudo apt-get install libxml2 libxml2-dev 
@@ -59,7 +73,7 @@ requires two arguments: input file type and input file name. Three supported
 input types are 
 
 xdxf 
-    Dictionaries in XDXF_ format (only XDXF-visual is supported).
+    Dictionaries in XDXF_ format (only `XDXF-visual`_ is supported).
 
 wiki
     Wikipedia articles and templates :abbr:`CDB (Constant Database)`
@@ -71,6 +85,7 @@ aard
     be combined into one single or multi volume fictionary.
 
 .. _XDXF: http://xdxf.sourceforge.net/
+.. _XDXF-visual: http://xdxf.revdanica.com/drafts/visual/latest/XDXF-draft-028.txt
 
 Synopsis::
 
