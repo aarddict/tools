@@ -1,6 +1,6 @@
-=========
-aardtools
-=========
+==========
+Aard Tools
+==========
 
 .. module:: aardtools
    :platform: Unix
@@ -8,9 +8,10 @@ aardtools
 .. moduleauthor:: Jeremy Mortis
 .. moduleauthor:: Igor Tkach
 
-Aard Dictionary uses dictionaries in it's own binary format - :ref:`aard <aard-format>` - designed for fast word 
-lookups and high compression. `aardtools` is a collection of tools to produce
-`aard` (``.aar``)files .
+Aard Dictionary uses dictionaries in it's own 
+:doc:`binary format <aardformat>` designed for fast word lookups and high
+compression. `aardtools` is a collection of tools to produce
+:doc:`Aard files <aardformat>` (``.aar``).
 
 Installation
 ============
@@ -152,6 +153,38 @@ To update dictionary metadata::
   aardc aard dict.aar -o dict2.aar --metadata dict.ini
 
 
+Release Notes
+=============
+
+0.7.4
+-----
+
+- Improved Wiki redirect parsing: case insensitive, recognize
+  site-specific redirect magic word aliases
+
+- Improved statisics, logging and progress display
+
+- Improved stability and memory usage
+
+- Better guess wiki language and version from input file name
+
+
+0.7.3
+-----
+
+- Compile wiki directly from CDB (original wiki xml dump is no longer
+  needed after generating CDB)
+
+- Infer wiki language and version from input file name if it follows
+  the same pattern as wiki xml dump file names
+
+- Include a copy of GNU Free Documentation License, wiki copyright
+  notice text and general description, write this into
+  dictionary metadata by default
+
+- Improve memory usage (`issue #4`_)
+
+.. _issue #4: http://bitbucket.org/itkach/aardtools/issue/4
 
 
 

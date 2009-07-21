@@ -1,7 +1,5 @@
-.. _aard-format:
-
 =============
-`aard` Format
+Aard Format
 =============
 
 Container Format
@@ -9,11 +7,11 @@ Container Format
 Aard Dictionary container format is a binary file format that combines
 dictionary metadata, lookup index and compressed article data.
 
-aard files have the following layout: header, metadata, index 1, index 2, articles
+Aard files have the following layout: header, metadata, index 1, index 2, articles
 
 Header
 ------
-aard files start with a fixed size header described by the following
+Aard files start with a fixed size header described by the following
 specification::
 
   HEADER_SPEC = (('signature',                '>4s'),
@@ -37,7 +35,7 @@ sha1sum
   sha1 sum of dictionary file content following signature and sha1 bytes
 
 version
-  aard format version, a number, currently must be 1
+  Aard format version, a number, currently must be 1
 
 uuid
   dictionary unique identifier shared by all volumes of the same dictionary
@@ -125,7 +123,7 @@ Article Formats
 ===============
 From container format perspective article is just a string that is stored
 either as is or compressed with gzip or bz2 whichever takes less space. Thus
-articles in aard files may be in any format that is can be represented as
+articles in Aard files may be in any format that is can be represented as
 string, for example plain text or HTML. Article format name is specified by
 metadata key ``article_format``. 
 
