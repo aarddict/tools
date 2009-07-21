@@ -2,6 +2,19 @@
 Release Notes (aardtools)
 =========================
 
+0.7.4
+=====
+
+- Improved Wiki redirect parsing: case insensitive, recognize
+  site-specific redirect magic word aliases
+
+- Improved statisics, logging and progress display
+
+- Improved stability and memory usage
+
+- Better guess wiki language and version from input file name
+
+
 0.7.3
 =====
 
