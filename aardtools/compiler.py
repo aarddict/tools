@@ -521,10 +521,18 @@ class Compiler(object):
 
     def write_sha1sum(self):
         for file_name in self.file_names:
-            log.info("Calculating checksum for %s", file_name)
+            msg = "Calculating checksum for %s" % file_name
+            log.info(msg)
             offset = spec_len(HEADER_SPEC[:2])
-            sha1sum = calcsha1(file_name, offset)
-            log.info("sha1 (first %d bytes skipped): %s", offset, sha1sum)
+            st_size = os.stat(file_name).st_size
+            size = float(st_size - offset)
+            for pos, sha1sum in calcsha1(file_name, offset):
+                (display.erase_line().cr()
+                .write(msg).write(': ').write('%.1f%%' % (100*pos/size)))
+            sha1sum = sha1sum.hexdigest()
+            msg = "%s sha1: %s" % (file_name, sha1sum)
+            log.info(msg)
+            display.erase_line().cr().writeln(msg)
             output_file = open(file_name, "r+b")
             output_file.seek(spec_len(HEADER_SPEC[:1]))
             output_file.write(sha1sum)
