@@ -112,23 +112,6 @@ def convert(title):
     else:
         return title, tojson((text.rstrip(), tags)), False
 
-def fix_wikipedia_siteinfo(siteinfo):
-    prefixes = [x['prefix'] for x in siteinfo['interwikimap']]
-    if 'arz' not in prefixes:
-        siteinfo['interwikimap'].append({
-                'prefix': 'arz',
-                'language': 'arz',
-                'url': 'http://arz.wikipedia.org/wiki/$1',
-                'local': '',
-                })
-    if 'pnt' not in prefixes:
-        siteinfo['interwikimap'].append({
-                'prefix': 'pnt',
-                'language': 'pnt',
-                'url': 'http://pnt.wikipedia.org/wiki/$1',
-                'local': '',
-                })
-
 
 class BadRedirect(ConvertError): pass
 
@@ -190,7 +173,6 @@ class Wiki(WikiDB):
         WikiDB.__init__(self, cdbdir)
         self.lang = lang
         self.siteinfo = get_siteinfo(self.lang)
-        fix_wikipedia_siteinfo(self.siteinfo)
         self.redirect_aliases = set()
         aliases = [magicword['aliases']
                                  for magicword in self.siteinfo['magicwords']
