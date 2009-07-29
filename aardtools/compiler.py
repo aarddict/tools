@@ -724,7 +724,7 @@ def make_output_file_name(input_file, options):
     elif input_file == '-':
         output_file = 'dictionary.aar'
     else:
-        output_file = strip_ext(input_file)
+        output_file = strip_ext(input_file.rstrip(os.path.sep))
         output_file += '.aar'
     return output_file
 
@@ -743,9 +743,11 @@ def strip_ext(fname):
     'abc.def'
     >>> strip_ext('abc.def.xdxf')
     'abc.def'
+    >>> strip_ext('/a/b/c/a.cdb/')
+    'a'
 
     """
-    output_file = os.path.basename(fname)
+    output_file = os.path.basename(fname.rstrip(os.path.sep))
     output_file = output_file[:output_file.rfind('.')]
     if (output_file.endswith('.tar') or
         output_file.endswith('.xml') or
