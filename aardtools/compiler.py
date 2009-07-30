@@ -49,7 +49,7 @@ INDEX1_ITEM_FORMAT = '>LL'
 
 def make_opt_parser():
     usage = "Usage: %prog [options] (wiki|xdxf|aard) FILE"
-    parser = optparse.OptionParser(version="%prog 1.0", usage=usage)
+    parser = optparse.OptionParser(version="%prog "+aardtools.__version__, usage=usage)
     parser.add_option(
         '-o', '--output-file',
         default='',
