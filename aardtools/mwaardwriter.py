@@ -89,7 +89,7 @@ class MWAardWriter(object):
     @newline
     def _Paragraph(self, obj):
         txt, tags = self.process_children(obj)
-        tags.append(maketag(u'p', txt, obj.attributes))
+        tags.append(maketag(u'p', txt))
         return txt, tags
 
     @newline
@@ -177,14 +177,14 @@ class MWAardWriter(object):
     def _TagNode(self, obj):
         txt, tags = self.process_children(obj)
         tagname = obj.caption
-        tags.append(maketag(tagname, txt, obj.attributes))
+        tags.append(maketag(tagname, txt))
         return txt, tags
 
     def _Node(self, obj):
         txt, tags = self.process_children(obj)
         tagname = obj._tag if hasattr(obj, '_tag') else obj.caption
         if tagname:
-            tags.append(maketag(tagname, txt, obj.attributes))
+            tags.append(maketag(tagname, txt))
         return txt, tags
 
     def _Math(self, obj):
@@ -200,7 +200,7 @@ class MWAardWriter(object):
     def _Generic(self, obj):
         txt, tags = self.process_children(obj)
         tagname = obj._tag
-        tags.append(maketag(tagname, txt, obj.attributes))
+        tags.append(maketag(tagname, txt))
         return txt, tags
 
     @newline
