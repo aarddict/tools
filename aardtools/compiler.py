@@ -315,7 +315,6 @@ class Compiler(object):
         self.last_stat_update = 0
         log.info('Collecting articles')
 
-    @utf8
     def add_metadata(self, key, value):
         if key not in self.metadata:
             self.metadata[key] = value
@@ -389,7 +388,7 @@ class Compiler(object):
         self.add_metadata("article_count", self.stats.articles)
         sortex = self.sort()
         log.info('Compiling %s', self.output_file_name)
-        metadata = compress(tojson(self.metadata))
+        metadata = compress(tojson(self.metadata).encode('utf8'))
         header_meta_len = spec_len(HEADER_SPEC) + len(metadata)
         create_volume_func = functools.partial(self.create_volume,
                                                header_meta_len)
@@ -543,7 +542,7 @@ class Compiler(object):
          articles_len, index_count) = volume.totuple()
         file_name = '%s.%d' % (self.output_file_name, Volume.number)
         output_file = open(file_name, "wb", 8192)
-        metadata = compress(tojson(self.metadata))
+        metadata = compress(tojson(self.metadata).encode('utf8'))
         self.write_header(output_file, len(metadata), index1Length,
                           index2Length, index_count, Volume.number)
         self.write_meta(output_file, metadata)

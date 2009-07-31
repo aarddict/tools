@@ -238,14 +238,14 @@ class WikiParser():
         try:
             siteinfo = get_siteinfo(wiki_lang)
             if siteinfo is None:
-                raise Exception()
+                raise Exception('No site info found for %s' % wiki_lang)
         except:
             log.fatal('Failed to read siteinfo for language %(lang)s, '
                       'can\'t proceed. '
                       'Check that siteinfo-%(lang)s.json exists in <MWLIB HOME>/mwlib/siteinfo, '
                       'run "fetch_siteinfo.py %(lang)s" if not', dict(lang=wiki_lang))
             raise SystemExit(1)
-
+        consumer.add_metadata('siteinfo', siteinfo)
         sitename = siteinfo['general']['sitename']
         sitelang = siteinfo['general']['lang']
 
