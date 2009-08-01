@@ -5,7 +5,7 @@ from setuptools import setup, find_packages
 import aardtools
 
 wiki_meta_en = ['wiki/en/copyright.txt',
-                'wiki/en/fdl-1.2.txt',
+                'wiki/en/license.txt',
                 'wiki/en/metadata.ini']
 
 setup(

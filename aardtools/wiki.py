@@ -222,7 +222,7 @@ def total(inputfile, options):
         return 0
 
 
-default_lic_fname = 'fdl-1.2.txt'
+default_lic_fname = 'license.txt'
 default_copyright_fname = 'copyright.txt'
 default_metadata_fname = 'metadata.ini'
 

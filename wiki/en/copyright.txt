@@ -1,9 +1,1 @@
-All original textual content except Wikinews original textual content is licensed under the GNU Free Documentation License (GFDL). Text written by some authors may be released under additional licenses or into the public domain. Some text (including quotations) may be used under fair use, usually where it is believed that the use will also be fair dealing outside the United States (US). Note that material used as "fair use" under United States law may not be legal to reproduce outside the US. See Fair use for more information.
-
-As of 2005-09-25 all Wikinews textual content is licensed under the Creative Commons Attribution 2.5 License, All Wikinews material published prior to that date (2005-09-25) is in the public domain.
-
-The Wikimedia Foundation Inc. does not hold copyright on any text except where such text was produced by the Foundation.
-
-Image copyright information is contained in the image description page inside the text dumps. Many images are NOT released under the GFDL; these may be fair use or non-commercial images and their use may be illegal outside Wikipedia or in a different context than they are used on Wikipedia.
-
-Both the text and images are almost certain to contain some copyright infringements which have not yet been noticed and removed. Your use of this material is AT YOUR OWN RISK. Please let us know about any copyright infringements you find, so they can be removed.
+The text of Wikipedia is copyrighted (automatically, under the Berne Convention) by Wikipedia editors and contributors and is formally licensed to the public under one or several liberal licenses. Most of Wikipedia's text and many of its images are co-licensed under the Creative Commons Attribution-Sharealike 3.0 Unported License (CC-BY-SA) and the GNU Free Documentation License (GFDL) (unversioned, with no invariant sections, front-cover texts, or back-cover texts). Some text has been imported only under CC-BY-SA and CC-BY-SA-compatible license and cannot be reused under GFDL; such text will be identified either on the page footer, in the page history or the discussion page of the article that utilizes the text.
