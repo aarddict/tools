@@ -22,7 +22,7 @@ try:
 except ImportError:
     logging.warning('cElementTree is not available, will use ElementTree')
     from xml.etree import ElementTree as etree
-    
+
 import simplejson
 
 tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
@@ -95,9 +95,14 @@ class XDXFParser():
             if element.tag == 'ar':
                 tags = []
                 txt = self._text(element, tags)
-                for i, title_elements in enumerate(element.findall('k')):
+                for i, title_element in enumerate(element.findall('k')):
                     first_title = None
-                    title = title_elements.text
+
+                    title = title_element.text
+
+                    for c in title_element:
+                        if c.tag == 'nu':
+                            title += c.tail
                     try:
                         if i == 0:
                             first_title = title
