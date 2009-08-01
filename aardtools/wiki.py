@@ -222,6 +222,13 @@ def total(inputfile, options):
         return 0
 
 
+def make_input(input_file_name):
+    return input_file_name
+
+def collect_articles(input_file, options, compiler):
+    p = WikiParser(options, compiler)
+    p.parse(input_file)
+
 default_lic_fname = 'license.txt'
 default_copyright_fname = 'copyright.txt'
 default_metadata_fname = 'metadata.ini'

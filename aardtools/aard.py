@@ -12,12 +12,23 @@
 #
 # Copyright (C) 2008-2009  Igor Tkach
 
+import sys
+
 from aarddict import dictionary
 
 def total(inputfile, options):
     d = dictionary.Dictionary(inputfile, raw_articles=True)
     d.close()
     return d.index_count
+
+def collect_articles(input_file, options, compiler):
+    p = AardParser(compiler)
+    p.parse(input_file)
+
+def make_input(input_file_name):
+    if input_file_name == '-':
+        return sys.stdin
+    return open(input_file_name)
 
 class AardParser():
 

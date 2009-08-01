@@ -615,7 +615,6 @@ def rename_file(file_name, newname_pattern, args):
     os.rename(file_name, newname)
 
 
-
 import zlib
 import bz2
 
@@ -642,63 +641,11 @@ def compress(text):
         compress_counts['none'] += 1
     return compressed
 
+
 root_locale = Locale('root')
 collator4 = Collator.createInstance(root_locale)
 collator4.setStrength(Collator.QUATERNARY)
 
-def compile_wiki(input_file, options, compiler):
-    import wiki
-    p = wiki.WikiParser(options, compiler)
-    p.parse(input_file)
-
-def compile_xdxf(input_file, options, compiler):
-    import xdxf
-    p = xdxf.XDXFParser(compiler)
-    p.parse(input_file)
-
-def compile_aard(input_file, options, compiler):
-    import aard
-    p = aard.AardParser(compiler)
-    p.parse(input_file)
-
-def make_wiki_input(input_file_name):
-    return input_file_name
-
-def make_xdxf_input(input_file_name):
-    if input_file_name == '-':
-        return sys.stdin
-    import tarfile
-    try:
-        tf = tarfile.open(input_file_name)
-    except:
-        #probably this is not tar archive, open regular file
-        return open(input_file_name)
-    else:
-        for tar in tf:
-            if os.path.basename(tar.name) == 'dict.xdxf':
-                return tf.extractfile(tar)
-    raise IOError("%s doesn't look like a XDXF dictionary" % input_file_name)
-
-def make_aard_input(input_file_name):
-    if input_file_name == '-':
-        return sys.stdin
-    return open(input_file_name)
-
-def wiki_total(inputfile, options):
-    import wiki
-    return wiki.total(inputfile, options)
-
-def aard_total(inputfile, options):
-    import aard
-    return aard.total(inputfile, options)
-
-def xdxf_total(inputfile, options):
-    import xdxf
-    return xdxf.total(inputfile, options)
-
-known_types = {'wiki': (make_wiki_input, compile_wiki, wiki_total),
-               'xdxf': (make_xdxf_input, compile_xdxf, xdxf_total),
-               'aard': (make_aard_input, compile_aard, aard_total)}
 
 def make_output_file_name(input_file, options):
     """
@@ -914,12 +861,6 @@ def main():
         opt_parser.print_help()
         raise SystemExit(1)
 
-    if args[0] not in known_types:
-        sys.stderr.write('Unknown input type %s, expected one of %s\n' %
-                         (args[0], ', '.join(known_types.keys())))
-        opt_parser.print_help()
-        raise SystemExit(1)
-
     input_type = args[0]
     input_files = args[1:]
 
@@ -947,6 +888,14 @@ def main():
     else:
         os.mkdir(session_dir)
         display.write('Session dir ').bold(session_dir).writeln()
+
+
+    try:
+        converter = __import__(input_type, globals=globals())
+    except ImportError:
+        sys.stderr.write('Unknown input type %s\n' % args[0])
+        opt_parser.print_help()
+        raise SystemExit(1)
 
     output_file_name = make_output_file_name(input_files[0], options)
 
@@ -1009,17 +958,18 @@ def main():
 
     log.debug('Metadata: %s', metadata)
 
+
     compiler = Compiler(output_file_name, max_volume_size,
                         session_dir, metadata)
-    make_input, collect_articles, total_func = known_types[input_type]
+
 
     t0 = time.time()
     display.write('Converting ').bold(', '.join(input_files)).writeln()
 
-    if total_func:
+    if hasattr(converter, 'total'):
         display.write('Calculating total number of articles...').cr().flush()
         for input_file in input_files:
-            compiler.stats.total += total_func(make_input(input_file), options)
+            compiler.stats.total += converter.total(converter.make_input(input_file), options)
     display.erase_line().writeln('total: %d' % compiler.stats.total)
 
     if options.show_legend:
@@ -1027,7 +977,7 @@ def main():
 
     for input_file in input_files:
         log.info('Collecting articles in %s', input_file)
-        collect_articles(make_input(input_file), options, compiler)
+        converter.collect_articles(converter.make_input(input_file), options, compiler)
     compiler.compile()
     if options.remove_session_dir:
         writeln('Removing session dir')
@@ -1038,6 +988,7 @@ def main():
                       for item in compress_counts.iteritems()))
     log.info('Compilation took %s', timedelta(seconds=time.time() - t0))
     writeln('Compilation took %s' % timedelta(seconds=int(time.time() - t0)))
+
 
 if __name__ == '__main__':
     main()

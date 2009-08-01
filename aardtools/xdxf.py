@@ -12,6 +12,8 @@
 #
 # Copyright (C) 2008-2009  Igor Tkach
 
+import os
+import sys
 import logging
 import functools
 
@@ -32,6 +34,25 @@ def total(inputfile, options):
             count += len(element.findall('k'))
         element.clear()
     return count
+
+def make_input(input_file_name):
+    if input_file_name == '-':
+        return sys.stdin
+    import tarfile
+    try:
+        tf = tarfile.open(input_file_name)
+    except:
+        #probably this is not tar archive, open regular file
+        return open(input_file_name)
+    else:
+        for tar in tf:
+            if os.path.basename(tar.name) == 'dict.xdxf':
+                return tf.extractfile(tar)
+    raise IOError("%s doesn't look like a XDXF dictionary" % input_file_name)
+
+def collect_articles(input_file, options, compiler):
+    p = XDXFParser(compiler)
+    p.parse(input_file)
 
 class XDXFParser():
 
