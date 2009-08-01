@@ -15,7 +15,12 @@
 import logging
 import functools
 
-from lxml import etree
+try:
+    from xml.etree import cElementTree as etree
+except ImportError:
+    logging.warning('cElementTree is not available, will use ElementTree')
+    from xml.etree import ElementTree as etree
+    
 import simplejson
 
 tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
