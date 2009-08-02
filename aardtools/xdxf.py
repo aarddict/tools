@@ -25,14 +25,49 @@ except ImportError:
 
 import simplejson
 
+try:
+    from itertools import combinations
+except ImportError:    
+    def combinations(iterable, r):
+        # combinations('ABCD', 2) --> AB AC AD BC BD CD
+        # combinations(range(4), 3) --> 012 013 023 123
+        pool = tuple(iterable)
+        n = len(pool)
+        if r > n:
+            return
+        indices = range(r)
+        yield tuple(pool[i] for i in indices)
+        while True:
+            for i in reversed(range(r)):
+                if indices[i] != i + n - r:
+                    break
+            else:
+                return
+            indices[i] += 1
+            for j in range(i+1, r):
+                indices[j] = indices[j-1] + 1
+            yield tuple(pool[i] for i in indices)
+    globals()['combinations'] = combinations
+
+
 tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
+
 
 def total(inputfile, options):
     count = 0
     for event, element in etree.iterparse(inputfile):
         if element.tag == 'ar':
-            count += len(element.findall('k'))
-        element.clear()
+            keys = element.findall('k')
+            for key_element in keys:
+                n_opts = len([c for c in key_element if c.tag == 'opt'])
+                if n_opts:
+                    for j in range(n_opts+1):
+                        for comb in combinations(range(n_opts), j):
+                            count += 1
+                else:
+                    count += 1
+        if element.tag != 'k':
+            element.clear()
     return count
 
 def make_input(input_file_name):
@@ -54,6 +89,7 @@ def collect_articles(input_file, options, compiler):
     p = XDXFParser(compiler)
     p.parse(input_file)
 
+
 class XDXFParser():
 
     def __init__(self, consumer):
@@ -71,6 +107,29 @@ class XDXFParser():
         if element.tail:
             txt += element.tail
         return txt
+
+    def _mktitle(self, title_element, include_opts=()):
+        title = title_element.text
+        opt_i = -1
+        for c in title_element:
+            if c.tag == 'nu' and c.tail:
+                if title:
+                    title += c.tail
+                else:
+                    title = c.tail
+            if c.tag == 'opt':
+                opt_i += 1
+                if opt_i in include_opts:
+                    if title:
+                        title += c.text
+                    else:
+                        title = c.text
+                if c.tail:
+                    if title:
+                        title += c.tail
+                    else:
+                        title = c.tail
+        return title
 
     def parse(self, f):
         self.consumer.add_metadata('article_format', 'json')
@@ -95,32 +154,33 @@ class XDXFParser():
             if element.tag == 'ar':
                 tags = []
                 txt = self._text(element, tags)
-                for i, title_element in enumerate(element.findall('k')):
-                    first_title = None
 
-                    title = title_element.text
+                titles = []
+                for title_element in element.findall('k'):
+                    n_opts = len([c for c in title_element if c.tag == 'opt'])
+                    if n_opts:
+                        for j in range(n_opts+1):
+                            for comb in combinations(range(n_opts), j):
+                                titles.append(self._mktitle(title_element, comb))
+                    else:
+                        titles.append(self._mktitle(title_element))
 
-                    for c in title_element:
-                        if c.tag == 'nu':
-                            title += c.tail
-                    try:
-                        if i == 0:
-                            first_title = title
-                            serialized = tojson((txt, tags, {}))
-                            self.consumer.add_article(title, serialized,
-                                                      redirect=False)
-                        else:
+                if titles:
+                    first_title = titles[0]
+                    serialized = tojson((txt, tags, {}))
+                    self.consumer.add_article(first_title, serialized,
+                                              redirect=False)
+                    titles = titles[1:]
+                    if titles:
+                        for title in titles:
                             logging.debug('Redirect %s ==> %s',
                                           title.encode('utf8'),
                                           first_title.encode('utf8'))
-                            meta = {u'redirect': first_title}
+                            meta = {u'r': first_title}
                             serialized = tojson(('', [], meta))
                             self.consumer.add_article(title, serialized,
                                                       redirect=True)
-                    except KeyboardInterrupt:
-                        raise
-                    except Exception:
-                        logging.exception('Failed to convert article %s',
-                                          title.encode('utf8'))
-                        self.consumer.fail_article(title)
+                else:
+                    logging.warn('No title found in article:\n%s',
+                                 etree.tostring(element, encoding='utf8'))
                 element.clear()
