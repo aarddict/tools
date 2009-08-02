@@ -10,7 +10,7 @@ Aard Tools
 
 Aard Dictionary uses dictionaries in it's own 
 :doc:`binary format <aardformat>` designed for fast word lookups and high
-compression. `aardtools` is a collection of tools to produce
+compression. `Aard Tools` is a collection of tools to produce
 :doc:`Aard files <aardformat>` (``.aar``).
 
 Installation
@@ -31,19 +31,17 @@ Your system must be able to compile C and C++ programs::
 You will also need to have Python headers and setuptools_ installed::
 
   sudo apt-get install python-dev python-setuptools  
- 
-If you would like to get source code repository you will need
-Mercurial_. `aardtools` rely on Python interfaces to several C
-libraries:
-  
-- `International Components for Unicode`_
-- libxml2 and libxslt
 
-which must be installed beforehand::
+`Aard Tools` rely on Python interfaces to 
+`International Components for Unicode`_ , which must be installed
+beforehand::
 
   sudo apt-get install libicu38 libicu-dev
-  sudo apt-get install libxml2 libxml2-dev 
-  sudo apt-get install libxslt1.1 libxslt-dev 
+ 
+If you would like to get source code repository you will need
+Mercurial_::
+
+  sudo apt-get install mercurial
 
 .. _Mercurial: http://selenic.com/mercurial
 .. _setuptools: http://peak.telecommunity.com/DevCenter/setuptools
@@ -52,7 +50,7 @@ which must be installed beforehand::
 Installation
 ------------
 
-Download aardtools source code::
+Download source code::
 
   wget http://www.bitbucket.org/itkach/aardtools/get/tip.bz2
 
@@ -69,9 +67,11 @@ Assuming source code code is in `aardtools` directory::
 
 Usage
 =====
-Entry point for `aardtools` is ``aardc`` command - Aard Dictionary compiler. It
-requires two arguments: input file type and input file name. Three supported
-input types are 
+Entry point for `Aard Tools` is ``aardc`` command - Aard Dictionary compiler. It
+requires two arguments: input file type and input file name. Input
+file type is the name of Python module that actually reads input files and
+performs article conversion. `Aard Tools` "out of the box" comes with
+support for the following input types: 
 
 xdxf 
     Dictionaries in XDXF_ format (only `XDXF-visual`_ is supported).
