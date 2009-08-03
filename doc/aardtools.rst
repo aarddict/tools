@@ -156,6 +156,33 @@ To update dictionary metadata::
 Release Notes
 =============
 
+0.7.5
+-----
+
+- Include license, doc and wiki files in source distribution generated
+  by setuptools
+
+- Write Wikipedia siteinfo to dictionary metadata
+
+- Exclude elements with classes `navbar` and `plainlinksneverexpand`,
+  this get's rid of talk-view-edit links in wiki articles
+
+- Discard generic tag attributes when parsing wiki since they are not
+  used
+
+- Updated Wikipedia copyright and license information to reflect
+  Wikipedia's switch to Common Attribution license
+
+- Removed dependency on lxml_
+
+- Moved converter specific functions to converter modules, this
+  makes it possible to implement new converters without changing
+  compiler.py
+
+- Parse XDXF's ``nu`` and ``opt`` tags
+
+.. _lxml: http://codespeak.net/lxml/
+
 0.7.4
 -----
 
