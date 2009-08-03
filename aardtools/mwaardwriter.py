@@ -17,8 +17,7 @@ import functools
 import logging
 from collections import defaultdict
 
-EXCLUDE_TABLE_CLASSES = set(('navbox', 'collapsible', 'autocollapse'))
-EXCLUDE_DIV_CLASSES = set(('plainlinksneverexpand',))
+EXCLUDE_CLASSES = set(('navbox', 'collapsible', 'autocollapse', 'plainlinksneverexpand', 'navbar'))
 
 def convert(obj):
     w = MWAardWriter()
@@ -198,18 +197,14 @@ class MWAardWriter(object):
         return u'\n', []
 
     def _Generic(self, obj):
+        classes = obj.attributes.get('class', '').split()
+        if any((cl in EXCLUDE_CLASSES
+                for cl in classes)):
+            return '', []
         txt, tags = self.process_children(obj)
         tagname = obj._tag
         tags.append(maketag(tagname, txt))
         return txt, tags
-
-    @newline
-    def _Div(self, obj):
-        divclasses = obj.attributes.get('class', '').split()
-        if any((divclass in EXCLUDE_DIV_CLASSES
-                for divclass in divclasses)):
-            return '', []
-        return self._Generic(obj)
 
     _Emphasized = _Generic
     _Strong = _Generic
@@ -220,6 +215,7 @@ class MWAardWriter(object):
     _Sup = _Generic
     _Font = _Generic
     _DefinitionDescription = _Generic
+    _Div = newline(_Generic)
 
     def add_ref(self, obj):
         name = obj.attributes.get(u'name', '')
@@ -305,7 +301,7 @@ class MWAardWriter(object):
     @newline
     def _Table(self, obj):
         tableclasses = obj.attributes.get('class', '').split()
-        if any((tableclass in EXCLUDE_TABLE_CLASSES
+        if any((tableclass in EXCLUDE_CLASSES
                 for tableclass in tableclasses)):
             return '', []
 
