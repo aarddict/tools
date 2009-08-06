@@ -59,7 +59,7 @@ def make_opt_parser():
         )
     parser.add_option(
         '-s', '--max-file-size',
-        default=str(MAX_FAT32_FILE_SIZE),
+        default=str(2**31-1),
         help=
         'Maximum file size in megabytes(M) or gigabytes(G). '
         'Default: %default'
