@@ -58,11 +58,18 @@ def make_opt_parser():
         'file base name with .aar extension'
         )
     parser.add_option(
+        '-b', '--sortex-buffer',
+        default=str(2**32),
+        help=
+        'Memory buffer size for external sort in bytes, kilobytes(K), megabytes(M) or gigabytes(G). '
+        'Default: %default bytes'
+        )
+    parser.add_option(
         '-s', '--max-file-size',
         default=str(2**31-1),
         help=
-        'Maximum file size in megabytes(M) or gigabytes(G). '
-        'Default: %default'
+        'Maximum file size in bytes, kilobytes(K), megabytes(M) or gigabytes(G). '
+        'Default: %default bytes'
         )
     parser.add_option(
         '-t', '--templates',
@@ -298,14 +305,15 @@ class Stats(object):
 
 class Compiler(object):
 
-    def __init__(self, output_file_name, max_file_size, session_dir, metadata=None):
+    def __init__(self, output_file_name, max_file_size, sort_buff_size, session_dir, metadata=None):
         self.uuid = uuid.uuid4()
         self.output_file_name = output_file_name
         self.max_file_size = max_file_size
+        self.sort_buff_size = sort_buff_size
         self.index_count = 0
         self.session_dir = session_dir
-        self.index_db_fname = os.path.join(self.session_dir, "articles.db")
-        self.index_db = shelve.open(self.index_db_fname, 'n')
+        index_db_fname = os.path.join(self.session_dir, "articles.db")
+        self.index_db = shelve.open(index_db_fname, 'n')
         self.failed_articles = open(os.path.join(self.session_dir, "failed.txt"), 'w')
         self.empty_articles = open(os.path.join(self.session_dir, "empty.txt"), 'w')
         self.skipped_articles = open(os.path.join(self.session_dir, "skipped.txt"), 'w')
@@ -313,6 +321,8 @@ class Compiler(object):
         self.file_names = []
         self.stats = Stats()
         self.last_stat_update = 0
+        self.titles_fname = os.path.join(self.session_dir, "titles.txt")
+        self.titles = open(self.titles_fname, 'w')
         log.info('Collecting articles')
 
     def add_metadata(self, key, value):
@@ -344,6 +354,8 @@ class Compiler(object):
                 articles = []
             articles.append(compress(serialized_article))
             self.index_db[title] = articles
+            self.titles.write(title)
+            self.titles.write('\n')
             if not redirect:
                 self.stats.articles += 1
             else:
@@ -384,6 +396,7 @@ class Compiler(object):
         self.failed_articles.close()
         self.empty_articles.close()
         self.skipped_articles.close()
+        self.titles.close()
         writeln('Compiling .aar files')
         self.add_metadata("article_count", self.stats.articles)
         sortex = self.sort()
@@ -409,24 +422,28 @@ class Compiler(object):
 
     def sort(self):
         log.info('Sorting')
-        writeln('Sorting')
+        display.write('Sorting...')
+        t0 = time.time()
         work_dir=os.path.join(self.session_dir, "sort")
-        sortex = SortExternal(work_dir=work_dir, buffer_size=200000000)
-        for title in self.index_db:
-            coll_key4_str = (collator4.
-                             getCollationKey(title).
-                             getByteArray())
-            sortex.put(coll_key4_str + "___" + title)
+        sortex = SortExternal(work_dir=work_dir,
+                              buffer_size=self.sort_buff_size,
+                              key_func=lambda x: collator4.getCollationKey(x).getByteArray())
+        with open(self.titles_fname) as titles:
+            for title in titles:
+                sortex.put(title.strip('\n'))
         sortex.sort()
+        msg = 'Sort took %s' % timedelta(seconds=time.time() - t0)
+        log.info(msg)
+        display.erase_line().cr().writeln(msg)
         return sortex
+
 
     def create_volume(self, header_meta_len):
         return Volume(header_meta_len, self.max_file_size, self.session_dir)
 
     def make_volumes(self, create_volume_func, sortex):
         volume = create_volume_func()
-        for count, item in enumerate(sortex):
-            title = item.split("___", 1)[1]
+        for title in sortex:
             serialized_articles = self.index_db[title]
             for serialized_article in serialized_articles:
                 index1Unit = struct.pack(INDEX1_ITEM_FORMAT,
@@ -642,8 +659,7 @@ def compress(text):
     return compressed
 
 
-root_locale = Locale('root')
-collator4 = Collator.createInstance(root_locale)
+collator4 = Collator.createInstance(Locale(''))
 collator4.setStrength(Collator.QUATERNARY)
 
 
@@ -704,17 +720,29 @@ def strip_ext(fname):
 
 def max_file_size(options):
     s = options.max_file_size
-    s = s.lower()
-    if s.endswith('m'):
-        return int(s.strip('m'))*1000000
+    return parse_size(s)
+
+def sort_buff_size(options):
+    s = options.sortex_buffer
+    return parse_size(s)
+
+def parse_size(s):
+    if s.endswith('M'):
+        return int(s.strip('M'))*1024*1024
+    elif s.endswith('G'):
+        return int(s.strip('G'))**1024*1024*1024
+    elif s.endswith('K'):
+        return int(s.strip('K'))*1024
+    elif s.endswith('m'):
+        return int(s.strip('m'))*1000*1000
     elif s.endswith('g'):
-        return int(s.strip('g'))*1000000000
+        return int(s.strip('g'))*1000*1000*1000
     elif s.endswith('k'):
         return int(s.strip('k'))*1000
     elif s.endswith('b'):
         return int(s.strip('b'))
     else:
-        return int(s)
+        return int(s)    
 
 class Display:
 
@@ -959,7 +987,8 @@ def main():
     log.debug('Metadata: %s', metadata)
 
 
-    compiler = Compiler(output_file_name, max_volume_size,
+    compiler = Compiler(output_file_name, max_volume_size, 
+                        sort_buff_size(options),
                         session_dir, metadata)
 
 
