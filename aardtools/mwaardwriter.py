@@ -216,6 +216,7 @@ class MWAardWriter(object):
     _Font = _Generic
     _DefinitionDescription = _Generic
     _Div = newline(_Generic)
+    _Span = _Generic
 
     def add_ref(self, obj):
         name = obj.attributes.get(u'name', '')
@@ -275,7 +276,7 @@ class MWAardWriter(object):
         current_table, current_row = self.current_tables[-1]
         if current_row is None:
             logging.warn("Can't add cell outside of row")
-        else:            
+        else:
             txt, tags = self.process_children(obj)
             #txt = txt.replace('\n', ' ')
             txt = txt.replace('\t', ' ')
