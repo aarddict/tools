@@ -32,8 +32,8 @@ from datetime import timedelta
 from PyICU import Locale, Collator
 import simplejson
 
-from sortexternal import SortExternal
-from aarddict.dictionary import HEADER_SPEC, spec_len, calcsha1
+from aarddict.dictionary import (HEADER_SPEC, spec_len, calcsha1,
+                                 collation_key, QUATERNARY)
 import aardtools
 
 
@@ -56,13 +56,6 @@ def make_opt_parser():
         help=
         'Output file name. By default is the same as input '
         'file base name with .aar extension'
-        )
-    parser.add_option(
-        '-b', '--sortex-buffer',
-        default=str(2**32),
-        help=
-        'Memory buffer size for external sort in bytes, kilobytes(K), megabytes(M) or gigabytes(G). '
-        'Default: %default bytes'
         )
     parser.add_option(
         '-s', '--max-file-size',
@@ -303,13 +296,71 @@ class Stats(object):
                                  self.elapsed))
 
 
+import mmap
+
+class Sorter(object):
+
+    def __init__(self, work_dir=None):
+        fd, self.store_name = tempfile.mkstemp(prefix='sorter-', dir=work_dir)
+        self.store = os.fdopen(fd, 'w')
+        fd, self.store_idx_name = tempfile.mkstemp(suffix='.idx',
+                                                   prefix='sorter-', 
+                                                   dir=work_dir)
+        self.store_idx = os.fdopen(fd, 'wb')
+        self.start = 0
+        self.end = 0
+        idx_format = '>II'
+        self.pack = functools.partial(struct.pack, idx_format)
+        self.unpack = functools.partial(struct.unpack, idx_format)
+        self.fmt_size = struct.calcsize(idx_format)
+
+    def append(self, text):
+        self.store.write(text)
+        self.start = self.end
+        self.end = self.start + len(text)
+        self.store_idx.write(self.pack(self.start, self.end))
+
+    def sorted(self, key=None):
+
+        self.store.flush()
+        self.store_idx.flush()
+
+        if key is None:
+            key = lambda x: x
+
+        with open(self.store_name, 'r+') as store_f:
+            with open(self.store_idx_name, 'r+b') as store_idx_f:
+
+                store = mmap.mmap(store_f.fileno(), 0)
+                store_idx = mmap.mmap(store_idx_f.fileno(), 0)
+
+                def realkey(x):
+                    pos_start = x*self.fmt_size
+                    pos_end = pos_start + self.fmt_size
+                    start, end = self.unpack(store_idx[pos_start:pos_end])
+                    title = store[start:end]
+                    return key(title)
+
+                for i in sorted(xrange(len(store_idx)/self.fmt_size),
+                                key=realkey):
+                    pos_start = i*self.fmt_size
+                    pos_end = pos_start + self.fmt_size
+                    start, end = self.unpack(store_idx[pos_start:pos_end])
+                    yield store[start:end]
+
+    def close(self):
+        self.store.close()
+        self.store_idx.close()
+        os.remove(self.store_name)
+        os.remove(self.store_idx_name)
+        
+
 class Compiler(object):
 
-    def __init__(self, output_file_name, max_file_size, sort_buff_size, session_dir, metadata=None):
+    def __init__(self, output_file_name, max_file_size, session_dir, metadata=None):
         self.uuid = uuid.uuid4()
         self.output_file_name = output_file_name
         self.max_file_size = max_file_size
-        self.sort_buff_size = sort_buff_size
         self.index_count = 0
         self.session_dir = session_dir
         index_db_fname = os.path.join(self.session_dir, "articles.db")
@@ -321,8 +372,7 @@ class Compiler(object):
         self.file_names = []
         self.stats = Stats()
         self.last_stat_update = 0
-        self.titles_fname = os.path.join(self.session_dir, "titles.txt")
-        self.titles = open(self.titles_fname, 'w')
+        self.sorter = Sorter(self.session_dir)
         log.info('Collecting articles')
 
     def add_metadata(self, key, value):
@@ -335,6 +385,8 @@ class Compiler(object):
 
     @utf8
     def add_article(self, title, serialized_article, redirect=False):
+        title_start = 0
+        title_end = 0
         with article_add_lock:
             if not title:
                 log.warn('Blank title, ignoring article "%s"',
@@ -354,8 +406,9 @@ class Compiler(object):
                 articles = []
             articles.append(compress(serialized_article))
             self.index_db[title] = articles
-            self.titles.write(title)
-            self.titles.write('\n')
+            self.sorter.append(title)
+            title_start = title_end
+            title_end = title_start + len(title)
             if not redirect:
                 self.stats.articles += 1
             else:
@@ -396,54 +449,37 @@ class Compiler(object):
         self.failed_articles.close()
         self.empty_articles.close()
         self.skipped_articles.close()
-        self.titles.close()
         writeln('Compiling .aar files')
         self.add_metadata("article_count", self.stats.articles)
-        sortex = self.sort()
+        titles = self.sorter.sorted(key=lambda x:
+                                    collation_key(x).getByteArray())
         log.info('Compiling %s', self.output_file_name)
         metadata = compress(tojson(self.metadata).encode('utf8'))
         header_meta_len = spec_len(HEADER_SPEC) + len(metadata)
         create_volume_func = functools.partial(self.create_volume,
                                                header_meta_len)
-        for volume in self.make_volumes(create_volume_func, sortex):
+        for volume in self.make_volumes(create_volume_func, titles):
             m = "Creating volume %d" % volume.number
             log.info(m)
-            writeln(m)
+            writeln(m).flush()
             file_name = self.make_aar(volume)
             self.file_names.append(file_name)
             m = "Wrote volume %d" % volume.number
             log.info(m)
-            writeln(m)
-        sortex.cleanup()
+            writeln(m).flush()
         self.index_db.close()
+        self.sorter.close()
         self.write_volume_count()
         self.write_sha1sum()
         rename_files(self.file_names)
 
-    def sort(self):
-        log.info('Sorting')
-        display.write('Sorting...')
-        t0 = time.time()
-        work_dir=os.path.join(self.session_dir, "sort")
-        sortex = SortExternal(work_dir=work_dir,
-                              buffer_size=self.sort_buff_size,
-                              key_func=lambda x: collator4.getCollationKey(x).getByteArray())
-        with open(self.titles_fname) as titles:
-            for title in titles:
-                sortex.put(title.strip('\n'))
-        sortex.sort()
-        msg = 'Sort took %s' % timedelta(seconds=time.time() - t0)
-        log.info(msg)
-        display.erase_line().cr().writeln(msg)
-        return sortex
-
-
     def create_volume(self, header_meta_len):
         return Volume(header_meta_len, self.max_file_size, self.session_dir)
 
-    def make_volumes(self, create_volume_func, sortex):
+    def make_volumes(self, create_volume_func, titles):
         volume = create_volume_func()
-        for title in sortex:
+        for title in titles:
+            title = title.strip('\n')
             serialized_articles = self.index_db[title]
             for serialized_article in serialized_articles:
                 index1Unit = struct.pack(INDEX1_ITEM_FORMAT,
@@ -659,9 +695,7 @@ def compress(text):
     return compressed
 
 
-collator4 = Collator.createInstance(Locale(''))
-collator4.setStrength(Collator.QUATERNARY)
-
+collation_key = functools.partial(collation_key, strength=QUATERNARY)
 
 def make_output_file_name(input_file, options):
     """
@@ -722,10 +756,6 @@ def max_file_size(options):
     s = options.max_file_size
     return parse_size(s)
 
-def sort_buff_size(options):
-    s = options.sortex_buffer
-    return parse_size(s)
-
 def parse_size(s):
     if s.endswith('M'):
         return int(s.strip('M'))*1024*1024
@@ -742,7 +772,7 @@ def parse_size(s):
     elif s.endswith('b'):
         return int(s.strip('b'))
     else:
-        return int(s)    
+        return int(s)
 
 class Display:
 
@@ -987,8 +1017,7 @@ def main():
     log.debug('Metadata: %s', metadata)
 
 
-    compiler = Compiler(output_file_name, max_volume_size, 
-                        sort_buff_size(options),
+    compiler = Compiler(output_file_name, max_volume_size,
                         session_dir, metadata)
 
 
