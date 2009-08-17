@@ -17,7 +17,7 @@ setup(
                             'aardc = aardtools.compiler:main']
     },
 
-    install_requires = [ 'aarddict == 0.7.5',
+    install_requires = [ 'aarddict == 0.7.6',
                          'PyICU >= 0.8.1',
                          'mwlib == 0.11.2',
                          'simplejson',
