@@ -22,7 +22,6 @@ import sys
 import struct
 import os
 import tempfile
-import shelve
 import optparse
 import functools
 import time
@@ -394,7 +393,6 @@ class Compiler(object):
         self.max_file_size = max_file_size
         self.index_count = 0
         self.session_dir = session_dir
-        # self.index_db = shelve.open(index_db_fname, 'n')
         self.failed_articles = open(os.path.join(self.session_dir, "failed.txt"), 'w')
         self.empty_articles = open(os.path.join(self.session_dir, "empty.txt"), 'w')
         self.skipped_articles = open(os.path.join(self.session_dir, "skipped.txt"), 'w')
