@@ -84,6 +84,11 @@ class ConvertError(Exception):
 
 class EmptyArticleError(ConvertError): pass
 
+def mkredirect(title, target):
+    redirect = normname(target)
+    meta = {u'r': redirect}
+    return title, tojson(('', [], meta)), True, None    
+
 def convert(title):
     gc.collect()
     try:
@@ -94,23 +99,21 @@ def convert(title):
 
         redirect = wikidb.get_redirect(text)
         if redirect:
-            redirect = normname(redirect)
-            meta = {u'r': redirect}
-            return title, tojson(('', [], meta)), True
+            return mkredirect(title, redirect)
 
         mwobject = uparser.parseString(title=title,
                                        raw=text,
                                        wikidb=wikidb,
                                        lang=wikidb.lang)
         xhtmlwriter.preprocess(mwobject)
-        text, tags = mwaardwriter.convert(mwobject)
+        text, tags, languagelinks = mwaardwriter.convert(mwobject)
     except EmptyArticleError:
         raise
     except Exception:
         log.exception('Failed to process article %s', title.encode('utf8'))
         raise ConvertError(title)
     else:
-        return title, tojson((text.rstrip(), tags)), False
+        return title, tojson((text.rstrip(), tags)), False, languagelinks
 
 
 class BadRedirect(ConvertError): pass
@@ -360,8 +363,9 @@ class WikiParser():
         for a in articles:
             try:
                 result = convert(a)
-                title, serialized, redirect = result
+                title, serialized, redirect, langugagelinks = result
                 self.consumer.add_article(title, serialized, redirect)
+                self.process_languagelinks(title, langugagelinks)
             except EmptyArticleError, e:
                 self.consumer.empty_article(e.title)
             except ConvertError, e:
@@ -385,8 +389,9 @@ class WikiParser():
                     try:
                         result = resulti.next(self.timeout)
                         iter_count += 1
-                        title, serialized, redirect = result
-                        self.consumer.add_article(title, serialized,redirect)
+                        title, serialized, redirect, langugagelinks  = result
+                        self.consumer.add_article(title, serialized, redirect)
+                        self.process_languagelinks(title, langugagelinks)
                     except StopIteration:
                         break
                     except TimeoutError:
@@ -411,3 +416,26 @@ class WikiParser():
         finally:
             self.pool.close()
             self.pool.join()
+
+    def process_languagelinks(self, title, languagelinks):
+        if not languagelinks:
+            return
+        targets = set()
+        for namespace, target in languagelinks:
+            # print 'Language link for %s: %s (%s)' % (title.encode('utf8'), 
+            #                                          target.encode('utf8'),
+            #                                          namespace.encode('utf8'))
+            i = target.find(namespace+u':')
+            if i > -1:
+                unqualified_target = target[len(namespace)+1:]
+                # print 'Unqualified target: ', unqualified_target.encode('utf8')
+                if wikidb.getRawArticle(unqualified_target, resolveRedirect=False) is None:
+                    targets.add(unqualified_target)
+            else:
+                # print 'Invalid language link "%s"' % target.encode('utf8')
+                log.warn('Invalid language link "%s"', target.encode('utf8'))
+        for target in targets:
+            l_title, l_serialized, l_redirect, l_langugagelinks = mkredirect(target, title)
+            self.consumer.add_article(l_title, l_serialized, 
+                                      redirect=True, count=False)
+            

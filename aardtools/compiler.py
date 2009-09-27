@@ -412,7 +412,7 @@ class Compiler(object):
                      key, value)
 
     @utf8
-    def add_article(self, title, serialized_article, redirect=False):
+    def add_article(self, title, serialized_article, redirect=False, count=True):
         with article_add_lock:
             if not title:
                 log.warn('Blank title, ignoring article "%s"',
@@ -423,11 +423,12 @@ class Compiler(object):
                 return
             log.debug('Adding article for "%s"', title)
             self.article_store.append(title, compress(serialized_article))
-            if not redirect:
-                self.stats.articles += 1
-            else:
-                self.stats.redirects += 1
-            self.print_stats()
+            if count:
+                if not redirect:
+                    self.stats.articles += 1
+                else:
+                    self.stats.redirects += 1
+                self.print_stats()
 
     @utf8
     def fail_article(self, title):

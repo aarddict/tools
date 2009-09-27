@@ -22,7 +22,7 @@ EXCLUDE_CLASSES = set(('navbox', 'collapsible', 'autocollapse', 'plainlinksnever
 def convert(obj):
     w = MWAardWriter()
     text, tags = w.txt(obj)
-    return text, tags
+    return text, tags, w.languagelinks
 
 def newline(func):
     def f(*args, **kwargs):
