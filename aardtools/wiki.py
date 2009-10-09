@@ -87,7 +87,7 @@ class EmptyArticleError(ConvertError): pass
 def mkredirect(title, target):
     redirect = normname(target)
     meta = {u'r': redirect}
-    return title, tojson(('', [], meta)), True, None    
+    return title, tojson(('', [], meta)), True, None
 
 def convert(title):
     gc.collect()
@@ -196,7 +196,7 @@ class Wiki(WikiDB):
     def getTemplate(self, title, followRedirects=True):
         if ":" in title:
             title = title.split(':', 1)[1]
-        try:            
+        try:
             res = self.reader["Template:"+title]
         except KeyError:
             title = normname(title)
@@ -335,6 +335,12 @@ class WikiParser():
             self.parse = self.parse_mp
         self.mp_chunk_size = options.mp_chunk_size
 
+        if options.lang_links:
+            self.lang_links_langs = set(l.strip().lower()
+                                        for l in options.lang_links.split(','))
+        else:
+            self.lang_links_langs = set()
+
     def articles(self, f):
         if self.start > 0:
             log.info('Skipping to article %d', self.start)
@@ -422,20 +428,19 @@ class WikiParser():
             return
         targets = set()
         for namespace, target in languagelinks:
-            # print 'Language link for %s: %s (%s)' % (title.encode('utf8'), 
-            #                                          target.encode('utf8'),
-            #                                          namespace.encode('utf8'))
-            i = target.find(namespace+u':')
-            if i > -1:
-                unqualified_target = target[len(namespace)+1:]
-                # print 'Unqualified target: ', unqualified_target.encode('utf8')
-                if wikidb.getRawArticle(unqualified_target, resolveRedirect=False) is None:
-                    targets.add(unqualified_target)
-            else:
-                # print 'Invalid language link "%s"' % target.encode('utf8')
-                log.warn('Invalid language link "%s"', target.encode('utf8'))
+            if namespace in self.lang_links_langs:
+                log.debug('Language link for %s: %s (%s)', 
+                          title.encode('utf8'), target.encode('utf8'),
+                          namespace.encode('utf8'))
+                i = target.find(namespace+u':')
+                if i > -1:
+                    unqualified_target = target[len(namespace)+1:]
+                    if wikidb.getRawArticle(unqualified_target, resolveRedirect=False) is None:
+                        targets.add(unqualified_target)
+                else:
+                    log.warn('Invalid language link "%s"', target.encode('utf8'))
         for target in targets:
             l_title, l_serialized, l_redirect, l_langugagelinks = mkredirect(target, title)
-            self.consumer.add_article(l_title, l_serialized, 
+            self.consumer.add_article(l_title, l_serialized,
                                       redirect=True, count=False)
-            
+

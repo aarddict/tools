@@ -167,6 +167,7 @@ def make_opt_parser():
         'there should be no need to change the default value.'
         'Default: %default'
         )
+
     parser.add_option(
         '--show-legend',
         action='store_true',
@@ -181,6 +182,12 @@ def make_opt_parser():
     parser.add_option('-r', '--remove-session-dir',
                       action='store_true',
                       help='Remove session directory after compilation.')
+
+    parser.add_option(
+        '--lang-links',
+        help='Add Wikipedia language links to index for these languages '
+        '(comma separated list of language codes)'
+        )
 
     return parser
 
