@@ -21,7 +21,10 @@ import os
 import sys
 from itertools import islice
 
-import simplejson
+try:
+    import json
+except ImportError:
+    import simplejson as json
 
 from mwlib import uparser, xhtmlwriter
 from mwlib.log import Log
@@ -35,7 +38,7 @@ Expander.parsedTemplateCache = lrucache.lrucache(100)
 
 import mwaardwriter
 
-tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
+tojson = functools.partial(json.dumps, ensure_ascii=False)
 
 import multiprocessing
 from multiprocessing import Pool, TimeoutError

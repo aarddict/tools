@@ -23,7 +23,10 @@ except ImportError:
     logging.warning('cElementTree is not available, will use ElementTree')
     from xml.etree import ElementTree as etree
 
-import simplejson
+try:
+    import json
+except ImportError:
+    import simplejson as json
 
 try:
     from itertools import combinations
@@ -50,7 +53,7 @@ except ImportError:
     globals()['combinations'] = combinations
 
 
-tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
+tojson = functools.partial(json.dumps, ensure_ascii=False)
 
 
 def total(inputfile, options):

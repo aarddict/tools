@@ -29,7 +29,11 @@ import shutil
 from datetime import timedelta
 
 from PyICU import Locale, Collator
-import simplejson
+
+try:
+    import json
+except ImportError:
+    import simplejson as json
 
 from aarddict.dictionary import (HEADER_SPEC, spec_len, calcsha1,
                                  collation_key, QUATERNARY)
@@ -38,7 +42,7 @@ import aardtools
 
 log = logging.getLogger('compiler')
 
-tojson = functools.partial(simplejson.dumps, ensure_ascii=False)
+tojson = functools.partial(json.dumps, ensure_ascii=False)
 
 MAX_FAT32_FILE_SIZE = 2**32-1
 

@@ -8,6 +8,13 @@ wiki_meta_en = ['wiki/en/copyright.txt',
                 'wiki/en/license.txt',
                 'wiki/en/metadata.ini']
 
+install_requires = ['aarddict == 0.7.6',
+                    'PyICU >= 0.8.1',
+                    'mwlib == 0.11.2']
+
+if sys.version_info < (2, 6):
+    install_requires += ['simplejson', 'multiprocessing']
+
 setup(
     name = aardtools.__name__,
     version = aardtools.__version__,
@@ -17,11 +24,7 @@ setup(
                             'aardc = aardtools.compiler:main']
     },
 
-    install_requires = [ 'aarddict == 0.7.6',
-                         'PyICU >= 0.8.1',
-                         'mwlib == 0.11.2',
-                         'simplejson',
-                         'multiprocessing'],
+    install_requires = install_requires,
 
     data_files = [
         (os.path.join(sys.prefix,'share/aardtools/wiki/en'), wiki_meta_en)
