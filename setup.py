@@ -10,7 +10,7 @@ wiki_meta_en = ['wiki/en/copyright.txt',
 
 install_requires = ['aarddict == 0.7.6',
                     'PyICU >= 0.8.1',
-                    'mwlib == 0.11.2']
+                    'mwlib == 0.12.10']
 
 if sys.version_info < (2, 6):
     install_requires += ['simplejson', 'multiprocessing']

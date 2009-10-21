@@ -42,7 +42,7 @@ tojson = functools.partial(json.dumps, ensure_ascii=False)
 
 import multiprocessing
 from multiprocessing import Pool, TimeoutError
-from mwlib.cdbwiki import WikiDB, normname
+from mwlib.cdbwiki import WikiDB
 from mwlib._version import version as mwlib_version
 from mwlib.siteinfo import get_siteinfo
 
@@ -87,15 +87,14 @@ class ConvertError(Exception):
 
 class EmptyArticleError(ConvertError): pass
 
-def mkredirect(title, target):
-    redirect = normname(target)
-    meta = {u'r': redirect}
+def mkredirect(title, redirect_target):    
+    meta = {u'r': redirect_target}
     return title, tojson(('', [], meta)), True, None
 
 def convert(title):
     gc.collect()
     try:
-        text = wikidb.getRawArticle(title, resolveRedirect=False)
+        text = wikidb.reader[title]
 
         if not text:
             raise EmptyArticleError(title)
@@ -107,7 +106,8 @@ def convert(title):
         mwobject = uparser.parseString(title=title,
                                        raw=text,
                                        wikidb=wikidb,
-                                       lang=wikidb.lang)
+                                       lang=wikidb.lang,
+                                       magicwords=wikidb.siteinfo['magicwords'])
         xhtmlwriter.preprocess(mwobject)
         text, tags, languagelinks = mwaardwriter.convert(mwobject)
     except EmptyArticleError:
@@ -176,9 +176,8 @@ def parse_redirect(text, aliases):
 class Wiki(WikiDB):
 
     def __init__(self, cdbdir, lang):
-        WikiDB.__init__(self, cdbdir)
+        WikiDB.__init__(self, cdbdir, lang=lang)
         self.lang = lang
-        self.siteinfo = get_siteinfo(self.lang)
         self.redirect_aliases = set()
         aliases = [magicword['aliases']
                                  for magicword in self.siteinfo['magicwords']
@@ -189,34 +188,26 @@ class Wiki(WikiDB):
             self.redirect_aliases.add(alias.lower())
             self.redirect_aliases.add(alias.upper())
 
-
-    def get_siteinfo(self):
-        return self.siteinfo
-
     def get_redirect(self, text):
-        return parse_redirect(text, self.redirect_aliases)
-
-    def getTemplate(self, title, followRedirects=True):
-        if ":" in title:
-            title = title.split(':', 1)[1]
-        try:
-            res = self.reader["Template:"+title]
-        except KeyError:
-            title = normname(title)
-            try:
-                res = self.reader["Template:"+title]
-            except KeyError:
-                return ''
-
-        redirect = parse_redirect(res, self.redirect_aliases)
+        redirect = parse_redirect(text, self.redirect_aliases)
         if redirect:
-            redirect = redirect.split("|", 1)[0].split("#", 1)[0]
-            if followRedirects:
-                return self.getTemplate(redirect, followRedirects=followRedirects)
-            else:
-                log.warn('Template redirect not followed: %r -> %r' % (title, redirect))
-        return res
+            redirect = self.nshandler.get_fqname(redirect)
+        return redirect
 
+    def getURL(self, title):
+        return ''
+
+    def getSource(self, title, revision=None):
+        from mwlib.metabook import make_source
+
+        g = self.siteinfo['general']
+        return make_source(
+            name='%s (%s)' % (g['sitename'], g['lang']),
+            url=g['base'],
+            language=g['lang'],
+            base_url=self.nfo['base_url'],
+            script_extension=self.nfo['script_extension'],
+        )
 
 def total(inputfile, options):
     w = WikiDB(inputfile)
@@ -438,12 +429,13 @@ class WikiParser():
                 i = target.find(namespace+u':')
                 if i > -1:
                     unqualified_target = target[len(namespace)+1:]
-                    if wikidb.getRawArticle(unqualified_target, resolveRedirect=False) is None:
+                    if wikidb.reader[unqualified_target] is None:
                         targets.add(unqualified_target)
                 else:
                     log.warn('Invalid language link "%s"', target.encode('utf8'))
         for target in targets:
-            l_title, l_serialized, l_redirect, l_langugagelinks = mkredirect(target, title)
+            (l_title, l_serialized, 
+             l_redirect, l_langugagelinks) = mkredirect(wikidb.nshandler.get_fqname(target), title)
             self.consumer.add_article(l_title, l_serialized,
                                       redirect=True, count=False)
 
