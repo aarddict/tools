@@ -178,6 +178,13 @@ def make_opt_parser():
         help='Show progress legend'
         )
 
+    parser.add_option(
+        '-f',
+        '--wiki-article-format',
+        default='html',
+        help='Wikipedia article format, html or json'
+        )
+
 
     parser.add_option('--log-file',
                        help='Log file name. By default derived from output '

@@ -36,8 +36,6 @@ expr._cache = lrucache.mt_lrucache(100)
 from mwlib.templ.evaluate import Expander
 Expander.parsedTemplateCache = lrucache.lrucache(100)
 
-import mwaardwriter
-
 tojson = functools.partial(json.dumps, ensure_ascii=False)
 
 import multiprocessing
@@ -50,15 +48,22 @@ import gc
 
 wikidb = None
 log = logging.getLogger('wiki')
+writer = None
 
 def _create_wikidb(cdbdir, lang):
     global wikidb
     wikidb = Wiki(cdbdir, lang)
 
-def _init_process(cdbdir, lang):
-    global log
+def _init_process(cdbdir, lang, article_format):
+    global log, writer    
     log = multiprocessing.get_logger()
     _create_wikidb(cdbdir, lang)
+    if article_format == 'html':
+        import mwaardhtmlwriter
+        writer = mwaardhtmlwriter
+    elif article_format == 'json':
+        import mwaardwriter
+        writer = mwaardwriter
 
 class ConvertError(Exception):
 
@@ -109,7 +114,7 @@ def convert(title):
                                        lang=wikidb.lang,
                                        magicwords=wikidb.siteinfo['magicwords'])
         xhtmlwriter.preprocess(mwobject)
-        text, tags, languagelinks = mwaardwriter.convert(mwobject)
+        text, tags, languagelinks = writer.convert(mwobject)
     except EmptyArticleError:
         raise
     except Exception:
@@ -234,7 +239,7 @@ class WikiParser():
 
     def __init__(self, options, consumer):
         self.consumer = consumer
-
+        self.article_format = options.wiki_article_format
         wiki_lang = options.wiki_lang
         metadata_dir = os.path.join(sys.prefix,'share/aardtools/wiki/%s' % wiki_lang)
         default_metadata_dir = os.path.join(sys.prefix,'share/aardtools/wiki/%s' % 'en')
@@ -355,10 +360,10 @@ class WikiParser():
 
         self.pool = Pool(processes=self.processes,
                          initializer=_init_process,
-                         initargs=[cdbdir, self.lang])
+                         initargs=[cdbdir, self.lang, self.article_format])
 
     def parse_simple(self, f):
-        self.consumer.add_metadata('article_format', 'json')
+        self.consumer.add_metadata('article_format', self.article_format)
         articles = self.articles(f)
         for a in articles:
             try:
@@ -373,7 +378,7 @@ class WikiParser():
 
     def parse_mp(self, f):
         try:
-            self.consumer.add_metadata('article_format', 'json')
+            self.consumer.add_metadata('article_format', self.article_format)
             articles = self.articles(f)
             self.reset_pool(f)
             iter_count = 1

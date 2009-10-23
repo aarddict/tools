@@ -8,7 +8,7 @@ wiki_meta_en = ['wiki/en/copyright.txt',
                 'wiki/en/license.txt',
                 'wiki/en/metadata.ini']
 
-install_requires = ['aarddict == 0.7.6',
+install_requires = ['aarddict == 0.8.0.dev',
                     'PyICU >= 0.8.1',
                     'mwlib == 0.12.10']
 
