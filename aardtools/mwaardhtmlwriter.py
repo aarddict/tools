@@ -118,7 +118,7 @@ class XHTMLWriter(xhtmlwriter.MWXHTMLWriter):
         a.set('id', refid)
         a.set('href', '#')
         a.set('onClick', 
-              'document.getElementById(\'%s\').scrollIntoView(true);return false;' % noteid)        
+              'return s(\'%s\')' % noteid)        
         return xhtmlwriter.SkipChildren(a)
 
         
@@ -135,7 +135,7 @@ class XHTMLWriter(xhtmlwriter.MWXHTMLWriter):
             b.tail = ' '
             backref = ET.SubElement(b, 'a', href='#')
             backref.set('onClick', 
-                        'document.getElementById(\'%s\').scrollIntoView(true);return false;' % (u'r'+noteid))
+                        'return s(\'%s\')' % (u'r'+noteid))
             backref.text = u'^'
             self.writeChildren(ref, parent=li)
         self.references = []            
