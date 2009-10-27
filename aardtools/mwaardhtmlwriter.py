@@ -1,59 +1,86 @@
 import xml.etree.ElementTree as ET
 
-from mwlib import xhtmlwriter
+from mwlib.xhtmlwriter import MWXHTMLWriter, SkipChildren
 
 EXCLUDE_CLASSES = set(('navbox', 'collapsible', 'autocollapse', 'plainlinksneverexpand', 'navbar'))
 
-html_class_map = {'mwx.article': 'a',
-                  'mwx.blockquote': 'b',
-                  'mwx.categorylinks': 'c',
-                  'mwx.chapter': 'd',
-                  'mwx.gallery': 'e',
-                  'mwx.hiero': 'f',
-                  'mwx.hiero.alternate': 'g',
-                  'mwx.image.float': 'h',
-                  'mwx.image.inline': 'i',
-                  'mwx.image.thumb': 'j',
-                  'mwx.indented': 'k',
-                  'mwx.languagelinks': 'l',
-                  'mwx.link.article': 'm',
-                  'mwx.link.category': 'n',
-                  'mwx.link.external': 'o',
-                  'mwx.link.image': 'p',
-                  'mwx.link.interwiki': 'q',
-                  'mwx.link.special': 'r',
-                  'mwx.math': 's',
-                  'mwx.reference': 't',
-                  'mwx.references': 'u',
-                  'mwx.section': 'v',
-                  'mwx.source': 'w',
-                  'mwx.style.center': 'x',
-                  'mwx.style.overline': 'y',
-                  'mwx.style.strike': 'z',
-                  'mwx.style.underline': '1',
-                  'mwx.timeline': '2',
-                  'mwx.timeline.alternate': '3'
-}
 
-class XHTMLWriter(xhtmlwriter.MWXHTMLWriter):    
+class XHTMLWriter(MWXHTMLWriter):    
 
     paratag = 'p'
+
+    def xwriteArticle(self, a):
+        e = ET.Element("div")
+        h = ET.SubElement(e, "h1")
+        h.text = a.caption
+        self.writeChildren(a, e)
+        return SkipChildren(e)
+
+    def xwriteChapter(self, obj):
+        e = ET.Element("div")
+        h = ET.SubElement(e, "h1")
+        self.write(obj.caption)
+        return e
+
+    def xwriteSection(self, obj):
+        e = ET.Element("div")
+        level = 2 + obj.getLevel() # starting with h2
+        h = ET.SubElement(e, "h%d" % level)
+        self.write(obj.children[0], h)
+        obj.children = obj.children[1:]
+        return e
+
+    def xwriteTimeline(self, obj): 
+        s = ET.Element("object")
+        s.set("type", "application/mediawiki-timeline")
+        s.set("src", "data:text/plain;charset=utf-8,%s" % obj.caption)
+        em = ET.SubElement(s, "em")
+        em.text = u"Timeline"
+        return s
+
+    def xwriteHiero(self, obj): # FIXME parser support
+        s = ET.Element("object")
+        s.set("type", "application/mediawiki-hiero")
+        s.set("src", "data:text/plain;charset=utf-8,%s" % obj.caption)
+        em = ET.SubElement(s, "em")
+        em.text = u"Hiero"
+        return s
+
+    def xwriteURL(self, obj):
+        a = ET.Element("a", href=obj.caption)
+        a.set("class", "mwx.link.external")
+        if not obj.children:
+            a.text = obj.caption
+        return a
+
+    def xwriteNamedURL(self, obj):
+        a = ET.Element("a", href=obj.caption)
+        if not obj.children:
+            name = "[%s]" % self.namedLinkCount
+            self.namedLinkCount += 1
+            a.text = name
+        return a
+
+    def xwriteSpecialLink(self, obj): # whats that?
+        a = ET.Element("a", href=obj.url or "#")
+        if not obj.children:
+            a.text = obj.target
+        return a
 
     def writeLanguageLinks(self):
         pass
 
     def xwriteImageLink(self, obj):
-        return xhtmlwriter.SkipChildren()
+        return SkipChildren()
 
     def xwriteImageMap(self, obj):
-        return xhtmlwriter.SkipChildren()
+        return SkipChildren()
 
     def xwriteGallery(self, obj):
-        return xhtmlwriter.SkipChildren()
+        return SkipChildren()
 
     def xwriteLink(self, obj):
         a = ET.Element("a", href=obj.target)
-        a.set("class", "mwx.link.article")
         if not obj.children:
             a.text = obj.target
         return a
@@ -63,19 +90,19 @@ class XHTMLWriter(xhtmlwriter.MWXHTMLWriter):
     xwriteNamespaceLink = xwriteLink
 
     def xwriteCategoryLink(self, obj):
-        return xhtmlwriter.SkipChildren()        
+        return SkipChildren()        
 
     def xwriteTable(self, obj):
         tableclasses = obj.attributes.get('class', '').split()
         if any((tableclass in EXCLUDE_CLASSES for tableclass in tableclasses)):
-            return xhtmlwriter.SkipChildren()
-        return xhtmlwriter.MWXHTMLWriter.xwriteTable(self, obj)
+            return SkipChildren()
+        return MWXHTMLWriter.xwriteTable(self, obj)
 
     def xwriteGenericElement(self, obj):
         classes = obj.attributes.get('class', '').split()
         if any((cl in EXCLUDE_CLASSES for cl in classes)):
-            return xhtmlwriter.SkipChildren()        
-        return xhtmlwriter.MWXHTMLWriter.xwriteGenericElement(self, obj)        
+            return SkipChildren()        
+        return MWXHTMLWriter.xwriteGenericElement(self, obj)        
 
     xwriteEmphasized = xwriteGenericElement
     xwriteStrong = xwriteGenericElement
@@ -109,7 +136,6 @@ class XHTMLWriter(xhtmlwriter.MWXHTMLWriter):
         group = obj.attributes.get(u'group', '')
 
         a = ET.Element("a")
-        a.set("class", "mwx.reference")
         a.text = u'[%s]' % unicode( len(self.references))
         noteid = self.mknoteid(group, len(self.references))
         refid = u'_r'+noteid
@@ -117,14 +143,12 @@ class XHTMLWriter(xhtmlwriter.MWXHTMLWriter):
         a.set('href', '#')
         a.set('onClick', 
               'return s(\'%s\')' % noteid)        
-        return xhtmlwriter.SkipChildren(a)
-
+        return SkipChildren(a)
         
     def xwriteReferenceList(self, t):
         if not self.references:
             return
         ol = ET.Element("ol")
-        ol.set("class", "mwx.references")
         for i, ref in enumerate(self.references):            
             group = ref.attributes.get(u'group', '')
             noteid = self.mknoteid(group, i+1)
@@ -142,8 +166,49 @@ class XHTMLWriter(xhtmlwriter.MWXHTMLWriter):
 
     def mknoteid(self, group, num):
         return u'_n'+u'_'.join((group, unicode(num)))
-        
 
+    def xwriteParagraph(self, obj):
+        """
+        currently the parser encapsulates almost anything into paragraphs, 
+        but XHTML1.0 allows no block elements in paragraphs.
+        therefore we use the html-div-element. 
+
+        this is a hack to let created documents pass the validation test.
+        """
+        e = ET.Element(self.paratag) # "div" or "p"
+        return e
+
+    def xwriteOverline(self, s):
+        e = ET.Element("span")
+        e.set("class", "o")
+        return e    
+
+    def xwriteUnderline(self, s):
+        e = ET.Element("span")
+        e.set("class", "u")
+        return e
+
+    def xwriteSource(self, s):       
+        e = ET.Element("code")
+        return e
+    
+    def xwriteCenter(self, s):
+        e = ET.Element("span")
+        e.set("class", "center")
+        return e
+
+    def xwriteStrike(self, s):
+        e = ET.Element("del")
+        return e
+
+    def xwriteBlockquote(self, s):
+        return ET.Element("blockquote")
+
+    def xwriteIndented(self, s):
+        e = ET.Element("blockquote")
+        e.set("class", "indent")
+        return e
+    
 
 def convert(obj):
     w = XHTMLWriter()
@@ -154,10 +219,4 @@ def convert(obj):
         languagelinks = []
     w.languagelinks = []
     text = ET.tostring(e, encoding='utf-8')
-
-    text = text.replace(' class="mwx.paragraph"', '')
-
-    for k, v in html_class_map.iteritems():
-        text = text.replace(k, v)
-
     return text, [], languagelinks
