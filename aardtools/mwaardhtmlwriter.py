@@ -109,12 +109,10 @@ class XHTMLWriter(xhtmlwriter.MWXHTMLWriter):
         group = obj.attributes.get(u'group', '')
 
         a = ET.Element("a")
-        t =  ET.SubElement(a, "sup")
-        t.set("class", "mwx.reference")
-        t.text = u'[%s]' % unicode( len(self.references))
-
-        noteid = u'_'.join((group, unicode( len(self.references))))
-        refid = u'r'+noteid
+        a.set("class", "mwx.reference")
+        a.text = u'[%s]' % unicode( len(self.references))
+        noteid = self.mknoteid(group, len(self.references))
+        refid = u'_r'+noteid
         a.set('id', refid)
         a.set('href', '#')
         a.set('onClick', 
@@ -129,17 +127,22 @@ class XHTMLWriter(xhtmlwriter.MWXHTMLWriter):
         ol.set("class", "mwx.references")
         for i, ref in enumerate(self.references):            
             group = ref.attributes.get(u'group', '')
-            noteid = u'_'.join((group, unicode(i+1)))
+            noteid = self.mknoteid(group, i+1)
             li = ET.SubElement(ol, "li", id=noteid)
             b = ET.SubElement(li, "b")
             b.tail = ' '
-            backref = ET.SubElement(b, 'a', href='#')
+            ref_id = u'_r'+noteid
+            backref = ET.SubElement(b, 'a', href=u'#'+ref_id)
             backref.set('onClick', 
-                        'return s(\'%s\')' % (u'r'+noteid))
+                        'return s(\'%s\')' % (ref_id))
             backref.text = u'^'
             self.writeChildren(ref, parent=li)
         self.references = []            
         return ol
+
+    def mknoteid(self, group, num):
+        return u'_n'+u'_'.join((group, unicode(num)))
+        
 
 
 def convert(obj):
