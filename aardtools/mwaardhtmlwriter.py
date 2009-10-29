@@ -1,9 +1,14 @@
+import logging
 import xml.etree.ElementTree as ET
 
 from mwlib.xhtmlwriter import MWXHTMLWriter, SkipChildren
 
+import tex
+
 EXCLUDE_CLASSES = set(('navbox', 'collapsible', 'autocollapse', 'plainlinksneverexpand', 'navbar'))
 
+
+log = logging.getLogger(__name__)
 
 class XHTMLWriter(MWXHTMLWriter):    
 
@@ -44,6 +49,20 @@ class XHTMLWriter(MWXHTMLWriter):
         s.set("src", "data:text/plain;charset=utf-8,%s" % obj.caption)
         em = ET.SubElement(s, "em")
         em.text = u"Hiero"
+        return s
+
+    def xwriteMath(self, obj):        
+        try:
+            imgurl = 'data:image/png;base64,' + tex.toimg(obj.caption)
+        except:
+            log.exception('Failed to rendered math "%r"', obj.caption)
+            s = ET.Element("span")
+            s.text = obj.caption
+            s.set("class", "eq")
+        else:
+            s = ET.Element("img")
+            s.set("src", imgurl)
+            s.set("class", "eq")
         return s
 
     def xwriteURL(self, obj):
