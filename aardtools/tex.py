@@ -20,44 +20,45 @@ tex_preamble = r'''\documentclass{article}
 '''
 
 def toimg(equation, inline=False):
+    try:
+        workdir = tempfile.mkdtemp(prefix='math-')
+        tex_file = os.path.join(workdir, 'eq.tex')
 
-    workdir = tempfile.mkdtemp(prefix='math-')
-    tex_file = os.path.join(workdir, 'eq.tex')
+        with open(tex_file, 'w+') as f: 
+            f.write(tex_preamble)
+            if inline:
+                f.write("$%s$\n" % equation)
+            else:
+                f.write("$$%s$$\n" % equation)
+            f.write('\end{document}')
 
-    with open(tex_file, 'w+') as f: 
-        f.write(tex_preamble)
-        if inline:
-            f.write("$%s$\n" % equation)
-        else:
-            f.write("$$%s$$\n" % equation)
-        f.write('\end{document}')
+        latex_cmd = ('latex -halt-on-error -output-directory %s %s > /dev/null 2>&1' 
+                     % (workdir, tex_file))
 
-    latex_cmd = ('latex -halt-on-error -output-directory %s %s > /dev/null 2>&1' 
-                 % (workdir, tex_file))
+        sts = os.system(latex_cmd)
+        if sts != 0:
+            raise Exception("Couldn't convert equation '%s' (failed cmd: '%s')"
+                            % (equation, latex_cmd))
 
-    sts = os.system(latex_cmd)
-    if sts != 0:
-        raise Exception("Couldn't convert equation '%s' (failed cmd: '%s')"
-                        % (equation, latex_cmd))
+        dvi_file = os.path.join(workdir, 'eq.dvi')
+        png_file = os.path.join(workdir, 'eq.png')
 
-    dvi_file = os.path.join(workdir, 'eq.dvi')
-    png_file = os.path.join(workdir, 'eq.png')
+        png_cmd = ('dvipng -T tight -x 1200 -z 9 -bg Transparent -o %s %s > /dev/null 2>&1' 
+                   % (png_file, dvi_file))
+        sts = os.system(png_cmd)
+        if sts != 0:
+            raise Exception("Couldn't convert equation '%s' (failed cmd: '%s')"
+                            % (equation, png_cmd))
 
-    png_cmd = ('dvipng -T tight -x 1200 -z 9 -bg Transparent -o %s %s > /dev/null 2>&1' 
-               % (png_file, dvi_file))
-    sts = os.system(png_cmd)
-    if sts != 0:
-        raise Exception("Couldn't convert equation '%s' (failed cmd: '%s')"
-                        % (equation, png_cmd))
+        with open(png_file, 'rb') as png:
+            png_data = png.read()
 
-    with open(png_file, 'rb') as png:
-        png_data = png.read()
+        imgdata = binascii.b2a_base64(png_data).replace('\n', '')
+        return imgdata
+    finally:
+        for name in glob('%s/*'%workdir):
+            os.remove(name)
+        os.removedirs(workdir)
 
-    imgdata = binascii.b2a_base64(png_data).replace('\n', '')
-
-    for name in glob('%s/*'%workdir):
-        os.remove(name)
-    os.removedirs(workdir)
-
-    return imgdata
+    
 
