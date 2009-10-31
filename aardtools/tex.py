@@ -10,8 +10,7 @@ import tempfile
 import binascii
 from glob import glob
 
-tex_preamble = r'''
-\documentclass{article}
+tex_preamble = r'''\documentclass{article}
 \usepackage{amsmath}
 \usepackage{amsthm}
 \usepackage{amssymb}
@@ -20,14 +19,17 @@ tex_preamble = r'''
 \begin{document}
 '''
 
-def toimg(equation):
+def toimg(equation, inline=False):
 
     workdir = tempfile.mkdtemp(prefix='math-')
     tex_file = os.path.join(workdir, 'eq.tex')
 
     with open(tex_file, 'w+') as f: 
         f.write(tex_preamble)
-        f.write("$%s$\n" % equation)
+        if inline:
+            f.write("$%s$\n" % equation)
+        else:
+            f.write("$$%s$$\n" % equation)
         f.write('\end{document}')
 
     latex_cmd = ('latex -halt-on-error -output-directory %s %s > /dev/null 2>&1' 
