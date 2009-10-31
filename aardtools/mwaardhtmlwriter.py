@@ -58,11 +58,11 @@ class XHTMLWriter(MWXHTMLWriter):
             log.exception('Failed to rendered math "%r"', obj.caption)
             s = ET.Element("span")
             s.text = obj.caption
-            s.set("class", "eq")
+            s.set("class", "tex")
         else:
             s = ET.Element("img")
             s.set("src", imgurl)
-            s.set("class", "eq")
+            s.set("class", "tex")
         return s
 
     def xwriteURL(self, obj):
