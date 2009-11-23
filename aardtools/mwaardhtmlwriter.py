@@ -198,7 +198,7 @@ class XHTMLWriter(MWXHTMLWriter):
     def xwriteReferenceList(self, t):
         if not self.references:
             return
-        group = t.attributes['group']
+        group = t.attributes.get('group', '')
         references = self.references.pop(group)
         if not references:
             return
