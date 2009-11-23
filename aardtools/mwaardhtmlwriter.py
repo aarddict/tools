@@ -4,6 +4,9 @@ import xml.etree.ElementTree as ET
 from collections import defaultdict
 
 from mwlib.xhtmlwriter import MWXHTMLWriter, SkipChildren
+from mwlib import xmltreecleaner
+from mwlib.advtree import Reference
+xmltreecleaner.childlessOK.append(Reference)
 
 import tex
 
@@ -12,7 +15,7 @@ EXCLUDE_CLASSES = set(('navbox', 'collapsible', 'autocollapse', 'plainlinksnever
 
 log = logging.getLogger(__name__)
 
-class XHTMLWriter(MWXHTMLWriter):    
+class XHTMLWriter(MWXHTMLWriter):
 
     paratag = 'p'
 
@@ -20,6 +23,9 @@ class XHTMLWriter(MWXHTMLWriter):
         MWXHTMLWriter.__init__(self, *args, **kwargs)
         #keep reference list for each group serparate
         self.references = defaultdict(list)
+        #also keep named reference positions, separate for each group
+        #map named reference to 2-tuple of position first seen and count
+        self.namedrefs = defaultdict(dict)
 
     def xwriteArticle(self, a):
         e = ET.Element("div")
@@ -42,7 +48,7 @@ class XHTMLWriter(MWXHTMLWriter):
         obj.children = obj.children[1:]
         return e
 
-    def xwriteTimeline(self, obj): 
+    def xwriteTimeline(self, obj):
         s = ET.Element("object")
         s.set("type", "application/mediawiki-timeline")
         s.set("src", "data:text/plain;charset=utf-8,%s" % obj.caption)
@@ -58,7 +64,7 @@ class XHTMLWriter(MWXHTMLWriter):
         em.text = u"Hiero"
         return s
 
-    def xwriteMath(self, obj):        
+    def xwriteMath(self, obj):
         try:
             imgurl = 'data:image/png;base64,' + tex.toimg(obj.caption)
         except:
@@ -116,7 +122,7 @@ class XHTMLWriter(MWXHTMLWriter):
     xwriteNamespaceLink = xwriteLink
 
     def xwriteCategoryLink(self, obj):
-        return SkipChildren()        
+        return SkipChildren()
 
     def xwriteTable(self, obj):
         tableclasses = obj.attributes.get('class', '').split()
@@ -127,8 +133,8 @@ class XHTMLWriter(MWXHTMLWriter):
     def xwriteGenericElement(self, obj):
         classes = obj.attributes.get('class', '').split()
         if any((cl in EXCLUDE_CLASSES for cl in classes)):
-            return SkipChildren()        
-        return MWXHTMLWriter.xwriteGenericElement(self, obj)        
+            return SkipChildren()
+        return MWXHTMLWriter.xwriteGenericElement(self, obj)
 
     xwriteEmphasized = xwriteGenericElement
     xwriteStrong = xwriteGenericElement
@@ -160,36 +166,75 @@ class XHTMLWriter(MWXHTMLWriter):
         assert obj is not None
         group = obj.attributes.get(u'group', '')
         group_references = self.references[group]
-        group_references.append(obj)
+
         a = ET.Element("a")
-        a.text = u'%s %s' % (group, unicode(len(group_references)))
+        ref_name = obj.attributes.get('name')
+        if ref_name:
+            ref_name = ref_name.replace(' ', '_')
+            group_namedrefs = self.namedrefs[group]            
+            named_ref_first, named_ref_count = group_namedrefs.get(ref_name, (None, 0))
+            if named_ref_first is None:
+                group_references.append(obj)
+                named_ref_first = len(group_references)
+            note_seq_num = named_ref_first
+            noteid = self.mknoteid(group, named_ref_first)
+            refid = u'_r'+noteid+u'_'+str(named_ref_count)
+            named_ref_count += 1
+            group_namedrefs[ref_name] = (named_ref_first, named_ref_count)
+        else:
+            group_references.append(obj)
+            note_seq_num = len(group_references)
+            noteid = self.mknoteid(group, note_seq_num)
+            refid = u'_r'+noteid
+
+        a.text = u'%s %s' % (group, unicode(note_seq_num))
         a.text = u'[%s]' % a.text.strip()
-        noteid = self.mknoteid(group, len(group_references))
-        refid = u'_r'+noteid
         a.set('id', refid)
         a.set('href', '#')
-        a.set('onClick', 
-              'return s(\'%s\')' % noteid)        
+        a.set('onClick',
+              'return s(\'%s\')' % noteid)
         return SkipChildren(a)
-        
+
     def xwriteReferenceList(self, t):
         if not self.references:
             return
-        references = self.references.pop(t.attributes['group'])        
+        group = t.attributes['group']
+        references = self.references.pop(group)
         if not references:
-            return        
+            return
         ol = ET.Element("ol")
+        group_namedrefs = self.namedrefs[group]
         for i, ref in enumerate(references):
-            group = ref.attributes.get(u'group', '')
             noteid = self.mknoteid(group, i+1)
             li = ET.SubElement(ol, "li", id=noteid)
+            ref_name = ref.attributes.get('name')
             b = ET.SubElement(li, "b")
             b.tail = ' '
-            ref_id = u'_r'+noteid
-            backref = ET.SubElement(b, 'a', href=u'#'+ref_id)
-            backref.set('onClick', 
-                        'return s(\'%s\')' % (ref_id))
-            backref.text = u'^'
+
+            if ref_name and ref_name in group_namedrefs:
+                name_ref_count = group_namedrefs[ref_name][1]
+                if name_ref_count == 1:
+                    ref_id = u'_r'+noteid+u'_'+unicode(0)
+                    backref = ET.SubElement(b, 'a', href=u'#'+ref_id)
+                    backref.set('onClick',
+                                'return s(\'%s\')' % (ref_id))
+                    backref.text = u'^'
+                else:
+                    b.text = u'^ '
+                    backref_parent = ET.SubElement(b, 'sup')
+                    for j in range(name_ref_count):
+                        ref_id = u'_r'+noteid+u'_'+unicode(j)
+                        backref = ET.SubElement(backref_parent, 'a', href=u'#'+ref_id)
+                        backref.set('onClick',
+                                    'return s(\'%s\')' % (ref_id))
+                        backref.text = unicode(j+1)                    
+                        backref.tail = ' '
+            else:
+                ref_id = u'_r'+noteid
+                backref = ET.SubElement(b, 'a', href=u'#'+ref_id)
+                backref.set('onClick',
+                            'return s(\'%s\')' % (ref_id))
+                backref.text = u'^'
             self.writeChildren(ref, parent=li)
         return ol
 
@@ -198,9 +243,9 @@ class XHTMLWriter(MWXHTMLWriter):
 
     def xwriteParagraph(self, obj):
         """
-        currently the parser encapsulates almost anything into paragraphs, 
+        currently the parser encapsulates almost anything into paragraphs,
         but XHTML1.0 allows no block elements in paragraphs.
-        therefore we use the html-div-element. 
+        therefore we use the html-div-element.
 
         this is a hack to let created documents pass the validation test.
         """
@@ -210,17 +255,17 @@ class XHTMLWriter(MWXHTMLWriter):
     def xwriteOverline(self, s):
         e = ET.Element("span")
         e.set("class", "o")
-        return e    
+        return e
 
     def xwriteUnderline(self, s):
         e = ET.Element("span")
         e.set("class", "u")
         return e
 
-    def xwriteSource(self, s):       
+    def xwriteSource(self, s):
         e = ET.Element("code")
         return e
-    
+
     def xwriteCenter(self, s):
         e = ET.Element("span")
         e.set("class", "center")
@@ -237,7 +282,7 @@ class XHTMLWriter(MWXHTMLWriter):
         e = ET.Element("blockquote")
         e.set("class", "indent")
         return e
-    
+
 
 def convert(obj):
     w = XHTMLWriter()
