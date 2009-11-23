@@ -218,9 +218,9 @@ class XHTMLWriter(MWXHTMLWriter):
                     backref = ET.SubElement(b, 'a', href=u'#'+ref_id)
                     backref.set('onClick',
                                 'return s(\'%s\')' % (ref_id))
-                    backref.text = u'^'
+                    backref.text = u'\u2191'
                 else:
-                    b.text = u'^ '
+                    b.text = u'\u2191 '
                     backref_parent = ET.SubElement(b, 'sup')
                     for j in range(name_ref_count):
                         ref_id = u'_r'+noteid+u'_'+unicode(j)
@@ -234,7 +234,7 @@ class XHTMLWriter(MWXHTMLWriter):
                 backref = ET.SubElement(b, 'a', href=u'#'+ref_id)
                 backref.set('onClick',
                             'return s(\'%s\')' % (ref_id))
-                backref.text = u'^'
+                backref.text = u'\u2191'
             self.writeChildren(ref, parent=li)
         return ol
 
