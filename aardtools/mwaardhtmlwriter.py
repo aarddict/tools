@@ -1,6 +1,8 @@
 import logging
 import xml.etree.ElementTree as ET
 
+from collections import defaultdict
+
 from mwlib.xhtmlwriter import MWXHTMLWriter, SkipChildren
 
 import tex
@@ -13,6 +15,11 @@ log = logging.getLogger(__name__)
 class XHTMLWriter(MWXHTMLWriter):    
 
     paratag = 'p'
+
+    def __init__(self, *args, **kwargs):
+        MWXHTMLWriter.__init__(self, *args, **kwargs)
+        #keep reference list for each group serparate
+        self.references = defaultdict(list)
 
     def xwriteArticle(self, a):
         e = ET.Element("div")
@@ -151,12 +158,13 @@ class XHTMLWriter(MWXHTMLWriter):
 
     def xwriteReference(self, obj):
         assert obj is not None
-        self.references.append(obj)
         group = obj.attributes.get(u'group', '')
-
+        group_references = self.references[group]
+        group_references.append(obj)
         a = ET.Element("a")
-        a.text = u'[%s]' % unicode( len(self.references))
-        noteid = self.mknoteid(group, len(self.references))
+        a.text = u'%s %s' % (group, unicode(len(group_references)))
+        a.text = u'[%s]' % a.text.strip()
+        noteid = self.mknoteid(group, len(group_references))
         refid = u'_r'+noteid
         a.set('id', refid)
         a.set('href', '#')
@@ -167,8 +175,11 @@ class XHTMLWriter(MWXHTMLWriter):
     def xwriteReferenceList(self, t):
         if not self.references:
             return
+        references = self.references.pop(t.attributes['group'])        
+        if not references:
+            return        
         ol = ET.Element("ol")
-        for i, ref in enumerate(self.references):            
+        for i, ref in enumerate(references):
             group = ref.attributes.get(u'group', '')
             noteid = self.mknoteid(group, i+1)
             li = ET.SubElement(ol, "li", id=noteid)
@@ -180,7 +191,6 @@ class XHTMLWriter(MWXHTMLWriter):
                         'return s(\'%s\')' % (ref_id))
             backref.text = u'^'
             self.writeChildren(ref, parent=li)
-        self.references = []            
         return ol
 
     def mknoteid(self, group, num):
