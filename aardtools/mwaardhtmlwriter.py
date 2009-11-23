@@ -211,8 +211,9 @@ class XHTMLWriter(MWXHTMLWriter):
             b = ET.SubElement(li, "b")
             b.tail = ' '
 
-            if ref_name and ref_name in group_namedrefs:
-                name_ref_count = group_namedrefs[ref_name][1]
+            if ref_name:
+                ref_name = ref_name.replace(' ', '_')
+                name_ref_count = group_namedrefs.get(ref_name, (None, 1))[1]
                 if name_ref_count == 1:
                     ref_id = u'_r'+noteid+u'_'+unicode(0)
                     backref = ET.SubElement(b, 'a', href=u'#'+ref_id)
