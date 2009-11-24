@@ -999,12 +999,16 @@ def main():
         log_file_name = os.path.join(session_dir, 'log')
 
     display.write('Writing log to ').bold(log_file_name).writeln()
-    logging.getLogger().handlers[:] = []
+    root_logger = logging.getLogger()
+    root_logger.handlers[:] = []    
     logging.basicConfig(format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
                         level=log_level,
                         filename=log_file_name,
                         datefmt="%X")
-    logging.getLogger('multiprocessing').setLevel(logging.WARN)
+    multiprocessing_logger = logging.getLogger('multiprocessing')
+    #multiprocessing is noisy at info level
+    multiprocessing_logger.setLevel(logging.WARNING)
+    multiprocessing_logger.handlers = root_logger.handlers
 
     max_volume_size = max_file_size(options)
     log.info('Maximum file size is %d bytes', max_volume_size)
