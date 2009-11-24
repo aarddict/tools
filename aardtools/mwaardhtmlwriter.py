@@ -80,7 +80,6 @@ class XHTMLWriter(MWXHTMLWriter):
 
     def xwriteURL(self, obj):
         a = ET.Element("a", href=obj.caption)
-        a.set("class", "mwx.link.external")
         if not obj.children:
             a.text = obj.caption
         return a
