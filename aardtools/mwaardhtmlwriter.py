@@ -68,7 +68,7 @@ class XHTMLWriter(MWXHTMLWriter):
         try:
             imgurl = 'data:image/png;base64,' + tex.toimg(obj.caption)
         except:
-            log.exception('Failed to rendered math "%r" in "%r"', 
+            log.exception('Failed to render math "%r" in "%r"',
                           obj.caption, obj.getParents()[0].caption)
             s = ET.Element("span")
             s.text = obj.caption
@@ -171,7 +171,7 @@ class XHTMLWriter(MWXHTMLWriter):
         ref_name = obj.attributes.get('name')
         if ref_name:
             ref_name = ref_name.replace(' ', '_')
-            group_namedrefs = self.namedrefs[group]            
+            group_namedrefs = self.namedrefs[group]
             named_ref_first, named_ref_count = group_namedrefs.get(ref_name, (None, 0))
             if named_ref_first is None:
                 group_references.append(obj)
@@ -230,7 +230,7 @@ class XHTMLWriter(MWXHTMLWriter):
                         backref = ET.SubElement(backref_parent, 'a', href=u'#'+ref_id)
                         backref.set('onClick',
                                     'return s(\'%s\')' % (ref_id))
-                        backref.text = unicode(j+1)                    
+                        backref.text = unicode(j+1)
                         backref.tail = ' '
             else:
                 ref_id = u'_r'+noteid
