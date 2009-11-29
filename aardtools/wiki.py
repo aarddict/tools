@@ -434,7 +434,9 @@ class WikiParser():
                 i = target.find(namespace+u':')
                 if i > -1:
                     unqualified_target = target[len(namespace)+1:]
-                    if wikidb.reader[unqualified_target] is None:
+                    try:
+                        wikidb.reader[unqualified_target]
+                    except KeyError:
                         targets.add(unqualified_target)
                 else:
                     log.warn('Invalid language link "%s"', target.encode('utf8'))
