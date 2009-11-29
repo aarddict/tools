@@ -335,10 +335,10 @@ class WikiParser():
         self.mp_chunk_size = options.mp_chunk_size
 
         if options.lang_links:
-            self.lang_links_langs = set(l.strip().lower()
-                                        for l in options.lang_links.split(','))
+            self.lang_links_langs = frozenset(l.strip().lower()
+                                              for l in options.lang_links.split(','))
         else:
-            self.lang_links_langs = set()
+            self.lang_links_langs = frozenset()
 
     def articles(self, f):
         if self.start > 0:
