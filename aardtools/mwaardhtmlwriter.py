@@ -175,6 +175,8 @@ class XHTMLWriter(MWXHTMLWriter):
             if named_ref_first is None:
                 group_references.append(obj)
                 named_ref_first = len(group_references)
+            elif obj.children:
+                group_references[named_ref_first-1] = obj
             note_seq_num = named_ref_first
             noteid = self.mknoteid(group, named_ref_first)
             refid = u'_r'+noteid+u'_'+str(named_ref_count)
