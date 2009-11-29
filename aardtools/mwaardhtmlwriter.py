@@ -68,7 +68,8 @@ class XHTMLWriter(MWXHTMLWriter):
         try:
             imgurl = 'data:image/png;base64,' + tex.toimg(obj.caption)
         except:
-            log.exception('Failed to rendered math "%r"', obj.caption)
+            log.exception('Failed to rendered math "%r" in "%r"', 
+                          obj.caption, obj.getParents()[0].caption)
             s = ET.Element("span")
             s.text = obj.caption
             s.set("class", "tex")
