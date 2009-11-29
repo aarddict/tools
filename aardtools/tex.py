@@ -10,35 +10,50 @@ import tempfile
 import binascii
 from glob import glob
 
-tex_preamble = r'''\documentclass{article}
+latex_doc = r'''\documentclass{article}
 \usepackage{amsmath}
 \usepackage{amsthm}
 \usepackage{amssymb}
 \usepackage{bm}
 \pagestyle{empty}
 \begin{document}
+%s
+\end{document}
 '''
 
-def toimg(equation, inline=False):
-    try:
+amstex_doc = r'''
+\input amstex
+\documentstyle{amsppt}
+\nopagenumbers
+\document
+%s
+\enddocument
+'''
+
+templates = {'latex': latex_doc, 
+             'amstex': amstex_doc}
+
+def toimg(equation, inline=False, cmd='latex'):
+    try:        
         workdir = tempfile.mkdtemp(prefix='math-')
         tex_file = os.path.join(workdir, 'eq.tex')
+        doc_template = templates[cmd]
+        equation = equation.strip()
+        if inline:
+            equation = '$%s$' % equation
+        else:
+            equation = '$$%s$$' % equation
+        doc_text = doc_template % equation
+        with open(tex_file, 'w+') as f:
+            f.write(doc_text)
 
-        with open(tex_file, 'w+') as f: 
-            f.write(tex_preamble)
-            if inline:
-                f.write("$%s$\n" % equation)
-            else:
-                f.write("$$%s$$\n" % equation)
-            f.write('\end{document}')
+        tex_cmd = ('%s -halt-on-error -output-directory %s %s > /dev/null 2>&1' 
+                     % (cmd, workdir, tex_file))
 
-        latex_cmd = ('latex -halt-on-error -output-directory %s %s > /dev/null 2>&1' 
-                     % (workdir, tex_file))
-
-        sts = os.system(latex_cmd)
+        sts = os.system(tex_cmd)
         if sts != 0:
             raise Exception("Couldn't convert equation '%s' (failed cmd: '%s')"
-                            % (equation, latex_cmd))
+                            % (equation, tex_cmd))
 
         dvi_file = os.path.join(workdir, 'eq.dvi')
         png_file = os.path.join(workdir, 'eq.png')
