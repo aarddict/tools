@@ -446,7 +446,7 @@ class Compiler(object):
                     self.stats.articles += 1
                 else:
                     self.stats.redirects += 1
-                self.print_stats()
+            self.print_stats()
 
     @utf8
     def fail_article(self, title):
