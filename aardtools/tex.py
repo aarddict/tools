@@ -8,6 +8,7 @@ from __future__ import with_statement
 import os
 import tempfile
 import binascii
+import re
 from glob import glob
 
 latex_doc = r'''\documentclass{article}
@@ -33,16 +34,21 @@ amstex_doc = r'''
 templates = {'latex': latex_doc, 
              'amstex': amstex_doc}
 
+emptylines = re.compile(r'[\r\n]{2,}')
+
 def toimg(equation, inline=False, cmd='latex'):
     try:        
         workdir = tempfile.mkdtemp(prefix='math-')
         tex_file = os.path.join(workdir, 'eq.tex')
         doc_template = templates[cmd]
-        equation = equation.strip()
-        if inline:
-            equation = '$%s$' % equation
-        else:
-            equation = '$$%s$$' % equation
+        equation = emptylines.sub('\n', equation)
+        eq_stripped = equation.strip().lower()
+        if (not eq_stripped.startswith(r'\begin') and
+            not eq_stripped.startswith('$')):
+            if inline:
+                equation = '$%s$' % equation
+            else:
+                equation = '\\[%s\\]' % equation
         doc_text = doc_template % equation
         with open(tex_file, 'w+') as f:
             f.write(doc_text)
