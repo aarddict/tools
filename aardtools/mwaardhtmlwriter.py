@@ -174,6 +174,7 @@ class XHTMLWriter(MWXHTMLWriter):
             group_namedrefs = self.namedrefs[group]
             named_ref_first, named_ref_count = group_namedrefs.get(ref_name, (None, 0))
             if named_ref_first is None:
+                log.debug('adding named ref %r', ref_name)
                 group_references.append(obj)
                 named_ref_first = len(group_references)
             elif obj.children:
@@ -201,11 +202,11 @@ class XHTMLWriter(MWXHTMLWriter):
         if not self.references:
             return
         group = t.attributes.get('group', '')
-        references = self.references.pop(group)
+        references = self.references.pop(group, [])
         if not references:
             return
         ol = ET.Element("ol")
-        group_namedrefs = self.namedrefs[group]
+        group_namedrefs = self.namedrefs.pop(group, {})
         for i, ref in enumerate(references):
             noteid = self.mknoteid(group, i+1)
             li = ET.SubElement(ol, "li", id=noteid)
@@ -215,6 +216,18 @@ class XHTMLWriter(MWXHTMLWriter):
 
             if ref_name:
                 ref_name = ref_name.replace(' ', '_')
+                if not ref.children:
+                    log.debug('No definition for named ref %r', ref_name)
+                    #named reference has not been defined yet
+                    #expect definition to be child of this reference list
+                    matching_named_refs = [child for child in t.getAllChildren()
+                                           if child.attributes.get('name', '').replace(' ', '_')
+                                           == ref_name and child.children]
+                    if matching_named_refs:
+                        ref = matching_named_refs[0]
+                        log.debug('Found defintion for named ref %r', ref_name)
+                    else:
+                        log.warn('Definition for named ref %r not found', ref_name)
                 name_ref_count = group_namedrefs.get(ref_name, (None, 1))[1]
                 if name_ref_count == 1:
                     ref_id = u'_r'+noteid+u'_'+unicode(0)
@@ -239,7 +252,7 @@ class XHTMLWriter(MWXHTMLWriter):
                             'return s(\'%s\')' % (ref_id))
                 backref.text = u'\u2191'
             self.writeChildren(ref, parent=li)
-        return ol
+        return SkipChildren(ol)
 
     def mknoteid(self, group, num):
         return u'_n'+u'_'.join((group, unicode(num)))
