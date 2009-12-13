@@ -15,6 +15,12 @@ EXCLUDE_CLASSES = set(('navbox', 'collapsible', 'autocollapse', 'plainlinksnever
 
 log = logging.getLogger(__name__)
 
+#latex can render most math, generates nice transparent PNG, but fails on some formulas
+#blahtex can render some formulas that latex can't, also renders transparent PNG
+#texvc is what Wikipedia uses, can render the most, but output PNG is not transparent and
+#doesn't looks as good as latex or blahtex
+mathcmds = ('latex', 'blahtex', 'texvc')
+
 class XHTMLWriter(MWXHTMLWriter):
 
     paratag = 'p'
@@ -64,19 +70,26 @@ class XHTMLWriter(MWXHTMLWriter):
         em.text = u"Hiero"
         return s
 
-    def xwriteMath(self, obj):
-        try:
-            imgurl = 'data:image/png;base64,' + tex.toimg(obj.caption)
-        except:
-            log.exception('Failed to render math "%r" in "%r"',
-                          obj.caption, obj.getParents()[0].caption)
-            s = ET.Element("span")
-            s.text = obj.caption
-            s.set("class", "tex")
-        else:
-            s = ET.Element("img")
-            s.set("src", imgurl)
-            s.set("class", "tex")
+    def xwriteMath(self, obj):        
+        for cmd in mathcmds:
+            try:
+                imgurl = 'data:image/png;base64,' + tex.toimg(obj.caption, cmd)
+            except tex.MathRenderingFailed, e:
+                log.warn('Could not render math in %r with %r: %s',
+                         obj.getParents()[0].caption, cmd, e)
+            except:
+                log.warn('Could not render math in %r with %r', 
+                         obj.getParents()[0].caption, cmd, exc_info=1)
+            else:
+                s = ET.Element("img")
+                s.set("src", imgurl)
+                s.set("class", "tex")
+                return s
+        log.error('Failed to render math %r in %r',
+                  obj.caption, obj.getParents()[0].caption)
+        s = ET.Element("span")
+        s.text = obj.caption
+        s.set("class", "tex")
         return s
 
     def xwriteURL(self, obj):
