@@ -337,6 +337,7 @@ class WikiParser():
         if options.lang_links:
             self.lang_links_langs = frozenset(l.strip().lower()
                                               for l in options.lang_links.split(','))
+            self.consumer.add_metadata("language_links", list(self.lang_links_langs))
         else:
             self.lang_links_langs = frozenset()
 
