@@ -10,7 +10,10 @@ xmltreecleaner.childlessOK.append(Reference)
 
 import tex
 
-EXCLUDE_CLASSES = set(('navbox', 'collapsible', 'autocollapse', 'plainlinksneverexpand', 'navbar'))
+EXCLUDE_CLASSES = frozenset(('navbox', 'collapsible', 'autocollapse', 
+                             'plainlinksneverexpand', 'navbar', 'metadata', 
+                             'navigation-box', 'stub', 'template-documentation', 
+                             'portal', 'NavFrame', 'NavHead', 'NavContent'))
 
 
 log = logging.getLogger(__name__)

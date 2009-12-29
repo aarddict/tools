@@ -17,7 +17,10 @@ import functools
 import logging
 from collections import defaultdict
 
-EXCLUDE_CLASSES = set(('navbox', 'collapsible', 'autocollapse', 'plainlinksneverexpand', 'navbar'))
+EXCLUDE_CLASSES = frozenset(('navbox', 'collapsible', 'autocollapse', 
+                             'plainlinksneverexpand', 'navbar', 'metadata', 
+                             'navigation-box', 'stub', 'template-documentation', 
+                             'portal', 'NavFrame', 'NavHead', 'NavContent'))
 
 def convert(obj):
     w = MWAardWriter()
