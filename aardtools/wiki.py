@@ -320,7 +320,6 @@ class WikiParser():
 
         self.consumer.add_metadata('mwlib',
                                    '.'.join(str(v) for v in mwlib_version))
-        self.special_article_re = re.compile(r'^\w+:\S', re.UNICODE)
         self.processes = options.processes if options.processes else None
         self.pool = None
         self.timeout = options.timeout
@@ -346,9 +345,6 @@ class WikiParser():
             log.info('Skipping to article %d', self.start)
         _create_wikidb(f, self.lang)
         for title in islice(wikidb.articles(), self.start, self.end):
-            if self.special_article_re.match(title):
-                self.consumer.skip_article(title)
-                continue
             log.debug('Yielding "%s" for processing', title.encode('utf8'))
             yield title
             gc.collect()
