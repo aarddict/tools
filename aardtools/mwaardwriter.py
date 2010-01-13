@@ -20,7 +20,9 @@ from collections import defaultdict
 EXCLUDE_CLASSES = frozenset(('navbox', 'collapsible', 'autocollapse', 
                              'plainlinksneverexpand', 'navbar', 'metadata', 
                              'navigation-box', 'stub', 'template-documentation', 
-                             'portal', 'NavFrame', 'NavHead', 'NavContent'))
+                             'portal', 'NavFrame', 'NavHead', 'NavContent', 'thumbinner', 
+                             'thumbcaption', 'magnify', 'vertical-navbox', 
+                             'tmbox'))
 
 def convert(obj):
     w = MWAardWriter()
