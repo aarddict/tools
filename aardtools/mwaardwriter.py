@@ -22,7 +22,7 @@ EXCLUDE_CLASSES = frozenset(('navbox', 'collapsible', 'autocollapse',
                              'navigation-box', 'stub', 'template-documentation', 
                              'portal', 'NavFrame', 'NavHead', 'NavContent', 'thumbinner', 
                              'thumbcaption', 'magnify', 'vertical-navbox', 
-                             'tmbox'))
+                             'tmbox', 'maptable'))
 
 def convert(obj):
     w = MWAardWriter()
