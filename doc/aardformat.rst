@@ -123,17 +123,25 @@ Article Formats
 ===============
 From container format perspective article is just a string that is stored
 either as is or compressed with gzip or bz2 whichever takes less space. Thus
-articles in Aard files may be in any format that is can be represented as
+articles in Aard files may be in any format that can be represented as
 string, for example plain text or HTML. Article format name is specified by
 metadata key ``article_format``. 
 
-Currently Aard  Dictionary viewer can only display JSON-encoded articles in the
-format desribed below (``article_format`` is set to `json`). 
+Currently Aard Dictionary viewer can display 
+JSON-encoded articles in the format desribed below or HTML (``article_format``
+is set correspondingly to either ``json`` or ``html``).
 
+JSON
+----
 Article is represented by a tuple consisting of article ``text``, ``tags`` and
 optional attributes dictionary (so article tuple length may be either 2 or 3). 
 ``text`` is UTF8 encoded string. ``tags`` is a sequence of tag tuples. Each tag
 tuple is a tuple of values for tag name, start position, end position and
 optional attribute dictionary (so each tag tuple has length of either 3 or
-4). This data structure is converted to string via JSON serialization. 
+4). This data structure is converted to string via JSON
+serialization. 
 
+HTML
+----
+Article is represented as HTML 4 or XHTML 1.0 formatted text without
+enclosing ``html`` and ``body`` tags.
