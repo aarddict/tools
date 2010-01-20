@@ -156,6 +156,46 @@ To update dictionary metadata::
 Release Notes
 =============
 
+0.8.0
+-----
+
+- Use json module from standard lib if using Python 2.6
+
+- Update mwlib dependency to 0.12.10
+
+- Add option to convert Wikipedia articles to HTML instead of JSON
+
+- Render math in Wikipedia articles (when converting to HTML)
+
+- Properly handle multiple occurences of named references in Wikipedia
+  articles (when converting to HTML)
+
+- Properly handle multiple reference lists in Wikipedia
+  articles (when converting to HTML)
+
+- Use upwords arrow character instead of ^ for footnote back
+  references 
+
+- Add list of language link languages to metadata
+
+- Generate smaller dictionaries when compiling Wikipedia by excluding
+  more metadata, navigation and image related elements 
+
+0.7.6
+-----
+
+- Add Wikipedia language link support (include article titles from
+  language links into index for languages specified with ``--lang-links``
+  option)
+
+- Rework title sorting implementation to speed up title sorting step
+
+- Use simple text file with index instead of shelve for temporary
+  article storage to reduce disk space requirements
+
+- Change default max file size to 2 :superscript:`31` - 1 instead of
+  2 :superscript:`32` - 1 
+
 0.7.5
 -----
 
