@@ -47,6 +47,46 @@ Mercurial_::
 .. _setuptools: http://peak.telecommunity.com/DevCenter/setuptools
 .. _International Components for Unicode: http://icu-project.org/
 
+When compiling Wikipedia into dictionary with HTML articles `Aard
+Tools` renders mathematical formulas using several tools: :command:`latex`,
+:command:`blahtexml`, :command:`texvc` and :command:`dvipng`. 
+
+Install :command:`latex`::
+
+  sudo apt-get install texlive-latex-base
+
+Install :command:`blahtexml` following instructions at
+http://gva.noekeon.org/blahtexml/
+
+Install :command:`texvc` (it is part of MediaWiki distribution)::
+
+  sudo apt-get install mediawiki-math
+
+Install :command:`dvipng`::
+
+  sudo apt-get install dvipng
+
+:command:`texvc` is what Wikipedia uses to render math and it's most compatible
+with the TeX markup flavour used in Wikipedia articles. However, png
+images produced by texvc are not transparent and don't look very
+good. :command:`blahtexml` has a :command:`texvc` compatibility mode, produces better
+looking images, but is more strict about TeX syntax, so it fails on
+quite a few equations. So first thing article converter tries is using
+:command:`latex` and :command:`dvipng` directly, with some additional LaTeX command
+definitions for :command:`texvc` compatibility (borrowed from
+:command:`blahtexml`). This produces best looking images and works on most
+equations, but not all of them. When it fails, it falls back to
+:command:`blahtexml`, and then finally :command:`texvc`. If all fails (for example
+neither tools is installed) article ends up with raw math markup.
+
+.. note::
+   This applies to HTML article format, which is what aardtools 0.8.0
+   uses for Wikipedia by default. Articles in older JSON format do not
+   support math rendering. 
+
+.. warning::
+   aarddict 0.7.x can't render HTML articles, will show raw HTML. 
+
 Installation
 ------------
 
