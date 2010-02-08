@@ -215,7 +215,7 @@ class Wiki(WikiDB):
         )
 
 def total(inputfile, options):
-    w = WikiDB(inputfile)
+    w = Wiki(inputfile, options.wiki_lang)
     for i, a in enumerate(islice(w.articles(), options.start, options.end)):
         pass
     try:
