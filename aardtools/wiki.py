@@ -361,6 +361,7 @@ class WikiParser():
                          initargs=[cdbdir, self.lang, self.article_format])
 
     def parse_simple(self, f):
+        _init_process(f, self.lang, self.article_format)
         self.consumer.add_metadata('article_format', self.article_format)
         articles = self.articles(f)
         for a in articles:
