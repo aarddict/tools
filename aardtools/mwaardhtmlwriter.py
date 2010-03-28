@@ -10,11 +10,11 @@ xmltreecleaner.childlessOK.append(Reference)
 
 import tex
 
-EXCLUDE_CLASSES = frozenset(('navbox', 'collapsible', 'autocollapse', 
-                             'plainlinksneverexpand', 'navbar', 'metadata', 
-                             'navigation-box', 'stub', 'template-documentation', 
-                             'portal', 'NavFrame', 'NavHead', 'NavContent', 'thumbinner', 
-                             'thumbcaption', 'magnify', 'vertical-navbox', 
+EXCLUDE_CLASSES = frozenset(('navbox', 'collapsible', 'autocollapse',
+                             'plainlinksneverexpand', 'navbar', 'metadata',
+                             'navigation-box', 'stub', 'template-documentation',
+                             'portal', 'NavFrame', 'NavHead', 'NavContent', 'thumbinner',
+                             'thumbcaption', 'magnify', 'vertical-navbox',
                              'tmbox', 'maptable', 'printonly',
                              'fmbox', 'ombox', 'cmbox'))
 
@@ -76,7 +76,7 @@ class XHTMLWriter(MWXHTMLWriter):
         em.text = u"Hiero"
         return s
 
-    def xwriteMath(self, obj):        
+    def xwriteMath(self, obj):
         for cmd in mathcmds:
             try:
                 imgurl = 'data:image/png;base64,' + tex.toimg(obj.caption, cmd)
@@ -84,7 +84,7 @@ class XHTMLWriter(MWXHTMLWriter):
                 log.warn('Could not render math in %r with %r: %s',
                          obj.getParents()[0].caption, cmd, e)
             except:
-                log.warn('Could not render math in %r with %r', 
+                log.warn('Could not render math in %r with %r',
                          obj.getParents()[0].caption, cmd, exc_info=1)
             else:
                 s = ET.Element("img")
@@ -135,6 +135,16 @@ class XHTMLWriter(MWXHTMLWriter):
         if not obj.children:
             a.text = obj.target
         return a
+
+    def xwriteItemList(self, lst):
+        for li in lst.children:
+            if any(c.ns == 10 for c in li.children):
+                return SkipChildren()
+        if lst.numbered:
+            tag = "ol"
+        else:
+            tag = "ul"
+        return ET.Element(tag)
 
     xwriteArticleLink = xwriteLink
     xwriteInterwikiLink = xwriteLink
