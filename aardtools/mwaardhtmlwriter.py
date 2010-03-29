@@ -16,7 +16,8 @@ EXCLUDE_CLASSES = frozenset(('navbox', 'collapsible', 'autocollapse',
                              'portal', 'NavFrame', 'NavHead', 'NavContent', 'thumbinner',
                              'thumbcaption', 'magnify', 'vertical-navbox',
                              'tmbox', 'maptable', 'printonly',
-                             'fmbox', 'ombox', 'cmbox', 'sisterproject'))
+                             'fmbox', 'ombox', 'cmbox', 'sisterproject', 
+                             'interProject'))
 
 
 log = logging.getLogger(__name__)
