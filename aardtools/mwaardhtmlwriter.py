@@ -16,7 +16,7 @@ EXCLUDE_CLASSES = frozenset(('navbox', 'collapsible', 'autocollapse',
                              'portal', 'NavFrame', 'NavHead', 'NavContent', 'thumbinner',
                              'thumbcaption', 'magnify', 'vertical-navbox',
                              'tmbox', 'maptable', 'printonly',
-                             'fmbox', 'ombox', 'cmbox'))
+                             'fmbox', 'ombox', 'cmbox', 'sisterproject'))
 
 
 log = logging.getLogger(__name__)
@@ -329,9 +329,24 @@ class XHTMLWriter(MWXHTMLWriter):
         return e
 
 
+def remove_childless_elements(element, parent=None):
+    """
+    Remove elements that are supposed to have children but are empty
+
+    """   
+
+    for child in element.getchildren()[:]:
+        remove_childless_elements(child, element)
+
+    if (element.tag.lower() not in ("br", "td", "img", "hr", "col", "colgroup") and
+        not (element.getchildren() or element.text or element.tail) and parent):
+        parent.remove(element)
+
+
 def convert(obj):
     w = XHTMLWriter()
     e = w.write(obj)
+    remove_childless_elements(e)
     if w.languagelinks:
         languagelinks = [(obj.namespace, obj.target) for obj in w.languagelinks]
     else:
