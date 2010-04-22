@@ -55,7 +55,7 @@ def _create_wikidb(cdbdir, lang):
     wikidb = Wiki(cdbdir, lang)
 
 def _init_process(cdbdir, lang, article_format):
-    global log, writer    
+    global log, writer
     log = multiprocessing.get_logger()
     _create_wikidb(cdbdir, lang)
     if article_format == 'html':
@@ -92,7 +92,7 @@ class ConvertError(Exception):
 
 class EmptyArticleError(ConvertError): pass
 
-def mkredirect(title, redirect_target):    
+def mkredirect(title, redirect_target):
     meta = {u'r': redirect_target}
     return title, tojson(('', [], meta)), True, None
 
@@ -335,11 +335,14 @@ class WikiParser():
 
         if options.lang_links:
             self.lang_links_langs = frozenset(l.strip().lower()
-                                              for l in options.lang_links.split(',') 
+                                              for l in options.lang_links.split(',')
                                               if l.strip().lower() != sitelang)
             self.consumer.add_metadata("language_links", list(self.lang_links_langs))
         else:
             self.lang_links_langs = frozenset()
+
+        self.requested_article_count = options.article_count
+
 
     def articles(self, f):
         if self.start > 0:
@@ -381,6 +384,7 @@ class WikiParser():
             articles = self.articles(f)
             self.reset_pool(f)
             iter_count = 1
+            real_article_count = 0
             while True:
                 if iter_count:
                     chunk = islice(articles, self.mp_chunk_size)
@@ -394,8 +398,22 @@ class WikiParser():
                         result = resulti.next(self.timeout)
                         iter_count += 1
                         title, serialized, redirect, langugagelinks  = result
-                        self.consumer.add_article(title, serialized, redirect)
-                        self.process_languagelinks(title, langugagelinks)
+
+                        if self.requested_article_count:
+                            if  not redirect:
+                                real_article_count += 1
+                                self.consumer.add_article(title, serialized, redirect)
+                                self.process_languagelinks(title, langugagelinks)
+                                if real_article_count >= self.requested_article_count:
+                                    try:
+                                        self.pool.terminate()
+                                    except:
+                                        log.exception()
+                                    finally:
+                                        return
+                        else:
+                            self.consumer.add_article(title, serialized, redirect)
+                            self.process_languagelinks(title, langugagelinks)
                     except StopIteration:
                         break
                     except TimeoutError:
@@ -427,7 +445,7 @@ class WikiParser():
         targets = set()
         for namespace, target in languagelinks:
             if namespace in self.lang_links_langs:
-                log.debug('Language link for %s: %s (%s)', 
+                log.debug('Language link for %s: %s (%s)',
                           title.encode('utf8'), target.encode('utf8'),
                           namespace.encode('utf8'))
                 i = target.find(namespace+u':')
@@ -440,7 +458,7 @@ class WikiParser():
                 else:
                     log.warn('Invalid language link "%s"', target.encode('utf8'))
         for target in targets:
-            (l_title, l_serialized, 
+            (l_title, l_serialized,
              l_redirect, l_langugagelinks) = mkredirect(wikidb.nshandler.get_fqname(target), title)
             self.consumer.add_article(l_title, l_serialized,
                                       redirect=True, count=False)

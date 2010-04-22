@@ -198,8 +198,15 @@ def make_opt_parser():
         '--lang-links',
         default='en,de,fr,it,pt,es,pl,ru,nl,el,la',
         help='Add Wikipedia language links to index for these languages '
-        '(comma separated list of language codes). Default: %default'
-        )
+        '(comma separated list of language codes). Default: %default')
+
+    parser.add_option(
+        '--article-count',
+        default=0,
+        type='int',
+        help=('Request specific number of articles, skip redirects '
+              '(if set to a number greater then 0). '
+              'Default: %default'))
 
     return parser
 
