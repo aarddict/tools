@@ -46,24 +46,19 @@ from mwlib.siteinfo import get_siteinfo
 
 import gc
 
+import mwaardhtmlwriter as writer
+
 wikidb = None
 log = logging.getLogger('wiki')
-writer = None
 
 def _create_wikidb(cdbdir, lang):
     global wikidb
     wikidb = Wiki(cdbdir, lang)
 
-def _init_process(cdbdir, lang, article_format):
-    global log, writer
+def _init_process(cdbdir, lang):
+    global log
     log = multiprocessing.get_logger()
     _create_wikidb(cdbdir, lang)
-    if article_format == 'html':
-        import mwaardhtmlwriter
-        writer = mwaardhtmlwriter
-    elif article_format == 'json':
-        import mwaardwriter
-        writer = mwaardwriter
 
 class ConvertError(Exception):
 
@@ -239,7 +234,6 @@ class WikiParser():
 
     def __init__(self, options, consumer):
         self.consumer = consumer
-        self.article_format = options.wiki_article_format
         wiki_lang = options.wiki_lang
         metadata_dir = os.path.join(sys.prefix,'share/aardtools/wiki/%s' % wiki_lang)
         default_metadata_dir = os.path.join(sys.prefix,'share/aardtools/wiki/%s' % 'en')
@@ -361,11 +355,11 @@ class WikiParser():
 
         self.pool = Pool(processes=self.processes,
                          initializer=_init_process,
-                         initargs=[cdbdir, self.lang, self.article_format])
+                         initargs=[cdbdir, self.lang])
 
     def parse_simple(self, f):
-        _init_process(f, self.lang, self.article_format)
-        self.consumer.add_metadata('article_format', self.article_format)
+        _init_process(f, self.lang)
+        self.consumer.add_metadata('article_format', 'html')
         articles = self.articles(f)
         for a in articles:
             try:
@@ -380,7 +374,7 @@ class WikiParser():
 
     def parse_mp(self, f):
         try:
-            self.consumer.add_metadata('article_format', self.article_format)
+            self.consumer.add_metadata('article_format', 'html')
             articles = self.articles(f)
             self.reset_pool(f)
             iter_count = 1
