@@ -208,6 +208,14 @@ def make_opt_parser():
               '(if set to a number greater then 0). '
               'Default: %default'))
 
+    parser.add_option(
+        '--skip-article-title',
+        action='store_true',
+        help=('Do not include article key in rendered article: '
+              'some XDXF dictionaries already inlude title in article text and '
+              'needs this to avoid title duplication'))
+
+
     return parser
 
 def utf8(func):

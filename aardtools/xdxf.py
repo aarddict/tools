@@ -90,7 +90,7 @@ def make_input(input_file_name):
     raise IOError("%s doesn't look like a XDXF dictionary" % input_file_name)
 
 def collect_articles(input_file, options, compiler):
-    p = XDXFParser(compiler)
+    p = XDXFParser(compiler, options)
     p.parse(input_file)
 
 
@@ -151,8 +151,9 @@ class XDXFParser():
             child.set('class', child.tag)
             child.tag = 'span'
 
-    def __init__(self, consumer):
+    def __init__(self, consumer, options):
         self.consumer = consumer
+        self.options = options
 
     def _mkabbrs(self, element):
         abbrs = {}
@@ -172,6 +173,14 @@ class XDXFParser():
 
     def _text(self, xdxf_element, abbreviations):
         element = deepcopy(xdxf_element)
+        if self.options.skip_article_title:
+            tail = ''
+            for k in list(element.findall('k')):
+                if k.tail:
+                    tail += k.tail
+                element.remove(k)
+            tail = tail.lstrip()
+            element.text = tail + element.text if element.text else tail
         self._transform_element(element, abbreviations)
         for child in element.getiterator():
             self._transform_element(child, abbreviations)
