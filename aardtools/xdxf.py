@@ -16,6 +16,7 @@ import os
 import sys
 import logging
 import functools
+from copy import deepcopy
 
 try:
     from xml.etree import cElementTree as etree
@@ -30,7 +31,7 @@ except ImportError:
 
 try:
     from itertools import combinations
-except ImportError:    
+except ImportError:
     def combinations(iterable, r):
         # combinations('ABCD', 2) --> AB AC AD BC BD CD
         # combinations(range(4), 3) --> 012 013 023 123
@@ -93,23 +94,88 @@ def collect_articles(input_file, options, compiler):
     p.parse(input_file)
 
 
+xdxf_visual_tags = frozenset(('ar',
+                              'k',
+                              'opt',
+                              'nu',
+                              'def',
+                              'pos',
+                              'tense',
+                              'tr',
+                              'dtrn',
+                              'kref',
+                              'rref',
+                              'iref',
+                              'abr',
+                              'c',
+                              'ex',
+                              'co',
+                              'su'))
+
+
 class XDXFParser():
+
+    def _tag_handler_ar(self, e, **_):
+        e.set('class', e.tag)
+        e.tag = 'div'
+
+    def _tag_handler_c(self, child, **_):
+        child.tag = 'span'
+        color = child.get('c', '')
+        child.attrib.clear()
+        child.set('style', 'color: %s;' % color)
+
+    def _tag_handler_iref(self, child, **_):
+        child.tag = 'a'
+
+    def _tag_handler_kref(self, child, **_):
+        child.tag = 'a'
+        child.set('href', child.text)
+
+    def _tag_handler_su(self, child, **_):
+        child.tag = 'div'
+        child.set('class', 'su')
+
+    def _tag_handler_def(self, child, **_):
+        child.tag = 'blockquote'
+
+    def _tag_handler_abr(self, child, **kw):
+        abbreviations = kw['abbreviations']
+        child.tag = 'abbr'
+        abr = child.text
+        if abr in abbreviations:
+            child.set('title', abbreviations[abr])
+
+    def default_tag_handler(self, child, **_):
+        if child.tag in xdxf_visual_tags:
+            child.set('class', child.tag)
+            child.tag = 'span'
 
     def __init__(self, consumer):
         self.consumer = consumer
 
-    def _text(self, element, tags, offset=0):
-        txt = ''
-        start = offset
-        if element.text:
-            txt += element.text
-        for c in element:
-            txt += self._text(c, tags, offset + len(txt))
-        end = start + len(txt)
-        tags.append([element.tag, start, end, dict(element.attrib)])
-        if element.tail:
-            txt += element.tail
-        return txt
+    def _mkabbrs(self, element):
+        abbrs = {}
+        for abrdef in element:
+            if abrdef.tag.lower() == 'abr_def':
+                value = abrdef.find('v')
+                if value:
+                    value_txt = value.text
+                    for key in abrdef.findall('k'):
+                        abbrs[key.text] = value_txt
+        return abbrs
+
+    def _transform_element(self, element, abbreviations):
+        handler = getattr(self, '_tag_handler_'+element.tag.lower(), self.default_tag_handler)
+        handler(element, abbreviations=abbreviations)
+
+
+    def _text(self, xdxf_element, abbreviations):
+        element = deepcopy(xdxf_element)
+        self._transform_element(element, abbreviations)
+        for child in element.getiterator():
+            self._transform_element(child, abbreviations)
+        return etree.tostring(element, encoding='utf8')
 
     def _mktitle(self, title_element, include_opts=()):
         title = title_element.text
@@ -135,8 +201,9 @@ class XDXFParser():
         return title
 
     def parse(self, f):
-        self.consumer.add_metadata('article_format', 'json')
-        for event, element in etree.iterparse(f):
+        self.consumer.add_metadata('article_format', 'html')
+        abbreviations = {}
+        for _, element in etree.iterparse(f):
             if element.tag == 'description':
                 self.consumer.add_metadata(element.tag, element.text)
                 element.clear()
@@ -154,10 +221,12 @@ class XDXFParser():
                                            element.get('format'))
                 element.clear()
 
-            if element.tag == 'ar':
-                tags = []
-                txt = self._text(element, tags)
+            if element.tag == 'abbreviations':
+                abbreviations = self._mkabbrs(element)
 
+            if element.tag == 'ar':
+                txt = self._text(element, abbreviations)
+                txt = txt.replace('\n', '<br/>')
                 titles = []
                 for title_element in element.findall('k'):
                     n_opts = len([c for c in title_element if c.tag == 'opt'])
@@ -170,7 +239,7 @@ class XDXFParser():
 
                 if titles:
                     first_title = titles[0]
-                    serialized = tojson((txt, tags, {}))
+                    serialized = tojson((txt, [], {}))
                     self.consumer.add_article(first_title, serialized,
                                               redirect=False)
                     titles = titles[1:]
