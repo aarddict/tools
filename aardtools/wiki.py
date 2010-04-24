@@ -17,7 +17,6 @@ from __future__ import with_statement
 import functools
 import logging
 import os
-import sys
 from itertools import islice
 
 try:
@@ -47,7 +46,12 @@ import gc
 
 import mwaardhtmlwriter as writer
 
-known_licenses = {}
+lic_dir = os.path.join(os.path.dirname(__file__), 'licenses')
+
+known_licenses = {"Creative Commons Attribution-Share Alike 3.0 Unported": 
+                  os.path.join(lic_dir, "ccasau-3.0.txt"),
+                  "GNU Free Documentation License 1.2": 
+                  os.path.join(lic_dir, "gfdl-1.2.txt")}
 
 wikidb = None
 log = logging.getLogger('wiki')

@@ -1,12 +1,7 @@
-import os
 import sys
 from setuptools import setup, find_packages
 
 import aardtools
-
-wiki_meta_en = ['wiki/en/copyright.txt',
-                'wiki/en/license.txt',
-                'wiki/en/metadata.ini']
 
 install_requires = ['aarddict == 0.8.0',
                     'PyICU >= 0.8.1',
@@ -25,13 +20,8 @@ setup(
                             'aard-siteinfo = aardtools.fetchsiteinfo:main',
                             ]
     },
-
     install_requires = install_requires,
-
-    data_files = [
-        (os.path.join(sys.prefix,'share/aardtools/wiki/en'), wiki_meta_en)
-        ],
-
+    package_data={'aardtools': ['licenses/*.txt']},    
     author = "Igor Tkach",
     author_email = "itkach@aarddict.org",
     description =  '''Tools to create dictionaries in aarddict format.''',
