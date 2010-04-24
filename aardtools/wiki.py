@@ -41,11 +41,13 @@ import multiprocessing
 from multiprocessing import Pool, TimeoutError
 from mwlib.cdbwiki import WikiDB
 from mwlib._version import version as mwlib_version
-import mwlib.siteinfo 
+import mwlib.siteinfo
 
 import gc
 
 import mwaardhtmlwriter as writer
+
+known_licenses = {}
 
 wikidb = None
 log = logging.getLogger('wiki')
@@ -174,7 +176,7 @@ def parse_redirect(text, aliases):
 
 class Wiki(WikiDB):
 
-    def __init__(self, cdbdir, lang):        
+    def __init__(self, cdbdir, lang):
         WikiDB.__init__(self, cdbdir, lang=lang)
         self.lang = lang
         self.redirect_aliases = set()
@@ -226,10 +228,6 @@ def collect_articles(input_file, options, compiler):
     p = WikiParser(options, compiler)
     p.parse(input_file)
 
-default_lic_fname = 'license.txt'
-default_copyright_fname = 'copyright.txt'
-default_metadata_fname = 'metadata.ini'
-
 siteinfo_loaded = False
 
 def load_siteinfo(filename):
@@ -241,9 +239,9 @@ def load_siteinfo(filename):
 
     if not os.path.exists(filename):
         raise Exception('File %s not found' % filename)
-        
+
     with open(filename) as f:
-        siteinfo = json.load(f)    
+        siteinfo = json.load(f)
         global siteinfo_loaded
         siteinfo_loaded = True
 
@@ -251,76 +249,73 @@ def load_siteinfo(filename):
 
     return siteinfo
 
+default_description = """ %(title)s for Aard Dictionary is a collection of text documents from %(server)s (articles only). Some documents or portions of documents may have been omited or could not be converted to Aard Dictionary format. All documents can be found online at %(server)s under the same title as displayed in Aard Dictionary.
+"""
+
 class WikiParser():
 
     def __init__(self, options, consumer):
         self.consumer = consumer
         wiki_lang = options.wiki_lang
-        metadata_dir = os.path.join(sys.prefix,'share/aardtools/wiki/%s' % wiki_lang)
-        default_metadata_dir = os.path.join(sys.prefix,'share/aardtools/wiki/%s' % 'en')
-
-        siteinfo = load_siteinfo(options.siteinfo)                 
+        siteinfo = load_siteinfo(options.siteinfo)
 
         consumer.add_metadata('siteinfo', siteinfo)
-        sitename = siteinfo['general']['sitename']
-        sitelang = siteinfo['general']['lang']
-
-        metadata_files = []
-        if options.metadata:
-            metadata_files.append(options.metadata)
-        else:
-            metadata_files.append(os.path.join(default_metadata_dir, default_metadata_fname))
-            metadata_files.append(os.path.join(metadata_dir, default_metadata_fname))
+        general_siteinfo = siteinfo['general']
+        sitename = general_siteinfo['sitename']
+        sitelang = general_siteinfo['lang']
 
         from ConfigParser import ConfigParser
-        c = ConfigParser(defaults={'ver': options.dict_ver,
-                                   'lang': wiki_lang,
-                                   'update': options.dict_update,
-                                   'name': sitename,
-                                   'sitelang': sitelang})
-        read_metadata_files = c.read(metadata_files)
-        if not read_metadata_files:
-            log.warn('No metadata files read.')
+        c = ConfigParser()
+
+        if options.metadata:
+            read_metadata_files = c.read(options.metadata)
+            if not read_metadata_files:
+                log.warn('Metadata file could not be read %s' % options.metadata)
+            else:
+                log.info('Using metadata from %s', ', '.join(read_metadata_files))
+                for opt in c.options('metadata'):
+                    value = c.get('metadata', opt)
+                    self.consumer.add_metadata(opt, value)
         else:
-            log.info('Using metadata from %s', ', '.join(read_metadata_files))
-        for opt in c.options('metadata'):
-            value = c.get('metadata', opt)
-            self.consumer.add_metadata(opt, value)
+            log.warn('No metadata file specified')
 
-        if not options.license and 'license' not in self.consumer.metadata:
-            license_file = os.path.join(metadata_dir, default_lic_fname)
-            log.info('Looking for license text in %s', license_file)
-            if not os.path.exists(license_file):
-                log.info('File %s doesn\'t exist', license_file)
-                license_file = os.path.join(default_metadata_dir, default_lic_fname)
-                log.info('Looking for license text in %s', license_file)
-            try:
-                with open(license_file) as f:
-                    license_text = f.read()
-                    self.consumer.add_metadata('license', license_text)
-                    log.info('Using license text from %s', license_file)
-            except IOError, e:
-                log.warn('No license text will be written to the '
-                         'output dictionary: %s', str(e))
 
-        if not options.copyright and 'copyright' not in self.consumer.metadata:
-            copyright_file = os.path.join(metadata_dir, default_copyright_fname)
-            log.info('Looking for copyright notice text in %s', copyright_file)
-            if not os.path.exists(copyright_file):
-                log.info('File %s doesn\'t exist', copyright_file)
-                copyright_file = os.path.join(default_metadata_dir, default_copyright_fname)
-                log.info('Looking for copyright notice text in %s', copyright_file)
-            try:
-                with open(copyright_file) as f:
-                    copyright_text = f.read()
-                    self.consumer.add_metadata('copyright', copyright_text)
-                    log.info('Using copyright notice text from %s', copyright_file)
-            except IOError, e:
-                log.warn('No copyright notice text will be written to the '
-                         'output dictionary: %s', str(e))
+        if options.license:
+            license_file = options.license
+        else:
+            rights = general_siteinfo['rights']
+            if rights in known_licenses:
+                license_file = known_licenses[rights]
+            else:
+                license_file = None
+                self.consumer.add_metadata('license', rights)
 
+        if license_file:
+            with open(license_file) as f:
+                log.info('Using license text from %s', license_file)            
+                license_text = f.read()
+                self.consumer.add_metadata('license', license_text)            
+                
+        if options.copyright:
+            copyright_file = options.copyright
+            with open(copyright_file) as f:
+                log.info('Using copyright text from %s', copyright_file)            
+                copyright_text = f.read()
+                self.consumer.add_metadata('copyright', copyright_text)                        
+
+        self.consumer.add_metadata("title", sitename)
+        if options.dict_ver:
+            self.consumer.add_metadata("version", 
+                                       "-".join((options.dict_ver, 
+                                                 options.dict_update)))
+        server = general_siteinfo['server']
+        self.consumer.add_metadata("source", server)
+        self.consumer.add_metadata("description", default_description % dict(server=server, 
+                                                                             title=sitename))
 
         self.lang = wiki_lang
+        self.consumer.add_metadata("lang", wiki_lang)
+        self.consumer.add_metadata("sitelang", sitelang)
         self.consumer.add_metadata("index_language", sitelang)
         self.consumer.add_metadata("article_language", sitelang)
         log.info('Language: %s (%s)', self.lang, sitelang)
