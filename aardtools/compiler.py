@@ -188,7 +188,6 @@ def make_opt_parser():
 
     parser.add_option(
         '--lang-links',
-        default='en,de,fr,it,pt,es,pl,ru,nl,el,la',
         help='Add Wikipedia language links to index for these languages '
         '(comma separated list of language codes). Default: %default')
 
