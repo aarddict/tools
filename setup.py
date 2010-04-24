@@ -10,7 +10,7 @@ wiki_meta_en = ['wiki/en/copyright.txt',
 
 install_requires = ['aarddict == 0.8.0',
                     'PyICU >= 0.8.1',
-                    'mwlib == 0.12.10']
+                    'mwlib > 0.12.12']
 
 if sys.version_info < (2, 6):
     install_requires += ['simplejson', 'multiprocessing']
@@ -21,7 +21,9 @@ setup(
     packages = find_packages(),
     entry_points = {
         'console_scripts': ['aardcompile = aardtools.compiler:main',
-                            'aardc = aardtools.compiler:main']
+                            'aardc = aardtools.compiler:main',
+                            'aard-siteinfo = aardtools.fetchsiteinfo:main',
+                            ]
     },
 
     install_requires = install_requires,

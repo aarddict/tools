@@ -207,6 +207,9 @@ def make_opt_parser():
               'some XDXF dictionaries already inlude title in article text and '
               'needs this to avoid title duplication'))
 
+    parser.add_option('--siteinfo',
+                      help='Mediawiki JSON-formatted site info file')
+
 
     return parser
 

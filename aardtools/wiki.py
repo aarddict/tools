@@ -15,7 +15,6 @@
 
 from __future__ import with_statement
 import functools
-import re
 import logging
 import os
 import sys
@@ -42,7 +41,7 @@ import multiprocessing
 from multiprocessing import Pool, TimeoutError
 from mwlib.cdbwiki import WikiDB
 from mwlib._version import version as mwlib_version
-from mwlib.siteinfo import get_siteinfo
+import mwlib.siteinfo 
 
 import gc
 
@@ -175,7 +174,7 @@ def parse_redirect(text, aliases):
 
 class Wiki(WikiDB):
 
-    def __init__(self, cdbdir, lang):
+    def __init__(self, cdbdir, lang):        
         WikiDB.__init__(self, cdbdir, lang=lang)
         self.lang = lang
         self.redirect_aliases = set()
@@ -210,6 +209,7 @@ class Wiki(WikiDB):
         )
 
 def total(inputfile, options):
+    load_siteinfo(options.siteinfo)
     w = Wiki(inputfile, options.wiki_lang)
     for i, a in enumerate(islice(w.articles(), options.start, options.end)):
         pass
@@ -230,6 +230,27 @@ default_lic_fname = 'license.txt'
 default_copyright_fname = 'copyright.txt'
 default_metadata_fname = 'metadata.ini'
 
+siteinfo_loaded = False
+
+def load_siteinfo(filename):
+    if siteinfo_loaded:
+        return mwlib.siteinfo.get_siteinfo(None)
+    if not filename:
+        raise Exception('Site info not specified (fetch with aard-siteinfo, '
+                        'specify with use --siteinfo)')
+
+    if not os.path.exists(filename):
+        raise Exception('File %s not found' % filename)
+        
+    with open(filename) as f:
+        siteinfo = json.load(f)    
+        global siteinfo_loaded
+        siteinfo_loaded = True
+
+    mwlib.siteinfo.get_siteinfo = lambda lang: siteinfo
+
+    return siteinfo
+
 class WikiParser():
 
     def __init__(self, options, consumer):
@@ -238,16 +259,8 @@ class WikiParser():
         metadata_dir = os.path.join(sys.prefix,'share/aardtools/wiki/%s' % wiki_lang)
         default_metadata_dir = os.path.join(sys.prefix,'share/aardtools/wiki/%s' % 'en')
 
-        try:
-            siteinfo = get_siteinfo(wiki_lang)
-            if siteinfo is None:
-                raise Exception('No site info found for %s' % wiki_lang)
-        except:
-            log.fatal('Failed to read siteinfo for language %(lang)s, '
-                      'can\'t proceed. '
-                      'Check that siteinfo-%(lang)s.json exists in <MWLIB HOME>/mwlib/siteinfo, '
-                      'run "fetch_siteinfo.py %(lang)s" if not', dict(lang=wiki_lang))
-            raise SystemExit(1)
+        siteinfo = load_siteinfo(options.siteinfo)                 
+
         consumer.add_metadata('siteinfo', siteinfo)
         sitename = siteinfo['general']['sitename']
         sitelang = siteinfo['general']['lang']
