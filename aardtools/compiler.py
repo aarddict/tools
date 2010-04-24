@@ -913,9 +913,15 @@ def guess_version(input_file_name):
     >>> guess_version('ruwiktionary-20090122-pages-articles.cdb')
     '20090122'
 
+    >>> guess_version('ruwiktionary-20090122-1.cdb')
+    '20090122'
+
+    >>> guess_version('ruwiktionary-20090122.cdb')
+    '20090122'
+
     """
     import re
-    m = re.match(r'\w+-?(\d+)-?\w+',
+    m = re.match(r'\w+-?(\d+)[^\d]*',
                  os.path.basename(input_file_name.rstrip(os.path.sep)))
     return m.group(1) if m else None
 
