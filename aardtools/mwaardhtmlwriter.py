@@ -17,8 +17,15 @@ EXCLUDE_CLASSES = frozenset(('navbox', 'collapsible', 'autocollapse',
                              'thumbcaption', 'magnify', 'vertical-navbox',
                              'tmbox', 'maptable', 'printonly',
                              'fmbox', 'ombox', 'cmbox', 'sisterproject', 
-                             'interProject'))
+                             'interProject',
+                             'wikilien_alternatif', #frwiki sister projects
+                             'bandeau', #frwiki message at the top of article
+                             'itwiki_template_avviso', #itwiki
+                             'itwiki_template_toc',
+                             'itwiki_template_disclaimer_v',
+                             ))
 
+EXCLUDED_IDS = frozenset(('interProject',))
 
 log = logging.getLogger(__name__)
 
@@ -158,11 +165,17 @@ class XHTMLWriter(MWXHTMLWriter):
         tableclasses = obj.attributes.get('class', '').split()
         if any((tableclass in EXCLUDE_CLASSES for tableclass in tableclasses)):
             return SkipChildren()
+        id_attr = obj.attributes.get('id', '')
+        if id_attr in EXCLUDED_IDS:
+            return SkipChildren()
         return MWXHTMLWriter.xwriteTable(self, obj)
 
     def xwriteGenericElement(self, obj):
         classes = obj.attributes.get('class', '').split()
         if any((cl in EXCLUDE_CLASSES for cl in classes)):
+            return SkipChildren()
+        id_attr = obj.attributes.get('id', '')
+        if id_attr in EXCLUDED_IDS:
             return SkipChildren()
         return MWXHTMLWriter.xwriteGenericElement(self, obj)
 
