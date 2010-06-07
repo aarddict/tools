@@ -5,7 +5,7 @@ import aardtools
 
 install_requires = ['aarddict == 0.8.0',
                     'PyICU >= 0.8.1',
-                    'mwlib > 0.12.12']
+                    'mwlib == 0.12.13']
 
 if sys.version_info < (2, 6):
     install_requires += ['simplejson', 'multiprocessing']
