@@ -214,6 +214,22 @@ class Wiki(WikiDB):
             script_extension=self.nfo['script_extension'],
         )
 
+    def normalize_and_get_page(self, name, defaultns):
+        fqname = self.nshandler.get_fqname(name, defaultns=defaultns)
+        return self.get_page(fqname)
+
+    def normalize_and_get_image_path(self, name):
+        assert isinstance(name, basestring)
+        name = unicode(name)
+        
+        ns, partial, fqname = self.nshandler.splitname(name, defaultns=6)
+        if ns != 6:
+            return
+
+        if "/" in fqname:
+            return None
+
+
 def total(inputfile, options):
     load_siteinfo(options.siteinfo)
     w = Wiki(inputfile, options.wiki_lang)
