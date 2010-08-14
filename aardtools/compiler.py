@@ -35,8 +35,7 @@ try:
 except ImportError:
     import simplejson as json
 
-from aarddict.dictionary import (HEADER_SPEC, spec_len, calcsha1,
-                                 collation_key, QUATERNARY)
+from aarddict.dictionary import HEADER_SPEC, spec_len, calcsha1, collation_key
 import aardtools
 
 
@@ -551,13 +550,13 @@ class Compiler(object):
                       uuid=self.uuid.bytes,
                       volume=volume,
                       of=0,
+                      total_volumes=0,
                       meta_length=meta_length,
                       index_count=index_count,
                       article_offset=article_offset,
                       index1_item_format=INDEX1_ITEM_FORMAT,
                       key_length_format=KEY_LENGTH_FORMAT,
-                      article_length_format=ARTICLE_LENGTH_FORMAT
-                      )
+                      article_length_format=ARTICLE_LENGTH_FORMAT)
         for name, fmt in HEADER_SPEC:
             output_file.write(struct.pack(fmt, values[name]))
 
@@ -734,7 +733,10 @@ def compress(text):
     return compressed
 
 
-collation_key = functools.partial(collation_key, strength=QUATERNARY)
+collator = Collator.createInstance(Locale(''))
+collator.setStrength(Collator.QUATERNARY)
+collation_key = collator.getCollationKey
+
 
 def make_output_file_name(input_file, options):
     """
