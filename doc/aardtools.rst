@@ -196,6 +196,37 @@ To update dictionary metadata::
 Release Notes
 =============
 
+0.8.1
+-----
+
+- Exclude more boxes, exclude sister and inter project links
+
+- Add ``--article-count`` option - compile specified number of articles,
+  not counting redirects
+
+- Change article format for xdxf from json to html
+
+- Add option ``--skip-article-title`` for xdxf to not add article title
+  at the beginning of article (some dicitonaries already have it) 
+
+- Remove support for article :term:`aar-JSON` article format 
+
+- Add command to fetch siteinfo, require that siteinfo file is
+  explicitely specified with ``--siteinfo`` option
+
+- Don't load default license, copyright and metadata files, don't
+  provide any defaults when loading specified metadata
+
+- Don't include any language links languages by defualt
+
+- Add known wiki licenses
+
+- Better version guessing from file name
+
+- Updated mwlib dependency to 0.12.13
+
+- Make compiler work with aarddict 0.9.0
+
 0.8.0
 -----
 
