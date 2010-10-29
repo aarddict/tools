@@ -255,9 +255,9 @@ Release Notes
   explicitely specified with ``--siteinfo`` option
 
 - Don't load default license, copyright and metadata files, don't
-  provide any defaults when loading specified metadata
+  provide any defaults when loading specified meta data
 
-- Don't include any language links languages by defualt
+- Don't include any language links languages by default
 
 - Add known wiki licenses
 
@@ -360,9 +360,7 @@ Release Notes
   notice text and general description, write this into
   dictionary metadata by default
 
-- Improve memory usage (`issue #4`_)
-
-.. _issue #4: http://bitbucket.org/itkach/aardtools/issue/4
+- Improve memory usage (:tools-issue:`4`)
 
 
 
