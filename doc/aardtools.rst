@@ -28,22 +28,28 @@ Your system must be able to compile C and C++ programs::
 
   sudo apt-get install build-essential
 
-You will also need to have Python headers and setuptools_ installed::
+You will also need to have Python headers::
 
-  sudo apt-get install python-dev python-setuptools  
+  sudo apt-get install python-dev
+
+It is highly recommended to install and run `Aard Tools` inside
+`virtualenv`_::
+
+  sudo apt-get install python-virtualenv
 
 `Aard Tools` rely on Python interfaces to 
-`International Components for Unicode`_ , which must be installed
+`International Components for Unicode`_, which must be installed
 beforehand::
 
   sudo apt-get install libicu38 libicu-dev
  
 If you would like to get source code repository you will need
-Mercurial_::
+Git_::
 
-  sudo apt-get install mercurial
+  sudo apt-get install git
 
-.. _Mercurial: http://selenic.com/mercurial
+.. _virtualenv: http://pypi.python.org/pypi/virtualenv
+.. _Git: http://git-scm.com/
 .. _setuptools: http://peak.telecommunity.com/DevCenter/setuptools
 .. _International Components for Unicode: http://icu-project.org/
 
@@ -90,20 +96,45 @@ neither tools is installed) article ends up with raw math markup.
 Installation
 ------------
 
-Download source code::
+Create Python virtual environment::
 
-  wget http://www.bitbucket.org/itkach/aardtools/get/tip.bz2
+  virtualenv env-aard
 
+Activate it::
+
+  env-aard/bin/activate
+  source env-aard/bin/activate
+
+and install pip_::
+
+  easy_install pip
+
+.. note::
+
+   Recent versions of virtualenv already come with pip_
+   installed. Make sure it's up to date::
+
+     pip install --upgrade pip
+
+Download source code and unpack::
+
+  wget http://github.com/aarddict/tools/tarball/0.8.1
+  tar -xvf 0.8.1
+  cd aarddict-tools-67fb99a
+  
 or 
 
 ::
 
-  hg clone http://www.bitbucket.org/itkach/aardtools
+  git clone git@github.com:aarddict/tools.git
+  cd tools
+  git checkout 0.8.1
 
-Assuming source code code is in `aardtools` directory::
+Install `Aard Tools`::
 
-  cd aardtools
-  sudo python setup.py install   
+  pip install .
+
+.. _pip: http://pypi.python.org/pypi/pip
 
 Usage
 =====
@@ -130,7 +161,7 @@ aard
 
 Synopsis::
 
-  aardc [options] (wiki|xdxf|aard) FILE [FILE2 [FILE3 ...]]
+  aardc (wiki|xdxf|aard) FILE [FILE2 [FILE3 ...]] [options]
 
 .. note::
    Only `aard` input type allows multiple files.
@@ -140,30 +171,39 @@ Compiling Wiki XML Dump
 
 Get a Wiki dump to compile, for example::
 
-  wget http://download.wikimedia.org/simplewiki/20081227/simplewiki-20081227-pages-articles.xml.bz2
+  wget http://download.wikimedia.org/simplewiki/20101026/simplewiki-20101026-pages-articles.xml.bz2
+
+Get Mediawiki site information::
+
+  aard-siteinfo simple.wikipedia.org > simple.json
 
 Build mwlib article database::
 
-  mw-buildcdb --input  simplewiki-20081227-pages-articles.xml.bz2 --output simplewiki-20081227-pages-articles.cdb
+  mw-buildcdb --input simplewiki-20101026-pages-articles.xml.bz2 --output simplewiki-20101026-pages-articles.cdb
 
 Original dump is not needed after this, it may be deleted or moved to
 free up disk space. Compile aar dictionary from the article database::
 
- aardc wiki simplewiki-20081227-pages-articles.cdb
+ aardc wiki simplewiki-20101026-pages-articles.cdb --siteinfo simple.json
 
 Compiler infers from the input file name that Wikipedia language
-is "simple" and that version is 20081227. These need to be specified
+is "simple" and that version is 20101026. These need to be specified
 explicitely through command line options if cdb directory name doesn't
-follow the pattern of the xml dump file names. Compiler also
-looks for files with license and copyright notice texts and dictionary
-metadata, first in the language of the wiki and then in
-English. English versions of these files are included. 
+follow the pattern of the xml dump file names. 
 
-.. note::
-   Make sure :file:`{mwlibdir}/mwlib/siteinfo` directory contains
-   file :file:`siteinfo-{lang}.json` for language of wiki to be
-   compiled. If it doesn't - run
-   :samp:`{mwlibdir}/mwlib/siteinfo/fetch_siteinfo.py {lang}`.
+If siteinfo's general section specifies one of the two licences used
+for `Wikimedia Foundation`_ projects - `Creative Commons
+Attribution-Share Alike 3.0 Unported`_ or `GNU Free Documentation
+License 1.2`_ - license text will be included into dictionary's
+metadata. You can also specify explicitly files containing license
+text and copyright notice with ``--license`` and ``--copyright``
+options. Use ``--metadata`` option to specify file containing
+additional dictionary meta data, such as description.
+
+.. _Wikimedia Foundation: http://wikimediafoundation.org
+.. _Creative Commons Attribution-Share Alike 3.0 Unported: http://creativecommons.org/licenses/by-sa/3.0/legalcode
+.. _GNU Free Documentation License 1.2: http://www.gnu.org/licenses/fdl-1.2.html
+
 
 Compiling XDXF Dictionaries
 ---------------------------
@@ -271,7 +311,7 @@ Release Notes
 -----
 
 - Include license, doc and wiki files in source distribution generated
-  by setuptools
+  by setuptools_
 
 - Write Wikipedia siteinfo to dictionary metadata
 
