@@ -233,6 +233,15 @@ To update dictionary metadata::
   aardc aard dict.aar -o dict2.aar --metadata dict.ini
 
 
+Reporting Issues
+================
+
+Please submit issue reports and enhancement requests to `Aard
+Tools issue tracker`_.
+
+.. _Aard Tools issue tracker: http://github.com/aarddict/tools/issues
+
+
 Release Notes
 =============
 
