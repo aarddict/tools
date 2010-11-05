@@ -116,23 +116,14 @@ and install pip_::
 
      pip install --upgrade pip
 
-Download source code and unpack::
-
-  wget http://github.com/aarddict/tools/tarball/0.8.1
-  tar -xvf 0.8.1
-  cd aarddict-tools-67fb99a
-  
-or 
-
-::
-
-  git clone git@github.com:aarddict/tools.git
-  cd tools
-  git checkout 0.8.1
-
 Install `Aard Tools`::
 
-  pip install .
+  pip install aardtools
+
+or, if you would like to install from the source code repository at
+GitHub:: 
+
+  pip install -e git+git://github.com/aarddict/tools.git#egg=aardtools
 
 .. _pip: http://pypi.python.org/pypi/pip
 
