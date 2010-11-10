@@ -15,7 +15,6 @@
 import os
 import json
 import re
-import sys
 
 from collections import defaultdict
 
@@ -150,18 +149,23 @@ class WordNet():
             word = meta_parts[4]
 
             orig_title = title = word.replace('_', ' ')
-            gloss_with_examples, _ = quoted_text.subn(lambda x: '<span class="ex">%s<span>' %
-                                                   x.group(1), gloss)
-
-            self.collector[title].append('<span class="pos">%s</span> %s' %
-                                         (ss_types[ss_type],
-                                          gloss_with_examples))
+            gloss_with_examples, _ = quoted_text.subn(lambda x: '<span class="ex">%s</span>' %
+                                                   x.group(1), gloss)            
+            synonyms = []
             if word_count > 1:
                 for i in range(1, word_count):
                     word = meta_parts[4+2*i]
                     title = word.replace('_', ' ')
+                    synonyms.append('<a href="%s">%s</a>' % (title, title))
                     self.collector[title].append(('', [], {'r': orig_title}))
 
+            
+            synonyms_str = '<br/><span class="co">Synonyms:</span> %s' % ', '.join(synonyms) if synonyms else ''
+            self.collector[orig_title].append('<span class="pos">%s</span> %s%s' %
+                                              (ss_types[ss_type],
+                                               gloss_with_examples,
+                                               synonyms_str))
+            
 
     def process(self, consumer):        
 
