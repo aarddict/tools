@@ -129,7 +129,7 @@ class WordNet():
     def __init__(self, wordnetdir):
         self.wordnetdir = wordnetdir
         self.collector = defaultdict(list)
-        self.article_count = 0
+        self.article_count = 0        
 
     def prepare(self):
         ss_types = {'n': 'noun',
@@ -137,6 +137,8 @@ class WordNet():
                     'a': 'adjective',
                     's': 'adjective satellite',
                     'r': 'adverb'}
+
+        seen_redirects = set()
 
         for line in iterlines(self.wordnetdir):
             meta, gloss = line.split('|')
@@ -157,7 +159,9 @@ class WordNet():
                     word = meta_parts[4+2*i]
                     title = word.replace('_', ' ')
                     synonyms.append('<a href="%s">%s</a>' % (title, title))
-                    self.collector[title].append(('', [], {'r': orig_title}))
+                    if (title, orig_title) not in seen_redirects:
+                        seen_redirects.add((title, orig_title))
+                        self.collector[title].append(('', [], {'r': orig_title}))
 
             
             synonyms_str = '<br/><span class="co">Synonyms:</span> %s' % ', '.join(synonyms) if synonyms else ''
@@ -213,7 +217,7 @@ class WordNet():
             #add redirects after articles so that 
             #redirects to titles that have both articles and 
             #redirects land on articles
-            for redirect in redirects:
+            for redirect in redirects:                
                 consumer.add_article(title,
                                      json.dumps(redirect),
                                      redirect=True)
