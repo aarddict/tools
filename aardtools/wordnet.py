@@ -24,10 +24,10 @@ from collections import defaultdict
 #"(?:[^\\"]+|\\.)*"
 #some examples don't have closing quote which
 #make the subn with this expression hang
-#quoted_text = re.compile(r'"(?:[^\\"]+|\\.)*["|\n]')
+quoted_text = re.compile(r'"(?:[^"]+|\.)*["|\n]')
 
 #make it a capturing group so that we can get rid of quotes
-quoted_text = re.compile(r'"([^"]+|\.)*["|\n]')
+#quoted_text = re.compile(r'"([^"]+|\.)*["|\n]')
 
 ref = re.compile(r"`(\w+)'")
 
@@ -106,13 +106,13 @@ class SynSet(object):
         return 'SynSet(%r)' % self.line
 
 
-class Pointer(object):
+class PointerSymbols(object):
 
     n = {'!':    'Antonym',
          '@':    'Hypernym',
          '@i':   'Instance Hypernym',
-         '':     'Hyponym',
-         'i':    'Instance Hyponym',
+         '~':     'Hyponym',
+         '~i':    'Instance Hyponym',
          '#m':   'Member holonym',
          '#s':   'Substance holonym',
          '#p':   'Part holonym',
@@ -130,7 +130,7 @@ class Pointer(object):
 
     v = {'!':   'Antonym',
          '@':    'Hypernym',
-         '':    'Hyponym',
+         '~':    'Hyponym',
          '*':   'Entailment',
          '>':   'Cause',
          '^':   'Also see',
@@ -141,6 +141,7 @@ class Pointer(object):
          ';u':  'Domain of synset - USAGE'}
 
     a = s = {'!':    'Antonym',
+             '+':   'Derivationally related form',
              '&':    'Similar to',
              '<':    'Participle of verb',
              '\\':    'Pertainym (pertains to noun)',
@@ -157,7 +158,9 @@ class Pointer(object):
          ';r':   'Domain of synset - REGION',
          ';u':   'Domain of synset - USAGE',
          }
+    
 
+class Pointer(object):
 
     def __init__(self, symbol, offset, pos, source_target):
         self.symbol = symbol
@@ -167,18 +170,9 @@ class Pointer(object):
         self.source = int(source_target[:2], 16)
         self.target = int(source_target[2:], 16)
 
-    @property
-    def symbol_desc(self):
-        try:
-            return getattr(self, self.pos)[self.symbol]
-        except KeyError:
-            print 'WARNING: unknown pointer symbol %s for %s ' % (self.symbol, self.pos)
-            return None
-        
-
     def __repr__(self):
         return ('Pointer(%r, %r, %r, %r)' %
-                (self.symbol, self.offset, 
+                (self.symbol, self.offset,
                  self.pos, self.source_target))
 
 
@@ -189,17 +183,21 @@ class WordNet():
         self.collector = defaultdict(list)
 
     def prepare(self):
+
         ss_types = {'n': 'noun',
                     'v': 'verb',
                     'a': 'adjective',
                     's': 'adjective satellite',
                     'r': 'adverb'}
-        mmap_files = {}
+
         file2pos = {'data.adj': ['a', 's'],
                     'data.adv': ['r'],
                     'data.noun': ['n'],
                     'data.verb': ['v']}
+
         dict_dir = os.path.join(self.wordnetdir, 'dict')
+
+        mmap_files = {}
         for name in os.listdir(dict_dir):
             if name.startswith('data.'):
                 if name in file2pos:
@@ -207,54 +205,55 @@ class WordNet():
                     m = mmap.mmap(f.fileno(), 0)
                     for key in file2pos[name]:
                         mmap_files[key] = m
-        seen_redirects = set()
+
+        def a(word):
+            return '<a href="%s">%s</a>' % (word, word)
 
         for line in iterlines(self.wordnetdir):
             synset = SynSet(line)
-            # print synset
-            words = synset.words
-            orig_title = title = words[0]
-
             gloss_with_examples, _ = quoted_text.subn(lambda x: '<span class="ex">%s</span>' %
-                                                   x.group(1), synset.gloss)
+                                                   x.group(0), synset.gloss)
+            gloss_with_examples, _ = ref.subn(lambda x: a(x.group(1)), gloss_with_examples)
 
-            gloss_with_examples, _ = ref.subn(lambda x: '<a href="%s">%s</a>' % 
-                                              (x.group(1), x.group(1)), gloss_with_examples)
+            words = synset.words
+            for i, word in enumerate(words):
+                synonyms = [w for w in words if w != word]
+                synonyms_str = ('<br/><b>Synonyms:</b> %s' %
+                                ', '.join([a(w) for w in synonyms]) if synonyms else '')
+                pointers = defaultdict(list)
+                for pointer in synset.pointers:
+                    if (pointer.source and pointer.target and 
+                        pointer.source - 1 != i):
+                        continue
 
-            synonyms = []
-            for title in words[1:]:
-                synonyms.append('<a href="%s">%s</a>' % (title, title))
-                if (title, orig_title) not in seen_redirects:
-                    seen_redirects.add((title, orig_title))
-                    self.collector[title].append(('', [], {'r': orig_title}))
+                    symbol = pointer.symbol
+                    try:
+                        symbol_desc = getattr(PointerSymbols, synset.ss_type)[symbol]
+                    except KeyError:
+                        print 'WARNING: unknown pointer symbol %s for %s ' % (symbol, synset.ss_type)
+                        symbol_desc = symbol
 
-            synonyms_str = ('<br/><b>Synonyms:</b> %s' %
-                            ', '.join(synonyms) if synonyms else '')
+                    mmap_file = mmap_files[pointer.pos]
+                    mmap_file.seek(pointer.offset)
+                    referenced_synset = SynSet(mmap_file.readline())
+                    if pointer.source == 0 and pointer.target == 0:
+                        pointers[symbol_desc] = [w for w in referenced_synset.words
+                                                 if w not in words]
+                    else:
+                        referenced_word = referenced_synset.words[pointer.target - 1]
+                        if referenced_word not in pointers[symbol_desc]:
+                            pointers[symbol_desc].append(referenced_word)
 
-            pointers = []
-            for pointer in synset.pointers:
-                symbol_desc = pointer.symbol_desc
-                if not symbol_desc:
-                    continue
-                mmap_file = mmap_files[pointer.pos]
-                mmap_file.seek(pointer.offset)
-                referenced_synset = SynSet(mmap_file.readline())
-                # print '%r ==> %r' % (pointer, referenced_synset)
-                s = '<b>%s:</b> ' % pointer.symbol_desc
-
-                # print 'word count: ', len(words), 'source: ', pointer.source
-                # print 'target word count: ', len(referenced_synset.words), 'target: ', pointer.target
-
-                s += '%s - %s' % (words[pointer.source - 1], 
-                                  referenced_synset.words[pointer.target - 1])
-                pointers.append(s)
-            pointers_str = '<br/>'.join(pointers)
-
-            self.collector[orig_title].append('<span class="pos">%s</span> %s%s<br/>%s' %
-                                              (ss_types[synset.ss_type],
-                                               gloss_with_examples,
-                                               synonyms_str,
-                                               pointers_str))
+                pointers_str = ''
+                for symbol_desc, referenced_words in pointers.iteritems():
+                    if referenced_words:
+                        pointers_str += '<br/><b>%s:</b> ' % symbol_desc
+                        pointers_str += ', '.join([a(w) for w in referenced_words])
+                self.collector[word].append('<span class="pos"><i>%s</i></span> %s%s%s' %
+                                            (ss_types[synset.ss_type],
+                                             gloss_with_examples,
+                                             synonyms_str,
+                                             pointers_str))
 
 
 
