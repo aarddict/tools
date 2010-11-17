@@ -24,10 +24,10 @@ from collections import defaultdict
 #"(?:[^\\"]+|\\.)*"
 #some examples don't have closing quote which
 #make the subn with this expression hang
-quoted_text = re.compile(r'"(?:[^"]+|\.)*["|\n]')
+#quoted_text = re.compile(r'"(?:[^"]+|\.)*["|\n]')
 
 #make it a capturing group so that we can get rid of quotes
-#quoted_text = re.compile(r'"([^"]+|\.)*["|\n]')
+quoted_text = re.compile(r'"([^"]+|\.)*["|\n]')
 
 ref = re.compile(r"`(\w+)'")
 
@@ -184,11 +184,11 @@ class WordNet():
 
     def prepare(self):
 
-        ss_types = {'n': 'noun',
-                    'v': 'verb',
-                    'a': 'adjective',
-                    's': 'adjective satellite',
-                    'r': 'adverb'}
+        ss_types = {'n': 'n.',
+                    'v': 'v.',
+                    'a': 'adj.',
+                    's': 'adj. satellite',
+                    'r': 'adv.'}
 
         file2pos = {'data.adj': ['a', 's'],
                     'data.adv': ['r'],
@@ -211,21 +211,20 @@ class WordNet():
 
         for line in iterlines(self.wordnetdir):
             synset = SynSet(line)
-            gloss_with_examples, _ = quoted_text.subn(lambda x: '<span class="ex">%s</span>' %
-                                                   x.group(0), synset.gloss)
+            gloss_with_examples, _ = quoted_text.subn(lambda x: '<cite class="ex">%s</cite>' %
+                                                   x.group(1), synset.gloss)
             gloss_with_examples, _ = ref.subn(lambda x: a(x.group(1)), gloss_with_examples)
 
             words = synset.words
             for i, word in enumerate(words):
                 synonyms = [w for w in words if w != word]
-                synonyms_str = ('<br/><b>Synonyms:</b> %s' %
+                synonyms_str = ('<br/><small class="co">Synonyms:</small> %s' %
                                 ', '.join([a(w) for w in synonyms]) if synonyms else '')
                 pointers = defaultdict(list)
                 for pointer in synset.pointers:
                     if (pointer.source and pointer.target and 
                         pointer.source - 1 != i):
                         continue
-
                     symbol = pointer.symbol
                     try:
                         symbol_desc = getattr(PointerSymbols, synset.ss_type)[symbol]
@@ -245,11 +244,11 @@ class WordNet():
                             pointers[symbol_desc].append(referenced_word)
 
                 pointers_str = ''
-                for symbol_desc, referenced_words in pointers.iteritems():
+                for symbol_desc, referenced_words in pointers.iteritems():                    
                     if referenced_words:
-                        pointers_str += '<br/><b>%s:</b> ' % symbol_desc
+                        pointers_str += '<br/><small class="co">%s:</small> ' % symbol_desc
                         pointers_str += ', '.join([a(w) for w in referenced_words])
-                self.collector[word].append('<span class="pos"><i>%s</i></span> %s%s%s' %
+                self.collector[word].append('<i class="pos">%s</i> %s%s%s' %
                                             (ss_types[synset.ss_type],
                                              gloss_with_examples,
                                              synonyms_str,
