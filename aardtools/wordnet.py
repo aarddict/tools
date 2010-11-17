@@ -226,6 +226,8 @@ class WordNet():
                         pointer.source - 1 != i):
                         continue
                     symbol = pointer.symbol
+                    if symbol and symbol[:1] in (';', '-'):
+                        continue
                     try:
                         symbol_desc = getattr(PointerSymbols, synset.ss_type)[symbol]
                     except KeyError:
