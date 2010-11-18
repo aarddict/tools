@@ -108,19 +108,19 @@ class SynSet(object):
 
 class PointerSymbols(object):
 
-    n = {'!':    'Antonym',
-         '@':    'Hypernym',
-         '@i':   'Instance Hypernym',
-         '~':     'Hyponym',
-         '~i':    'Instance Hyponym',
-         '#m':   'Member holonym',
-         '#s':   'Substance holonym',
-         '#p':   'Part holonym',
-         '%m':   'Member meronym',
-         '%s':   'Substance meronym',
-         '%p':   'Part meronym',
-         '=':    'Attribute',
-         '+':    'Derivationally related form',
+    n = {'!':    'Antonyms',
+         '@':    'Hypernyms',
+         '@i':   'Instance hypernyms',
+         '~':    'Hyponyms',
+         '~i':   'Instance hyponyms',
+         '#m':   'Member holonyms',
+         '#s':   'Substance holonyms',
+         '#p':   'Part holonyms',
+         '%m':   'Member meronyms',
+         '%s':   'Substance meronyms',
+         '%p':   'Part meronyms',
+         '=':    'Attributes',
+         '+':    'Derivationally related forms',
          ';c':   'Domain of synset - TOPIC',
          '-c':   'Member of this domain - TOPIC',
          ';r':   'Domain of synset - REGION',
@@ -128,37 +128,36 @@ class PointerSymbols(object):
          ';u':   'Domain of synset - USAGE',
          '-u':   'Member of this domain - USAGE'}
 
-    v = {'!':   'Antonym',
-         '@':    'Hypernym',
-         '~':    'Hyponym',
-         '*':   'Entailment',
+    v = {'!':   'Antonyms',
+         '@':   'Hypernyms',
+         '~':   'Hyponyms',
+         '*':   'Entailments',
          '>':   'Cause',
          '^':   'Also see',
-         '$':   'Verb Group',
-         '+':   'Derivationally related form',
+         '$':   'Verb group',
+         '+':   'Derivationally related forms',
          ';c':  'Domain of synset - TOPIC',
          ';r':  'Domain of synset - REGION',
          ';u':  'Domain of synset - USAGE'}
 
-    a = s = {'!':    'Antonym',
-             '+':   'Derivationally related form',
-             '&':    'Similar to',
-             '<':    'Participle of verb',
-             '\\':    'Pertainym (pertains to noun)',
-             '=':    'Attribute',
-             '^':    'Also see',
-             ';c':    'Domain of synset - TOPIC',
-             ';r':    'Domain of synset - REGION',
-             ';u':    'Domain of synset - USAGE'}
+    a = s = {'!':   'Antonyms',
+             '+':   'Derivationally related forms',
+             '&':   'Similar to',
+             '<':   'Participle of verb',
+             '\\':  'Pertainyms',
+             '=':   'Attributes',
+             '^':   'Also see',
+             ';c':  'Domain of synset - TOPIC',
+             ';r':  'Domain of synset - REGION',
+             ';u':  'Domain of synset - USAGE'}
 
-    r = {'!':    'Antonym',
-         '\\':   'Derived from adjective',
-         '+':   'Derivationally related form',
-         ';c':   'Domain of synset - TOPIC',
-         ';r':   'Domain of synset - REGION',
-         ';u':   'Domain of synset - USAGE',
-         }
-    
+    r = {'!':   'Antonyms',
+         '\\':  'Derived from adjective',
+         '+':   'Derivationally related forms',
+         ';c':  'Domain of synset - TOPIC',
+         ';r':  'Domain of synset - REGION',
+         ';u':  'Domain of synset - USAGE'}
+
 
 class Pointer(object):
 
@@ -222,7 +221,7 @@ class WordNet():
                                 ', '.join([a(w) for w in synonyms]) if synonyms else '')
                 pointers = defaultdict(list)
                 for pointer in synset.pointers:
-                    if (pointer.source and pointer.target and 
+                    if (pointer.source and pointer.target and
                         pointer.source - 1 != i):
                         continue
                     symbol = pointer.symbol
@@ -246,7 +245,7 @@ class WordNet():
                             pointers[symbol_desc].append(referenced_word)
 
                 pointers_str = ''
-                for symbol_desc, referenced_words in pointers.iteritems():                    
+                for symbol_desc, referenced_words in pointers.iteritems():
                     if referenced_words:
                         pointers_str += '<br/><small class="co">%s:</small> ' % symbol_desc
                         pointers_str += ', '.join([a(w) for w in referenced_words])
@@ -264,15 +263,34 @@ class WordNet():
         license_file = os.path.join(self.wordnetdir, 'LICENSE')
 
         consumer.add_metadata('title', 'WordNet')
-        consumer.add_metadata('version', '3.0')
         consumer.add_metadata('index_language', 'en')
         consumer.add_metadata('article_language', 'en')
+        consumer.add_metadata('source', 'http://wordnet.princeton.edu')
 
         with open(readme_file) as f:
-            consumer.add_metadata('description', '<pre>%s</pre>' % f.read())
+            readme = f.read()
+            lines = readme.splitlines()
+            lines = lines[5:]
+            first_p_index = lines.index('')
+            first_p = ' '.join(lines[:first_p_index])
+            lines = lines[first_p_index+1:]
+            second_p_index = lines.index('')
+            second_p = ' '.join(lines[:second_p_index])
+            aard_p = ('WordNet for Aard Dictionary is a collection of articles '
+                      'consisting of all meanings of a given word and links '
+                      'to lexically and sematically related words.')
+            consumer.add_metadata('description', 
+                                  '\n\n'.join((first_p, second_p, aard_p)))
 
         with open(license_file) as f:
-            consumer.add_metadata('license', f.read())
+            license_text = f.read()
+            aard_p = """(This is original WordNet license text. 
+Note that the software covered by this license 
+is WordNet software, not Aard Dictionary.)
+"""
+            consumer.add_metadata('license', '\n'.join((aard_p, license_text)))
+            version = license_text.splitlines()[0].split()[-1]
+            consumer.add_metadata('version', version)
 
         article_template = '<h1>%s</h1><span>%s</span>'
 
