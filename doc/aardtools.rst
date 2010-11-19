@@ -224,6 +224,26 @@ To update dictionary metadata::
   aardc aard dict.aar -o dict2.aar --metadata dict.ini
 
 
+Compiling WordNet_
+------------------
+
+.. versionadded: 0.8.2   
+
+Get complete WordNet_ distribution::
+
+  wget http://wordnetcode.princeton.edu/3.0/WordNet-3.0.tar.bz2
+
+Unpack it::
+
+  tar -xvf WordNet-3.0.tar.bz2
+
+and compile::
+
+  aard wordnet WordNet-3.0	
+
+.. _WordNet: http://wordnet.princeton.edu/
+
+
 Reporting Issues
 ================
 
@@ -235,6 +255,12 @@ Tools issue tracker`_.
 
 Release Notes
 =============
+
+0.8.2
+-----
+
+- Add WordNet_ convertor
+
 
 0.8.1
 -----
