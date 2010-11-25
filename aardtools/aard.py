@@ -12,23 +12,19 @@
 #
 # Copyright (C) 2008-2009  Igor Tkach
 
-import sys
-
 from aarddict import dictionary
 
 def total(inputfile, options):
-    d = dictionary.Dictionary(inputfile, raw_articles=True)
+    d = dictionary.Volume(inputfile)
     d.close()
-    return d.index_count
+    return len(d)
 
 def collect_articles(input_file, options, compiler):
     p = AardParser(compiler)
     p.parse(input_file)
 
 def make_input(input_file_name):
-    if input_file_name == '-':
-        return sys.stdin
-    return open(input_file_name)
+    return input_file_name
 
 class AardParser():
 
@@ -36,12 +32,10 @@ class AardParser():
         self.consumer = consumer
 
     def parse(self, f):
-        d = dictionary.Dictionary(f, raw_articles=True)
+        d = dictionary.Volume(f)
         for key, val in d.metadata.iteritems():
-            print key, val
             self.consumer.add_metadata(key, val)
-        for article_func in d.articles:
-            decompressed_article = article_func()
-            article = dictionary.to_article(decompressed_article)
-            self.consumer.add_article(article_func.title, decompressed_article,
-                                      redirect=article.redirect)
+        for i, article in enumerate(d.articles):
+            title= d.words[i]
+            self.consumer.add_article(title, article)
+        d.close()
