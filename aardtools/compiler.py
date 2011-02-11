@@ -209,6 +209,10 @@ def make_opt_parser():
                       help='Mediawiki JSON-formatted site info file')
 
 
+    parser.add_option('--rtl',
+                      action="store_true",
+                      help='Set direction for Wikipedia articles to rtl')
+
     return parser
 
 def utf8(func):

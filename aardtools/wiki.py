@@ -56,14 +56,14 @@ known_licenses = {"Creative Commons Attribution-Share Alike 3.0 Unported":
 wikidb = None
 log = logging.getLogger('wiki')
 
-def _create_wikidb(cdbdir, lang):
+def _create_wikidb(cdbdir, lang, rtl):
     global wikidb
-    wikidb = Wiki(cdbdir, lang)
+    wikidb = Wiki(cdbdir, lang, rtl)
 
-def _init_process(cdbdir, lang):
+def _init_process(cdbdir, lang, rtl):
     global log
     log = multiprocessing.get_logger()
-    _create_wikidb(cdbdir, lang)
+    _create_wikidb(cdbdir, lang, rtl)
 
 class ConvertError(Exception):
 
@@ -114,7 +114,7 @@ def convert(title):
                                        lang=wikidb.lang,
                                        magicwords=wikidb.siteinfo['magicwords'])
         xhtmlwriter.preprocess(mwobject)
-        text, tags, languagelinks = writer.convert(mwobject)
+        text, tags, languagelinks = writer.convert(mwobject, rtl=wikidb.rtl)
     except EmptyArticleError:
         raise
     except Exception:
@@ -180,9 +180,10 @@ def parse_redirect(text, aliases):
 
 class Wiki(WikiDB):
 
-    def __init__(self, cdbdir, lang):
+    def __init__(self, cdbdir, lang, rtl=False):
         WikiDB.__init__(self, cdbdir, lang=lang)
         self.lang = lang
+        self.rtl = rtl
         self.redirect_aliases = set()
         aliases = [magicword['aliases']
                                  for magicword in self.siteinfo['magicwords']
@@ -334,6 +335,7 @@ class WikiParser():
                                                                              title=sitename))
 
         self.lang = wiki_lang
+        self.rtl = options.rtl
         self.consumer.add_metadata("lang", wiki_lang)
         self.consumer.add_metadata("sitelang", sitelang)
         self.consumer.add_metadata("index_language", sitelang)
@@ -369,7 +371,7 @@ class WikiParser():
     def articles(self, f):
         if self.start > 0:
             log.info('Skipping to article %d', self.start)
-        _create_wikidb(f, self.lang)
+        _create_wikidb(f, self.lang, self.rtl)
         for title in islice(wikidb.articles(), self.start, self.end):
             log.debug('Yielding "%s" for processing', title.encode('utf8'))
             yield title
@@ -383,10 +385,10 @@ class WikiParser():
 
         self.pool = Pool(processes=self.processes,
                          initializer=_init_process,
-                         initargs=[cdbdir, self.lang])
+                         initargs=[cdbdir, self.lang, self.rtl])
 
     def parse_simple(self, f):
-        _init_process(f, self.lang)
+        _init_process(f, self.lang, self.rtl)
         self.consumer.add_metadata('article_format', 'html')
         articles = self.articles(f)
         for a in articles:
