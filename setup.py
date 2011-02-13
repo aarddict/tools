@@ -3,7 +3,7 @@ from setuptools import setup, find_packages
 
 import aardtools
 
-install_requires = ['aarddict >= 0.8.0',
+install_requires = ['aarddict >= 0.9.0',
                     'PyICU >= 0.8.1',
                     'mwlib == 0.12.13']
 
