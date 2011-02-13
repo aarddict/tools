@@ -362,7 +362,6 @@ def convert(obj, rtl=False):
     e = w.write(obj)
     remove_childless_elements(e)
     if rtl:
-        log.error("================!!!!!!!!!!!!!!!!!!!!!!!")
         e.set("dir", "rtl")
     if w.languagelinks:
         languagelinks = [(obj.namespace, obj.target) for obj in w.languagelinks]
