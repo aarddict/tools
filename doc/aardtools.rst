@@ -256,6 +256,15 @@ Tools issue tracker`_.
 Release Notes
 =============
 
+0.8.3
+-----
+
+- Add ``--rtl`` compilation option for wiki converter - adds `dir`
+  attribute with value `rtl` to article's enclosing element.
+
+- Fix aard converter (was broken after refactoring in aarddict 0.9.0)
+
+
 0.8.2
 -----
 
