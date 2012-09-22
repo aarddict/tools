@@ -352,10 +352,9 @@ def remove_childless_elements(element, parent=None):
     for child in element.getchildren()[:]:
         remove_childless_elements(child, element)
 
-    if (element.tag.lower() not in ("br", "td", "img", "hr", "col", "colgroup") and
-        not element.getchildren() and
-        (not element.text or (type(element.text) == unicode and element.text == "\n") ) and
-        not element.tail and parent):
+    if ((parent is not None) and element.tag.lower() not in ("br", "td", "img", "hr", "col", "colgroup") and
+        (element.getchildren() is None) and (element.tail is None) and
+        ((element.text is None) or (type(element.text) == unicode and element.text == "\n") ) ):
         parent.remove(element)
 
 
