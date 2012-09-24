@@ -296,6 +296,7 @@ class Stats(object):
         self.articles = 0
         self.redirects = 0
         self.start_time = time.time()
+        self.article_start_time = 0
 
     processed = property(lambda self: (self.articles +
                                        self.redirects +
@@ -306,7 +307,7 @@ class Stats(object):
 
 
     average = property(lambda self: (self.processed/(time.time() -
-                                                     self.start_time)))
+                                                     self.article_start_time)))
 
     elapsed = property(lambda self: timedelta(seconds=(int(time.time() -
                                                            self.start_time))))
@@ -1081,8 +1082,12 @@ def main():
 
     if hasattr(converter, 'total'):
         display.write('Calculating total number of articles...').cr().flush()
-        for input_file in input_files:
-            compiler.stats.total += converter.total(converter.make_input(input_file), options)
+        if options.article_count>0:
+            compiler.stats.total = options.article_count
+        else:
+            for input_file in input_files:
+                compiler.stats.total += converter.total(converter.make_input(input_file), options)
+        compiler.stats.article_start_time = time.time()
     display.erase_line().writeln('total: %d' % compiler.stats.total)
 
     if options.show_legend:
