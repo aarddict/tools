@@ -38,7 +38,7 @@ tojson = functools.partial(json.dumps, ensure_ascii=False)
 
 import multiprocessing
 from multiprocessing import Pool, TimeoutError
-from mwlib.cdbwiki import WikiDB
+from mwlib.cdb.cdbwiki import WikiDB
 from mwlib._version import version as mwlib_version
 import mwlib.siteinfo
 
