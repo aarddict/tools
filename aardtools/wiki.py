@@ -24,7 +24,7 @@ try:
 except ImportError:
     import simplejson as json
 
-from mwlib import uparser, xhtmlwriter
+from mwlib import uparser, xhtmlwriter, _locale
 from mwlib.log import Log
 Log.logfile = None
 
@@ -281,6 +281,12 @@ class WikiParser():
         general_siteinfo = siteinfo['general']
         sitename = general_siteinfo['sitename']
         sitelang = general_siteinfo['lang']
+
+        try:
+            _locale.set_locale_from_lang(sitelang.encode('latin-1'))
+        except BaseException, err:
+            print "Error: could not set locale", err
+            print "Class: ", sitelang.__class__
 
         from ConfigParser import ConfigParser
         c = ConfigParser()
