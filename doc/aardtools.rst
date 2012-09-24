@@ -239,7 +239,7 @@ Unpack it::
 
 and compile::
 
-  aard wordnet WordNet-3.0	
+  aardc wordnet WordNet-3.0	
 
 .. _WordNet: http://wordnet.princeton.edu/
 
