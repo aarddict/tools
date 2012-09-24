@@ -42,8 +42,6 @@ from mwlib.cdbwiki import WikiDB
 from mwlib._version import version as mwlib_version
 import mwlib.siteinfo
 
-import gc
-
 import mwaardhtmlwriter as writer
 
 lic_dir = os.path.join(os.path.dirname(__file__), 'licenses')
@@ -97,7 +95,6 @@ def mkredirect(title, redirect_target):
     return title, tojson(('', [], meta)), True, None
 
 def convert(title):
-    gc.collect()
     try:
         text = wikidb.reader[title]
 
@@ -375,7 +372,6 @@ class WikiParser():
         for title in islice(wikidb.articles(), self.start, self.end):
             log.debug('Yielding "%s" for processing', title.encode('utf8'))
             yield title
-            gc.collect()
 
     def reset_pool(self, cdbdir, terminate=True):
         if self.pool and terminate:
