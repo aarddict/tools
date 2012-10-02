@@ -44,6 +44,8 @@ import mwlib.siteinfo
 
 import mwaardhtmlwriter as writer
 
+EXCLUDED_PAGES = frozenset(('Template:Latin alphabet navbox',))
+
 lic_dir = os.path.join(os.path.dirname(__file__), 'licenses')
 
 known_licenses = {"Creative Commons Attribution-Share Alike 3.0 Unported": 
@@ -211,6 +213,12 @@ class Wiki(WikiDB):
             base_url=self.nfo['base_url'],
             script_extension=self.nfo['script_extension'],
         )
+
+    def get_page(self,  name,  revision=None):
+        if name in EXCLUDED_PAGES:
+            return
+        else:
+            return WikiDB.get_page(self, name, revision)
 
     def normalize_and_get_page(self, name, defaultns):
         fqname = self.nshandler.get_fqname(name, defaultns=defaultns)
