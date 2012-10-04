@@ -7,6 +7,7 @@ install_requires = ['PyICU == 1.2',
                     'aarddict >= 0.9.0',
                     'mwlib.cdb',
                     'mwlib.xhtml',
+                    'pyyaml',
                     'mwlib >= 0.14.1']
 
 if sys.version_info < (2, 6):

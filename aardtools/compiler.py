@@ -208,6 +208,9 @@ def make_opt_parser():
     parser.add_option('--siteinfo',
                       help='Mediawiki JSON-formatted site info file')
 
+    parser.add_option('--filters',
+                      help='JSON-formatted list of filters to apply to data')
+
 
     parser.add_option('--rtl',
                       action="store_true",

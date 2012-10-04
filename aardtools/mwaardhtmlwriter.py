@@ -10,23 +10,6 @@ xmltreecleaner.childlessOK.append(Reference)
 
 import tex
 
-EXCLUDE_CLASSES = frozenset(('navbox', 'collapsible', 'autocollapse',
-                             'plainlinksneverexpand', 'navbar', 'metadata',
-                             'navigation-box', 'stub', 'template-documentation',
-                             'portal', 'NavFrame', 'NavHead', 'NavContent', 'thumbinner',
-                             'thumbcaption', 'magnify', 'vertical-navbox',
-                             'tmbox', 'maptable', 'printonly',
-                             'fmbox', 'ombox', 'cmbox', 'sisterproject', 
-                             'interProject',
-                             'wikilien_alternatif', #frwiki sister projects
-                             'bandeau', #frwiki message at the top of article
-                             'itwiki_template_avviso', #itwiki
-                             'itwiki_template_toc',
-                             'itwiki_template_disclaimer_v',
-                             ))
-
-EXCLUDED_IDS = frozenset(('interProject',))
-
 log = logging.getLogger(__name__)
 
 #latex can render most math, generates nice transparent PNG, but fails on some formulas
@@ -39,8 +22,9 @@ class XHTMLWriter(MWXHTMLWriter):
 
     paratag = 'p'
 
-    def __init__(self, *args, **kwargs):
-        MWXHTMLWriter.__init__(self, *args, **kwargs)
+    def __init__(self, filters, env=None, status_callback=None,imagesrcresolver=None, debug=False):
+        self.filters = filters
+        MWXHTMLWriter.__init__(self, env, status_callback, imagesrcresolver, debug)
         #keep reference list for each group serparate
         self.references = defaultdict(list)
         #also keep named reference positions, separate for each group
@@ -163,19 +147,21 @@ class XHTMLWriter(MWXHTMLWriter):
 
     def xwriteTable(self, obj):
         tableclasses = obj.attributes.get('class', '').split()
-        if any((tableclass in EXCLUDE_CLASSES for tableclass in tableclasses)):
+        if ( len(self.filters['EXCLUDE_CLASSES']) > 0 and
+             any((tableclass in self.filters['EXCLUDE_CLASSES'] for tableclass in tableclasses))):
             return SkipChildren()
         id_attr = obj.attributes.get('id', '')
-        if id_attr in EXCLUDED_IDS:
+        if ( len(self.filters['EXCLUDE_IDS']) > 0 and id_attr in self.filters['EXCLUDE_IDS']):
             return SkipChildren()
         return MWXHTMLWriter.xwriteTable(self, obj)
 
     def xwriteGenericElement(self, obj):
         classes = obj.attributes.get('class', '').split()
-        if any((cl in EXCLUDE_CLASSES for cl in classes)):
+        if ( len(self.filters['EXCLUDE_CLASSES']) > 0 and
+             any((genericclass in self.filters['EXCLUDE_CLASSES'] for genericclass in classes))):
             return SkipChildren()
         id_attr = obj.attributes.get('id', '')
-        if id_attr in EXCLUDED_IDS:
+        if ( len(self.filters['EXCLUDE_IDS']) > 0 and id_attr in self.filters['EXCLUDE_IDS']):
             return SkipChildren()
         return MWXHTMLWriter.xwriteGenericElement(self, obj)
 
@@ -358,8 +344,8 @@ def remove_childless_elements(element, parent=None):
         parent.remove(element)
 
 
-def convert(obj, rtl=False):
-    w = XHTMLWriter()
+def convert(obj, rtl, filters):
+    w = XHTMLWriter(filters)
     e = w.write(obj)
     remove_childless_elements(e)
     if rtl:

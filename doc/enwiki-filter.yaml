@@ -1,0 +1,82 @@
+# Exclude pages/templates
+# This is the fastest and best method of cleaning articles
+# Entries containing a : character must be quoted
+EXCLUDE_PAGES:
+  - "Template:Category handler"
+  - "Template:Navbar"
+  - "Template:Category handler/blacklist"
+  - "Template:Category handler/numbered"
+  - "Template:Navbox"
+  - "Template:Sister"
+  - "Template:Only in print"
+  - "Template:Navboxes"
+  - "Template:Refimprove section"
+  - "Template:Side box"
+  - "Template:Sidebar with collapsible lists"
+  - "Template:Fix"
+  - "Template:Fix/category"
+  - "Template:Commons"
+  - "Template:Audio"
+  - "Template:Commons category"
+  - "Template:Portal/core"
+  - "Template:Portal"
+  - "Template:Portal-inline"
+  - "Template:Dead link"
+  - "Template:Sister project links"
+  - "Template:Sister-inline"
+  - "Template:Ambox"
+  - "Template:DMCA"
+  - "Template:Refimprove"
+  - "Template:Latin alphabet navbox"
+
+# Remove elements by XML class
+EXCLUDE_CLASSES:
+  - navbox
+  - collapsible
+  - autocollapse
+  - plainlinksneverexpand
+  - navbar
+  - metadata
+  - navigation-box
+  - stub
+  - template-documentation
+  - portal
+  - NavFrame
+  - NavHead
+  - NavContent
+  - thumbinner
+  - thumbcaption
+  - magnify
+  - vertical-navbox
+  - tmbox
+  - maptable
+  - printonly
+  - fmbox
+  - ombox
+  - cmbox
+  - sisterproject
+  - interProject
+  - wikilien_alternatif
+  - bandeau
+  - itwiki_template_avviso
+  - itwiki_template_toc
+  - itwiki_template_disclaimer_v
+
+# Remove elements by XML ID
+EXCLUDE_IDS:
+  - interProject
+
+
+# Text substitutions to be run on the resulting HTML page
+# Matching expressions will be replaced with optional substition text
+# If no substition text is provided, matching patterns will be removed
+
+TEXT_REPLACE:
+
+#   Example: replace all occurances of cat with dog
+#  - re  : cat
+#    sub : dog
+
+#   Example: remove all occurances of tiger
+#  - re  : "tiger"
+

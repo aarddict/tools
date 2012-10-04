@@ -1,0 +1,104 @@
+# Exclude pages/templates
+# This is the fastest and best method of cleaning articles
+# Entries containing a : character must be quoted
+EXCLUDE_PAGES:
+  - "Template:Basic Latin character info"
+  - "Template:audio"
+  - "Template:mul-letter"
+  - "Template:Latn-script"
+  - "Template:pedialite"
+  - "Template:en-letter"
+  - "Template:Latn-def"
+  - "Template:Category"
+  - "Template:trreq"
+  - "Template:Webster 1913"
+  - "Template:wikipedia"
+  - "Template:interwiktionary"
+  - "Template:rfc"
+  - "Template:rfd"
+  - "Template:rfm"
+  - "Template:rfp"
+  - "Template:rfr"
+  - "Template:rfv"
+  - "Template:rfv-etymology"
+  - "Template:rfi"
+  - "Template:rfv-archived"
+  - "Template:rft"
+  - "Template:rf-sound example"
+  - "Template:rfdef"
+  - "Template:rfe"
+  - "Template:rfap"
+  - "Template:rfquote"
+  - "Template:rfdate"
+  - "Template:rfdefcat"
+  - "Template:rfexample"
+  - "Template:lookfrom"
+  - "Template:trans-see"
+
+# Remove elements by XML class
+EXCLUDE_CLASSES:
+  - navbox
+  - collapsible
+  - autocollapse
+  - plainlinksneverexpand
+  - navbar
+  - metadata
+  - navigation-box
+  - stub
+  - template-documentation
+  - portal
+  - thumbinner
+  - thumbcaption
+  - magnify
+  - vertical-navbox
+  - tmbox
+  - maptable
+  - printonly
+  - fmbox
+  - ombox
+  - cmbox
+  - sisterproject
+  - interProject
+  - interProjectTemplate
+  - catlinks
+  - noprint
+  - sister-project
+  - audiotable
+  - toc
+  - checktrans
+  - floatright
+
+# Remove elements by XML ID
+EXCLUDE_IDS:
+  - interProject
+  - sisterproject
+  - catlinks
+  - commonscat
+  - commonslink
+  - commonsinfopict
+
+
+# Text substitutions to be run on the resulting HTML page
+# Matching expressions will be replaced with optional substition text
+# If no substition text is provided, matching patterns will be removed
+
+TEXT_REPLACE:
+
+  # Fix broken template rendering, can be removed when fixed in mwlib
+  # Used in articles like beer and wine
+  - re  : "&lt;(\\w+) (class=[^>]*?)&gt;"
+    sub : "<\\1 \\2>"
+  - re  : "&lt; (class=[^>]*?)&gt;"
+    sub : "<span \\1>"
+  - re  : "&lt;/(\\w+)&gt;"
+    sub : "</\\1>"
+  - re  : "&lt;/&gt;"
+    sub : "</span>"
+
+  # Remove junk text from the end of lists generated using the List template.
+  # Used in articles like wine and pink
+  - re  : "<sup>\\(Category: </sup>.*?<sup class=\"plainlinks\">]</sup>"
+
+  # Remove empty sections
+  # Used in articles like encyclopaedia
+  - re  : "<div><h.>[\\w\\s]*</h.>(<p>\\s*</p>)*</div>"

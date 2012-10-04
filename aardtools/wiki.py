@@ -24,6 +24,8 @@ try:
 except ImportError:
     import simplejson as json
 
+import yaml
+
 from mwlib import uparser, xhtmlwriter, _locale
 from mwlib.log import Log
 Log.logfile = None
@@ -44,7 +46,7 @@ import mwlib.siteinfo
 
 import mwaardhtmlwriter as writer
 
-EXCLUDED_PAGES = frozenset(('Template:Latin alphabet navbox',))
+import re
 
 lic_dir = os.path.join(os.path.dirname(__file__), 'licenses')
 
@@ -56,14 +58,14 @@ known_licenses = {"Creative Commons Attribution-Share Alike 3.0 Unported":
 wikidb = None
 log = logging.getLogger('wiki')
 
-def _create_wikidb(cdbdir, lang, rtl):
+def _create_wikidb(cdbdir, lang, rtl, filters):
     global wikidb
-    wikidb = Wiki(cdbdir, lang, rtl)
+    wikidb = Wiki(cdbdir, lang, rtl, filters)
 
-def _init_process(cdbdir, lang, rtl):
+def _init_process(cdbdir, lang, rtl, filters):
     global log
     log = multiprocessing.get_logger()
-    _create_wikidb(cdbdir, lang, rtl)
+    _create_wikidb(cdbdir, lang, rtl, filters)
 
 class ConvertError(Exception):
 
@@ -113,7 +115,12 @@ def convert(title):
                                        lang=wikidb.lang,
                                        magicwords=wikidb.siteinfo['magicwords'])
         xhtmlwriter.preprocess(mwobject)
-        text, tags, languagelinks = writer.convert(mwobject, rtl=wikidb.rtl)
+        text, tags, languagelinks = writer.convert(mwobject, wikidb.rtl, wikidb.filters)
+
+        if ( len(wikidb.filters['REGEX']) > 0):
+          for item in wikidb.filters['REGEX']:
+            text = item['re'].sub( item['sub'], text )
+
     except EmptyArticleError:
         raise
     except Exception:
@@ -179,7 +186,7 @@ def parse_redirect(text, aliases):
 
 class Wiki(WikiDB):
 
-    def __init__(self, cdbdir, lang, rtl=False):
+    def __init__(self, cdbdir, lang, rtl, filters):
         WikiDB.__init__(self, cdbdir, lang=lang)
         self.lang = lang
         self.rtl = rtl
@@ -192,6 +199,8 @@ class Wiki(WikiDB):
             self.redirect_aliases.add(alias)
             self.redirect_aliases.add(alias.lower())
             self.redirect_aliases.add(alias.upper())
+
+        self.filters = filters
 
     def get_redirect(self, text):
         redirect = parse_redirect(text, self.redirect_aliases)
@@ -215,10 +224,10 @@ class Wiki(WikiDB):
         )
 
     def get_page(self,  name,  revision=None):
-        if name in EXCLUDED_PAGES:
-            return
+        if (name in self.filters['EXCLUDE_PAGES']):
+          return
         else:
-            return WikiDB.get_page(self, name, revision)
+          return WikiDB.get_page(self, name, revision)
 
     def normalize_and_get_page(self, name, defaultns):
         fqname = self.nshandler.get_fqname(name, defaultns=defaultns)
@@ -227,7 +236,7 @@ class Wiki(WikiDB):
     def normalize_and_get_image_path(self, name):
         assert isinstance(name, basestring)
         name = unicode(name)
-        
+
         ns, partial, fqname = self.nshandler.splitname(name, defaultns=6)
         if ns != 6:
             return
@@ -238,7 +247,7 @@ class Wiki(WikiDB):
 
 def total(inputfile, options):
     load_siteinfo(options.siteinfo)
-    w = Wiki(inputfile, options.wiki_lang)
+    w = Wiki(inputfile, options.wiki_lang, options.rtl, options.filters)
     for i, a in enumerate(islice(w.articles(), options.start, options.end)):
         pass
     try:
@@ -275,6 +284,31 @@ def load_siteinfo(filename):
 
     return siteinfo
 
+def load_filters(filename):
+    if not filename:
+        raise Exception('Site filter not specified'
+                        'specify with use --filters)')
+
+    if not os.path.exists(filename):
+        raise Exception('File %s not found' % filename)
+
+    with open(filename) as f:
+        filters = yaml.load(f)
+
+    for filter_section in ['EXCLUDE_PAGES', 'EXCLUDE_CLASSES', 'EXCLUDE_IDS', 'TEXT_REPLACE']:
+      if (filter_section not in filters or filters[filter_section] is None):
+        filters[filter_section] = []
+
+    filters['REGEX'] = []
+    if (len(filters['TEXT_REPLACE']) > 0):
+      for item in filters['TEXT_REPLACE']:
+         sub = ""
+         if ('sub' in item):
+           sub = item['sub']
+         filters['REGEX'].append( { "re": re.compile(item['re']), "sub": sub } )
+
+    return filters
+
 default_description = """ %(title)s for Aard Dictionary is a collection of text documents from %(server)s (articles only). Some documents or portions of documents may have been omited or could not be converted to Aard Dictionary format. All documents can be found online at %(server)s under the same title as displayed in Aard Dictionary.
 """
 
@@ -284,6 +318,7 @@ class WikiParser():
         self.consumer = consumer
         wiki_lang = options.wiki_lang
         siteinfo = load_siteinfo(options.siteinfo)
+        self.filters = load_filters(options.filters)
 
         consumer.add_metadata('siteinfo', siteinfo)
         general_siteinfo = siteinfo['general']
@@ -382,7 +417,7 @@ class WikiParser():
     def articles(self, f):
         if self.start > 0:
             log.info('Skipping to article %d', self.start)
-        _create_wikidb(f, self.lang, self.rtl)
+        _create_wikidb(f, self.lang, self.rtl, self.filters)
         for title in islice(wikidb.articles(), self.start, self.end):
             log.debug('Yielding "%s" for processing', title.encode('utf8'))
             yield title
@@ -395,10 +430,10 @@ class WikiParser():
 
         self.pool = Pool(processes=self.processes,
                          initializer=_init_process,
-                         initargs=[cdbdir, self.lang, self.rtl])
+                         initargs=[cdbdir, self.lang, self.rtl, self.filters])
 
     def parse_simple(self, f):
-        _init_process(f, self.lang, self.rtl)
+        _init_process(f, self.lang, self.rtl, self.filters)
         self.consumer.add_metadata('article_format', 'html')
         articles = self.articles(f)
         for a in articles:
