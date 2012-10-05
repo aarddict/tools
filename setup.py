@@ -3,9 +3,11 @@ from setuptools import setup, find_packages
 
 import aardtools
 
-install_requires = ['aarddict >= 0.9.0',
-                    'PyICU >= 0.8.1',
-                    'mwlib == 0.12.13']
+install_requires = ['PyICU == 1.2',
+                    'aarddict >= 0.9.0',
+                    'mwlib.cdb',
+                    'mwlib.xhtml',
+                    'mwlib >= 0.14.1']
 
 if sys.version_info < (2, 6):
     install_requires += ['simplejson', 'multiprocessing']
