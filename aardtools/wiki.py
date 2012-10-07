@@ -266,6 +266,7 @@ def collect_articles(input_file, options, compiler):
 siteinfo_loaded = False
 
 def load_siteinfo(filename):
+    global siteinfo_loaded
     if siteinfo_loaded:
         return mwlib.siteinfo.get_siteinfo(None)
     if not filename:
@@ -277,7 +278,6 @@ def load_siteinfo(filename):
 
     with open(filename) as f:
         siteinfo = json.load(f)
-        global siteinfo_loaded
         siteinfo_loaded = True
 
     mwlib.siteinfo.get_siteinfo = lambda lang: siteinfo
