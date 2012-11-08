@@ -145,7 +145,7 @@ wiki
 aard
     Dictionaries in aar format. This is useful for updating dictionary metadata
     and changing the way it is split into volumes. Multiple input files can
-    be combined into one single or multi volume fictionary.
+    be combined into one single or multi volume dictionary.
 
 .. _XDXF: http://xdxf.sourceforge.net/
 .. _XDXF-visual: http://xdxf.revdanica.com/drafts/visual/latest/XDXF-draft-028.txt
