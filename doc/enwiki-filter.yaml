@@ -2,32 +2,56 @@
 # This is the fastest and best method of cleaning articles
 # Entries containing a : character must be quoted
 EXCLUDE_PAGES:
-  - "Template:Category handler"
-  - "Template:Navbar"
-  - "Template:Category handler/blacklist"
-  - "Template:Category handler/numbered"
-  - "Template:Navbox"
-  - "Template:Sister"
   - "Template:Only in print"
+  # Don't process navigation boxes
+  - "Template:Navbar"
+  - "Template:Navbox"
   - "Template:Navboxes"
-  - "Template:Refimprove section"
   - "Template:Side box"
   - "Template:Sidebar with collapsible lists"
-  - "Template:Fix"
-  - "Template:Fix/category"
-  - "Template:Commons"
+  # No need for audio
   - "Template:Audio"
-  - "Template:Commons category"
-  - "Template:Portal/core"
+  - "Template:Spoken Wikipedia"
+  # Aard does not need categories or portals or sister sites
+  - "Template:Category handler"
+  - "Template:Category handler/blacklist"
+  - "Template:Category handler/numbered"
   - "Template:Portal"
+  - "Template:Portal/core"
   - "Template:Portal-inline"
-  - "Template:Dead link"
+  - "Template:Sister"
   - "Template:Sister project links"
   - "Template:Sister-inline"
-  - "Template:Ambox"
+  - "Template:Commons"
+  - "Template:Commons category"
+  - "Template:Dated maintenance category"
   - "Template:DMCA"
-  - "Template:Refimprove"
+  # Bulky and unnecessary tables
   - "Template:Latin alphabet navbox"
+  - "Template:Greek Alphabet"
+  # Message boxes for wiki editors
+  - "Template:Tmbox"
+  - "Template:Imbox"
+  - "Template:Ambox"
+  - "Template:Refimprove"
+  - "Template:Refimprove section"
+  - "Template:Fix"
+  - "Template:Fix/category"
+  - "Template:Dead link"
+  # No need to process templates that add article icons
+  - "Template:Featured article"
+  - "Template:Good article"
+  - "Template:Top icon"
+  # on the 2013-02-04 enwiki dump, the Location map all template displays an error message.
+  # Example articles: All letters of the roman alphabet
+  - "Template:Location map"
+  - "Template:Location map all"
+  - "Template:Location map+"
+  # on the 2013-02-04 enwiki dump, the Wide image template causes any following text to be displayed
+  # in a very narrow column (Example articles: Athens, Central America)
+  - "Template:Wide image"
+  # Remove footnotes to speed up processing and reduce size
+  - "Template:Reflist"
 
 # Remove elements by XML class
 EXCLUDE_CLASSES:
