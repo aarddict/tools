@@ -8,7 +8,7 @@ Aard Tools
 .. moduleauthor:: Jeremy Mortis
 .. moduleauthor:: Igor Tkach
 
-Aard Dictionary uses dictionaries in it's own 
+Aard Dictionary uses dictionaries in it's own
 :doc:`binary format <aardformat>` designed for fast word lookups and high
 compression. `Aard Tools` is a collection of tools to produce
 :doc:`Aard files <aardformat>` (``.aar``).
@@ -19,7 +19,7 @@ Installation
 .. note::
    Examples below use ``apt-get`` on Ubuntu Linux. Consult your
    distibution's packaging system to find corresponding package names
-   and commands to install them. 
+   and commands to install them.
 
 Prerequisits
 ------------
@@ -37,12 +37,16 @@ It is highly recommended to install and run `Aard Tools` inside
 
   sudo apt-get install python-virtualenv
 
-`Aard Tools` rely on Python interfaces to 
+`Aard Tools` rely on Python interfaces to
 `International Components for Unicode`_, which must be installed
 beforehand::
 
-  sudo apt-get install libicu38 libicu-dev
- 
+  sudo apt-get install libicu-dev
+
+Install other non-Python dependencies::
+
+  sudo apt-get install libevent-dev
+
 If you would like to get source code repository you will need
 Git_::
 
@@ -55,7 +59,7 @@ Git_::
 
 When compiling Wikipedia into dictionary with HTML articles `Aard
 Tools` renders mathematical formulas using several tools: :command:`latex`,
-:command:`blahtexml`, :command:`texvc` and :command:`dvipng`. 
+:command:`blahtexml`, :command:`texvc` and :command:`dvipng`.
 
 Install :command:`latex`::
 
@@ -88,10 +92,10 @@ neither tools is installed) article ends up with raw math markup.
 .. note::
    This applies to HTML article format (:term:`aar-HTML`), which is what aardtools 0.8.0
    uses for Wikipedia by default. Articles in older JSON format (:term:`aar-JSON`) do not
-   support math rendering. 
+   support math rendering.
 
 .. warning::
-   aarddict 0.7.x can't render :term:`aar-HTML` articles, will show raw HTML. 
+   aarddict 0.7.x can't render :term:`aar-HTML` articles, will show raw HTML.
 
 Installation
 ------------
@@ -121,7 +125,7 @@ Install `Aard Tools`::
   pip install aardtools
 
 or, if you would like to install from the source code repository at
-GitHub:: 
+GitHub::
 
   pip install -e git+git://github.com/aarddict/tools.git#egg=aardtools
 
@@ -133,9 +137,9 @@ Entry point for `Aard Tools` is ``aardc`` command - Aard Dictionary compiler. It
 requires two arguments: input file type and input file name. Input
 file type is the name of Python module that actually reads input files and
 performs article conversion. `Aard Tools` "out of the box" comes with
-support for the following input types: 
+support for the following input types:
 
-xdxf 
+xdxf
     Dictionaries in XDXF_ format (only `XDXF-visual`_ is supported).
 
 wiki
@@ -180,7 +184,7 @@ free up disk space. Compile aar dictionary from the article database::
 Compiler infers from the input file name that Wikipedia language
 is "simple" and that version is 20101026. These need to be specified
 explicitely through command line options if cdb directory name doesn't
-follow the pattern of the xml dump file names. 
+follow the pattern of the xml dump file names.
 
 If siteinfo's general section specifies one of the two licences used
 for `Wikimedia Foundation`_ projects - `Creative Commons
@@ -201,10 +205,10 @@ Compiling XDXF Dictionaries
 
 Get a XDXF dictionary, for example::
 
-  wget http://downloads.sourceforge.net/xdxf/comn_dictd04_wn.tar.bz2 
+  wget http://downloads.sourceforge.net/xdxf/comn_dictd04_wn.tar.bz2
 
-Compile aar dictionary:: 
- 
+Compile aar dictionary::
+
   aardc xdxf comn_dictd04_wn.tar.bz2
 
 Compiling Aard Dictionaries
@@ -212,12 +216,12 @@ Compiling Aard Dictionaries
 .aar dictionaries themselves can be used as input for aardc. This is useful
 when dictionary's metadata need to be updated or dictionary needs to be split
 up into several smaller volumes. For example, to split large dictionary
-`dict.aar` into volumes with maximum size of 10 Mb run:: 
+`dict.aar` into volumes with maximum size of 10 Mb run::
 
   aardc aard dict.aar -o dict-split.aar -s 10m
 
 If `dict.aar` is, say, 15 Mb this will produce two files: 10 Mb `dict-split.1_of_2.aar`
-and 5Mb `dict-split.2_of_2.aar`. 
+and 5Mb `dict-split.2_of_2.aar`.
 
 To update dictionary metadata::
 
@@ -227,7 +231,7 @@ To update dictionary metadata::
 Compiling WordNet_
 ------------------
 
-.. versionadded: 0.8.2   
+.. versionadded: 0.8.2
 
 Get complete WordNet_ distribution::
 
@@ -239,7 +243,7 @@ Unpack it::
 
 and compile::
 
-  aardc wordnet WordNet-3.0	
+  aardc wordnet WordNet-3.0
 
 .. _WordNet: http://wordnet.princeton.edu/
 
@@ -282,9 +286,9 @@ Release Notes
 - Change article format for xdxf from json to html
 
 - Add option ``--skip-article-title`` for xdxf to not add article title
-  at the beginning of article (some dicitonaries already have it) 
+  at the beginning of article (some dicitonaries already have it)
 
-- Remove support for article :term:`aar-JSON` article format 
+- Remove support for article :term:`aar-JSON` article format
 
 - Add command to fetch siteinfo, require that siteinfo file is
   explicitely specified with ``--siteinfo`` option
@@ -320,12 +324,12 @@ Release Notes
   articles (when converting to HTML)
 
 - Use upwords arrow character instead of ^ for footnote back
-  references 
+  references
 
 - Add list of language link languages to metadata
 
 - Generate smaller dictionaries when compiling Wikipedia by excluding
-  more metadata, navigation and image related elements 
+  more metadata, navigation and image related elements
 
 0.7.6
 -----
@@ -340,7 +344,7 @@ Release Notes
   article storage to reduce disk space requirements
 
 - Change default max file size to 2 :superscript:`31` - 1 instead of
-  2 :superscript:`32` - 1 
+  2 :superscript:`32` - 1
 
 0.7.5
 -----
