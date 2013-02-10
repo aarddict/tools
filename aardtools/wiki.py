@@ -119,8 +119,8 @@ def convert(title):
         text, tags, languagelinks = writer.convert(mwobject, wikidb.rtl, wikidb.filters)
 
         if ( len(wikidb.filters['REGEX']) > 0):
-          for item in wikidb.filters['REGEX']:
-            text = item['re'].sub( item['sub'], text )
+            for item in wikidb.filters['REGEX']:
+                text = item['re'].sub( item['sub'], text )
 
     except EmptyArticleError:
         raise
