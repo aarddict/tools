@@ -50,8 +50,6 @@ EXCLUDE_PAGES:
   # on the 2013-02-04 enwiki dump, the Wide image template causes any following text to be displayed
   # in a very narrow column (Example articles: Athens, Central America)
   - "Template:Wide image"
-  # Remove footnotes to speed up processing and reduce size
-  - "Template:Reflist"
 
 # Remove elements by XML class
 EXCLUDE_CLASSES:
