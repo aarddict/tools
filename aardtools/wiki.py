@@ -17,6 +17,7 @@ from __future__ import with_statement
 import functools
 import logging
 import os
+import urlparse
 from itertools import islice
 
 try:
@@ -50,9 +51,9 @@ import re
 
 lic_dir = os.path.join(os.path.dirname(__file__), 'licenses')
 
-known_licenses = {"Creative Commons Attribution-Share Alike 3.0 Unported": 
+known_licenses = {"Creative Commons Attribution-Share Alike 3.0 Unported":
                   os.path.join(lic_dir, "ccasau-3.0.txt"),
-                  "GNU Free Documentation License 1.2": 
+                  "GNU Free Documentation License 1.2":
                   os.path.join(lic_dir, "gfdl-1.2.txt")}
 
 wikidb = None
@@ -319,6 +320,37 @@ def load_filters(filename):
 default_description = """ %(title)s for Aard Dictionary is a collection of text documents from %(server)s (articles only). Some documents or portions of documents may have been omited or could not be converted to Aard Dictionary format. All documents can be found online at %(server)s under the same title as displayed in Aard Dictionary.
 """
 
+
+def fix_server_url(general_siteinfo):
+    """
+    Get server url from siteinfo's 'general' dict,
+    add http if scheme is missing. This will also modify
+    given dictionary.
+
+    >>> general_siteinfo = {'server': '//simple.wikipedia.org'}
+    >>> fix_server_url(general_siteinfo)
+    'http://simple.wikipedia.org'
+    >>> general_siteinfo
+    {'server': 'http://simple.wikipedia.org'}
+
+    >>> fix_server_url({'server': 'https://en.wikipedia.org'})
+    'https://en.wikipedia.org'
+
+    >>> fix_server_url({})
+    ''
+
+    """
+    server = general_siteinfo.get('server', '')
+    if server:
+        p = urlparse.urlparse(server)
+        if not p.scheme:
+            server = urlparse.urlunparse(
+                urlparse.ParseResult('http', p.netloc, p.path,
+                                     p.params, p.query, p.fragment))
+            general_siteinfo['server'] = server
+    return server
+
+
 class WikiParser():
 
     def __init__(self, options, consumer):
@@ -365,25 +397,27 @@ class WikiParser():
 
         if license_file:
             with open(license_file) as f:
-                log.info('Using license text from %s', license_file)            
+                log.info('Using license text from %s', license_file)
                 license_text = f.read()
-                self.consumer.add_metadata('license', license_text)            
-                
+                self.consumer.add_metadata('license', license_text)
+
         if options.copyright:
             copyright_file = options.copyright
             with open(copyright_file) as f:
-                log.info('Using copyright text from %s', copyright_file)            
+                log.info('Using copyright text from %s', copyright_file)
                 copyright_text = f.read()
-                self.consumer.add_metadata('copyright', copyright_text)                        
+                self.consumer.add_metadata('copyright', copyright_text)
 
         self.consumer.add_metadata("title", sitename)
         if options.dict_ver:
-            self.consumer.add_metadata("version", 
-                                       "-".join((options.dict_ver, 
+            self.consumer.add_metadata("version",
+                                       "-".join((options.dict_ver,
                                                  options.dict_update)))
-        server = general_siteinfo['server']
+
+        server = fix_server_url(general_siteinfo)
+
         self.consumer.add_metadata("source", server)
-        self.consumer.add_metadata("description", default_description % dict(server=server, 
+        self.consumer.add_metadata("description", default_description % dict(server=server,
                                                                              title=sitename))
 
         self.lang = wiki_lang
