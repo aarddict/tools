@@ -28,7 +28,7 @@ import time
 import shutil
 from datetime import timedelta
 
-from PyICU import Locale, Collator
+from icu import Locale, Collator
 
 try:
     import json
