@@ -23,7 +23,9 @@ class XHTMLWriter(MWXHTMLWriter):
     paratag = 'p'
 
     def __init__(self, filters, env=None, status_callback=None,imagesrcresolver=None, debug=False):
-        self.filters = filters
+        #self.filters = filters
+        self.exclude_classes = set(filters.get('EXCLUDE_CLASSES', ()))
+        self.exclude_ids = set(filters.get('EXCLUDE_IDS', ()))
         MWXHTMLWriter.__init__(self, env, status_callback, imagesrcresolver, debug)
         #keep reference list for each group serparate
         self.references = defaultdict(list)
@@ -147,21 +149,19 @@ class XHTMLWriter(MWXHTMLWriter):
 
     def xwriteTable(self, obj):
         tableclasses = obj.attributes.get('class', '').split()
-        if ( len(self.filters['EXCLUDE_CLASSES']) > 0 and
-             any((tableclass in self.filters['EXCLUDE_CLASSES'] for tableclass in tableclasses))):
+        if any((tableclass in self.exclude_classes for tableclass in tableclasses)):
             return SkipChildren()
         id_attr = obj.attributes.get('id', '')
-        if ( len(self.filters['EXCLUDE_IDS']) > 0 and id_attr in self.filters['EXCLUDE_IDS']):
+        if  id_attr in self.exclude_ids:
             return SkipChildren()
         return MWXHTMLWriter.xwriteTable(self, obj)
 
     def xwriteGenericElement(self, obj):
         classes = obj.attributes.get('class', '').split()
-        if ( len(self.filters['EXCLUDE_CLASSES']) > 0 and
-             any((genericclass in self.filters['EXCLUDE_CLASSES'] for genericclass in classes))):
+        if any((genericclass in self.exclude_classes for genericclass in classes)):
             return SkipChildren()
         id_attr = obj.attributes.get('id', '')
-        if ( len(self.filters['EXCLUDE_IDS']) > 0 and id_attr in self.filters['EXCLUDE_IDS']):
+        if id_attr in self.exclude_ids:
             return SkipChildren()
         return MWXHTMLWriter.xwriteGenericElement(self, obj)
 

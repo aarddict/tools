@@ -118,9 +118,8 @@ def convert(title):
         xhtmlwriter.preprocess(mwobject)
         text, tags, languagelinks = writer.convert(mwobject, wikidb.rtl, wikidb.filters)
 
-        if ( len(wikidb.filters['REGEX']) > 0):
-            for item in wikidb.filters['REGEX']:
-                text = item['re'].sub( item['sub'], text )
+        for item in wikidb.filters.get('REGEX', ()):
+            text = item['re'].sub( item['sub'], text )
 
     except EmptyArticleError:
         raise
@@ -202,7 +201,7 @@ class Wiki(WikiDB):
             self.redirect_aliases.add(alias.upper())
 
         self.filters = filters
-        raw_exclude_pages_filters = self.filters['EXCLUDE_PAGES']
+        raw_exclude_pages_filters = self.filters.get('EXCLUDE_PAGES', ())
         self.exclude_pages_filters = [re.compile(ex, re.UNICODE)
                                       for ex in raw_exclude_pages_filters]
 
@@ -294,9 +293,7 @@ def load_siteinfo(filename):
 
 def load_filters(filename):
     if not filename:
-        raise Exception('Site filter not specified'
-                        'specify with use --filters)')
-
+        return {}
     if not os.path.exists(filename):
         raise Exception('File %s not found' % filename)
 
