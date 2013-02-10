@@ -309,11 +309,11 @@ def load_filters(filename):
     filters['REGEX'] = []
     text_replace_filters = filters.get('TEXT_REPLACE')
     if text_replace_filters:
-      for item in filters['TEXT_REPLACE']:
-         sub = ""
-         if ('sub' in item):
-           sub = item['sub']
-         filters['REGEX'].append( { "re": re.compile(item['re']), "sub": sub } )
+        for item in filters['TEXT_REPLACE']:
+            sub = ""
+            if 'sub' in item:
+                sub = item['sub']
+            filters['REGEX'].append( { "re": re.compile(item['re']), "sub": sub } )
 
     return filters
 
