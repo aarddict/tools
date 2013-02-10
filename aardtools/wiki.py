@@ -201,6 +201,10 @@ class Wiki(WikiDB):
             self.redirect_aliases.add(alias.upper())
 
         self.filters = filters
+        raw_exclude_pages_filters = self.filters['EXCLUDE_PAGES']
+        self.exclude_pages_filters = [re.compile(ex, re.UNICODE)
+                                      for ex in raw_exclude_pages_filters]
+
 
     def get_redirect(self, text):
         redirect = parse_redirect(text, self.redirect_aliases)
@@ -223,11 +227,14 @@ class Wiki(WikiDB):
             script_extension=self.nfo['script_extension'],
         )
 
+    def _matches_exclude(self, name):
+        return any(fltr.match(name) for fltr in self.exclude_pages_filters)
+
     def get_page(self,  name,  revision=None):
-        if (name in self.filters['EXCLUDE_PAGES']):
-          return
+        if self._matches_exclude(name):
+            return
         else:
-          return WikiDB.get_page(self, name, revision)
+            return WikiDB.get_page(self, name, revision)
 
     def normalize_and_get_page(self, name, defaultns):
         fqname = self.nshandler.get_fqname(name, defaultns=defaultns)
@@ -244,11 +251,11 @@ class Wiki(WikiDB):
         if "/" in fqname:
             return None
 
-
 def total(inputfile, options):
     load_siteinfo(options.siteinfo)
-    w = Wiki(inputfile, options.wiki_lang, options.rtl, options.filters)
-    for i, a in enumerate(islice(w.articles(), options.start, options.end)):
+    filters = load_filters(options.filters)
+    w = Wiki(inputfile, options.wiki_lang, options.rtl, filters)
+    for i,a in enumerate(islice(w.articles(), options.start, options.end)):
         pass
     try:
         return i+1
@@ -296,11 +303,11 @@ def load_filters(filename):
         filters = yaml.load(f)
 
     for filter_section in ['EXCLUDE_PAGES', 'EXCLUDE_CLASSES', 'EXCLUDE_IDS', 'TEXT_REPLACE']:
-      if (filter_section not in filters or filters[filter_section] is None):
-        filters[filter_section] = []
+        filters.setdefault(filter_section, [])
 
     filters['REGEX'] = []
-    if (len(filters['TEXT_REPLACE']) > 0):
+    text_replace_filters = filters.get('TEXT_REPLACE')
+    if text_replace_filters:
       for item in filters['TEXT_REPLACE']:
          sub = ""
          if ('sub' in item):
@@ -319,7 +326,6 @@ class WikiParser():
         wiki_lang = options.wiki_lang
         siteinfo = load_siteinfo(options.siteinfo)
         self.filters = load_filters(options.filters)
-
         consumer.add_metadata('siteinfo', siteinfo)
         general_siteinfo = siteinfo['general']
         sitename = general_siteinfo['sitename']
