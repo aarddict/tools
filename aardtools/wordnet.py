@@ -279,13 +279,13 @@ class WordNet():
             aard_p = ('WordNet for Aard Dictionary is a collection of articles '
                       'consisting of all meanings of a given word and links '
                       'to lexically and sematically related words.')
-            consumer.add_metadata('description', 
+            consumer.add_metadata('description',
                                   '\n\n'.join((first_p, second_p, aard_p)))
 
         with open(license_file) as f:
             license_text = f.read()
-            aard_p = """(This is original WordNet license text. 
-Note that the software covered by this license 
+            aard_p = """(This is original WordNet license text.
+Note that the software covered by this license
 is WordNet software, not Aard Dictionary.)
 """
             consumer.add_metadata('license', '\n'.join((aard_p, license_text)))

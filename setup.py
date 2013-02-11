@@ -24,7 +24,7 @@ setup(
                             ]
     },
     install_requires = install_requires,
-    package_data={'aardtools': ['licenses/*.txt']},    
+    package_data={'aardtools': ['licenses/*.txt']},
     author = "Igor Tkach",
     author_email = "itkach@aarddict.org",
     description =  '''Tools to create dictionaries in aarddict format.''',
