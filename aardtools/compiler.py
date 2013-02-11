@@ -338,12 +338,12 @@ class TempArticleStore(object):
         fd, self.title_store_name = tempfile.mkstemp(prefix='aa-', suffix='.titles', dir=work_dir)
         self.title_store = os.fdopen(fd, 'w')
         fd, self.store_idx_name = tempfile.mkstemp(suffix='.index',
-                                                   prefix='aa-',
+                                                   prefix='aa-', 
                                                    dir=work_dir)
         self.store_idx = os.fdopen(fd, 'wb')
 
         fd, self.article_store_name = tempfile.mkstemp(suffix='.articles',
-                                                        prefix='aa-',
+                                                        prefix='aa-', 
                                                         dir=work_dir)
         self.article_store = os.fdopen(fd, 'wb')
 
@@ -356,25 +356,25 @@ class TempArticleStore(object):
 
     def append(self, title, article):
         self.title_store.write(title)
-        title_len = len(title)
-
+        title_len = len(title)        
+        
         self.article_store.write(article)
-        article_len = len(article)
-
-        self.store_idx.write(self.pack(self.title_start, title_len,
+        article_len = len(article)        
+        
+        self.store_idx.write(self.pack(self.title_start, title_len, 
                                        self.article_start, article_len))
 
         self.title_start += title_len
         self.article_start += article_len
-
+        
 
     def sorted(self, key=None):
-        """ Return generator that produces ordered (title, article)
+        """ Return generator that produces ordered (title, article) 
         pairs sorted by title.
 
-        :param key: function of one argument that takes article title
-                    and returns sort key for this title, title itself is used
-                    as key if key function is None
+        :param key: function of one argument that takes article title 
+                    and returns sort key for this title, title itself is used 
+                    as key if key function is None        
         """
 
         self.title_store.flush()
@@ -409,7 +409,7 @@ class TempArticleStore(object):
                     for i in sorted(xrange(len(store_idx)/self.fmt_size),
                                     key=realkey):
                         title_start, title_len, article_start, article_len = index_item_at(i)
-                        yield (title_store[title_start:title_start+title_len],
+                        yield (title_store[title_start:title_start+title_len], 
                                article_store[article_start:article_start+article_len])
 
     def close(self):
@@ -418,7 +418,7 @@ class TempArticleStore(object):
         self.store_idx.close()
         os.remove(self.title_store_name)
         os.remove(self.article_store_name)
-        os.remove(self.store_idx_name)
+        os.remove(self.store_idx_name)        
 
 class Compiler(object):
 
@@ -1026,7 +1026,7 @@ def main():
 
     display.write('Writing log to ').bold(log_file_name).writeln()
     root_logger = logging.getLogger()
-    root_logger.handlers[:] = []
+    root_logger.handlers[:] = []    
     logging.basicConfig(format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
                         level=log_level,
                         filename=log_file_name,
