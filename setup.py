@@ -16,7 +16,7 @@ setup(
     entry_points = {
         'console_scripts': ['aardcompile = aardtools.compiler:main',
                             'aardc = aardtools.compiler:main',
-                            'aard-siteinfo = aardtools.fetchsiteinfo:main',
+                            'aard-siteinfo = aardtools.wiki.fetchsiteinfo:main',
                             ]
     },
     install_requires = install_requires,
