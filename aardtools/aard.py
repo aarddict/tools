@@ -10,32 +10,44 @@
 # GNU General Public License <http://www.gnu.org/licenses/gpl-3.0.txt>
 # for more details.
 #
-# Copyright (C) 2008-2009  Igor Tkach
+# Copyright (C) 2008-2013  Igor Tkach
 
 from aarddict import dictionary
 
-def total(inputfile, options):
-    d = dictionary.Volume(inputfile)
-    d.close()
-    return len(d)
 
-def collect_articles(input_file, options, compiler):
-    p = AardParser(compiler)
-    p.parse(input_file)
+import collections
+from aardtools.compiler import ArticleSource, Article
 
-def make_input(input_file_name):
-    return input_file_name
 
-class AardParser():
+class AardArticleSource(ArticleSource, collections.Sized):
 
-    def __init__(self, consumer):
-        self.consumer = consumer
+    @classmethod
+    def register_argarser(cls, subparsers, parents):
+        parser = subparsers.add_parser('aard', parents=parents)
+        parser.set_defaults(article_source_class=cls)
 
-    def parse(self, f):
-        d = dictionary.Volume(f)
-        for key, val in d.metadata.iteritems():
-            self.consumer.add_metadata(key, val)
-        for i, article in enumerate(d.articles):
-            title= d.words[i]
-            self.consumer.add_article(title, article)
-        d.close()
+    def __init__(self, args):
+        super(AardArticleSource, self).__init__(self)
+        self.input_files = args.input_files
+        self._metadata = {}
+
+    @property
+    def metadata(self):
+        return self._metadata
+
+    def __len__(self):
+        count = 0
+        for name in self.input_files:
+            d = dictionary.Volume(name)
+            count += len(d)
+            d.close()
+        return count
+
+    def __iter__(self):
+        for name in self.input_files:
+            d = dictionary.Volume(name)
+            self._metadata.update(d.metadata)
+            for i, article in enumerate(d.articles):
+                title= d.words[i]
+                yield Article(title, article)
+            d.close()

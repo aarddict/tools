@@ -1,4 +1,3 @@
-import sys
 from setuptools import setup, find_packages
 
 import aardtools
@@ -9,9 +8,6 @@ install_requires = ['PyICU >= 1.0',
                     'mwlib.xhtml',
                     'pyyaml',
                     'mwlib >= 0.14.1']
-
-if sys.version_info < (2, 6):
-    install_requires += ['simplejson', 'multiprocessing']
 
 setup(
     name = aardtools.__name__,
@@ -31,8 +27,8 @@ setup(
     author_email = "itkach@aarddict.org",
     description =  '''Tools to create dictionaries in aarddict format.''',
     license = "GPL 3",
-    keywords = ['aarddict', 'aardtools', 'wiki', 'wikipedia',
-                'xdxf', 'dict', 'dictionary', 'maemo'],
+    keywords = ['aarddict', 'aardtools', 'wiki', 'wikipedia', 'wordnet',
+                'xdxf', 'dict', 'dictionary'],
     url = "http://aarddict.org",
     classifiers=[
                  'Development Status :: 3 - Alpha',
@@ -43,4 +39,3 @@ setup(
                  'Environment :: Console'
     ]
 )
-

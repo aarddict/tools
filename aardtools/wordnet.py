@@ -10,7 +10,7 @@
 # GNU General Public License <http://www.gnu.org/licenses/gpl-3.0.txt>
 # for more details.
 #
-# Copyright (C) 2008-2009  Igor Tkach
+# Copyright (C) 2008-2013  Igor Tkach
 
 import os
 import json
@@ -31,30 +31,45 @@ quoted_text = re.compile(r'"([^"]+|\.)*["|\n]')
 
 ref = re.compile(r"`(\w+)'")
 
-wordnet = None
 
-def total(inputfile, options):
-    global wordnet
-    wordnet = WordNet(inputfile)
-    wordnet.prepare()
-    count = 0
-    for title in wordnet.collector:
-        has_article = False
-        for piece in wordnet.collector[title]:
-            if isinstance(piece, tuple):
+import collections
+from aardtools.compiler import ArticleSource, Article
+
+
+class WordNetArticleSource(ArticleSource, collections.Sized):
+
+    @classmethod
+    def register_argarser(cls, subparsers, parents):
+        parser = subparsers.add_parser('wordnet', parents=parents)
+        parser.set_defaults(article_source_class=cls)
+
+
+    def __init__(self, args):
+        super(WordNetArticleSource, self).__init__(self)
+        input_file = os.path.expanduser(args.input_files[0])
+        self.wordnet = WordNet(input_file)
+        self.wordnet.prepare()
+
+    @property
+    def metadata(self):
+        return self.wordnet.metadata
+
+    def __len__(self):
+        count = 0
+        for title in self.wordnet.collector:
+            has_article = False
+            for piece in self.wordnet.collector[title]:
+                if isinstance(piece, tuple):
+                    count += 1
+                else:
+                    has_article = True
+            if has_article:
                 count += 1
-            else:
-                has_article = True
-        if has_article:
-            count += 1
-    return count
+        return count
 
+    def __iter__(self):
+        return self.wordnet.process()
 
-def collect_articles(input_file, options, compiler):
-    wordnet.process(compiler)
-
-def make_input(input_file_name):
-    return input_file_name #this should be wordnet dir, leave it alone
 
 def iterlines(wordnetdir):
     dict_dir = os.path.join(wordnetdir, 'dict')
@@ -180,6 +195,7 @@ class WordNet():
     def __init__(self, wordnetdir):
         self.wordnetdir = wordnetdir
         self.collector = defaultdict(list)
+        self.metadata = {}
 
     def prepare(self):
 
@@ -257,15 +273,15 @@ class WordNet():
 
 
 
-    def process(self, consumer):
+    def process(self):
 
         readme_file = os.path.join(self.wordnetdir, 'README')
         license_file = os.path.join(self.wordnetdir, 'LICENSE')
 
-        consumer.add_metadata('title', 'WordNet')
-        consumer.add_metadata('index_language', 'en')
-        consumer.add_metadata('article_language', 'en')
-        consumer.add_metadata('source', 'http://wordnet.princeton.edu')
+        self.metadata['title']  = 'WordNet'
+        self.metadata['index_language'] =  'en'
+        self.metadata['article_language'] =  'en'
+        self.metadata['source'] = 'http://wordnet.princeton.edu'
 
         with open(readme_file) as f:
             readme = f.read()
@@ -279,8 +295,7 @@ class WordNet():
             aard_p = ('WordNet for Aard Dictionary is a collection of articles '
                       'consisting of all meanings of a given word and links '
                       'to lexically and sematically related words.')
-            consumer.add_metadata('description',
-                                  '\n\n'.join((first_p, second_p, aard_p)))
+            self.metadata['description'] = '\n\n'.join((first_p, second_p, aard_p))
 
         with open(license_file) as f:
             license_text = f.read()
@@ -288,9 +303,9 @@ class WordNet():
 Note that the software covered by this license
 is WordNet software, not Aard Dictionary.)
 """
-            consumer.add_metadata('license', '\n'.join((aard_p, license_text)))
+            self.metadata['license'] = '\n'.join((aard_p, license_text))
             version = license_text.splitlines()[0].split()[-1]
-            consumer.add_metadata('version', version)
+            self.metadata['version'] = version
 
         article_template = '<h1>%s</h1><span>%s</span>'
 
@@ -315,14 +330,10 @@ is WordNet software, not Aard Dictionary.)
                         (title, article_pieces[0]))
 
             if text:
-                consumer.add_article(title,
-                                     json.dumps((text, [])),
-                                     redirect=False)
+                yield Article(title, json.dumps((text, [])))
 
             #add redirects after articles so that
             #redirects to titles that have both articles and
             #redirects land on articles
             for redirect in redirects:
-                consumer.add_article(title,
-                                     json.dumps(redirect),
-                                     redirect=True)
+                yield Article(title, json.dumps(redirect), isredirect=True)

@@ -12,28 +12,26 @@
 # GNU General Public License <http://www.gnu.org/licenses/gpl-3.0.txt>
 # for more details.
 #
-# Copyright (C) 2008-2009  Jeremy Mortis, Igor Tkach
+# Copyright (C) 2008-2009  Jeremy Mortis
+# Copyright (C) 2008-2013  Igor Tkach
 
 
-from __future__ import with_statement
-import uuid
-import logging
-import sys
-import struct
-import os
-import tempfile
-import optparse
+import argparse
 import functools
-import time
+import json
+import logging
+import os
 import shutil
+import struct
+import sys
+import tempfile
+import time
+import uuid
+
 from datetime import timedelta
 
 from icu import Locale, Collator
 
-try:
-    import json
-except ImportError:
-    import simplejson as json
 
 from aarddict.dictionary import HEADER_SPEC, spec_len, calcsha1, collation_key
 import aardtools
@@ -49,174 +47,102 @@ KEY_LENGTH_FORMAT = '>H'
 ARTICLE_LENGTH_FORMAT = '>L'
 INDEX1_ITEM_FORMAT = '>LL'
 
-def make_opt_parser():
-    usage = "Usage: %prog [options] (wiki|xdxf|aard) FILE"
-    parser = optparse.OptionParser(version="%prog "+aardtools.__version__, usage=usage)
-    parser.add_option(
-        '-o', '--output-file',
-        default='',
-        help=
-        'Output file name. By default is the same as input '
-        'file base name with .aar extension'
-        )
-    parser.add_option(
-        '-s', '--max-file-size',
-        default=str(2**31-1),
-        help=
-        'Maximum file size in bytes, kilobytes(K), megabytes(M) or gigabytes(G). '
-        'Default: %default bytes'
-        )
-    parser.add_option(
-        '-t', '--templates',
-        default=None,
-        help='Template definitions database'
-        )
-    parser.add_option(
-        '-d', '--debug',
-        action='store_true',
-        default=False,
-        help='Turn on debugging messages'
-        )
-    parser.add_option(
-        '-q', '--quite',
-        action='store_true',
-        default=False,
-        help='Print minimal information about compilation progress'
-        )
-    parser.add_option(
-        '--timeout',
-        type='float',
-        default=2.0,
-        help=
-        'Skip article if it was not process in the amount of time '
-        'specified. Default: %defaults'
-        )
-    parser.add_option(
-        '--processes',
-        type='int',
-        default=None,
-        help=
-        'Size of the worker pool (by default equals to the '
-        'number of detected CPUs).'
-        )
-    parser.add_option(
-        '--nomp',
-        action='store_true',
-        default=False,
-        help='Disable multiprocessing, useful for debugging.'
-        )
-    parser.add_option(
-        '--metadata',
-        default=None,
-        help='INI containing dictionary metadata in [metadata] section'
-        )
-    parser.add_option(
-        '--license',
-        default=None,
-        help='Name of a UTF-8 encoded text file containing license text'
-        )
-    parser.add_option(
-        '--copyright',
-        default=None,
-        help='Name of a UTF-8 encoded text file containing copyright notice'
-        )
-    parser.add_option(
-        '--work-dir',
-        default='.',
-        help=
-        'Directory for temporary file created during compilatiod. '
-        'Default: %default'
-        )
-    parser.add_option(
-        '--start',
-        default=0,
-        type='int',
-        help='Starting article, skip all articles before. Default: %default'
-        )
-
-    parser.add_option(
-        '--end',
-        default=None,
-        type='int',
-        help='End article, stop processing at this article. Default: %default'
-        )
-
-    parser.add_option(
-        '--dict-ver',
-        help='Version of the compiled dictionary'
-        )
-
-    parser.add_option(
-        '--dict-update',
-        default='1',
-        help='Update number for the compiled dictionary. Default: %default'
-        )
-
-    parser.add_option(
-        '--wiki-lang',
-        help='Wikipedia language (like en, de, fr). This may be different from actual language '
-        'in which articles are written. For example, the value for Simple English Wikipedia  is "simple" '
-        '(although the actual articles language is "en"). This is inferred from input file name '
-        'if it follows same naming pattern as Wiki XML dumps and starts with "{lang}wiki". '
-        'Default: %default'
-        )
-
-    parser.add_option(
-        '--mp-chunk-size',
-        default=10000,
-        type='int',
-        help='This value defines maximum number articles to be processed by pool'
-        'of worker processes before it is closed and new pool is created. Typically'
-        'there should be no need to change the default value.'
-        'Default: %default'
-        )
-
-    parser.add_option(
-        '--show-legend',
-        action='store_true',
-        help='Show progress legend'
-        )
-
-    parser.add_option('--log-file',
-                       help='Log file name. By default derived from output '
-                       'file name by adding .log extension')
-
-    parser.add_option('-r', '--remove-session-dir',
-                      action='store_true',
-                      help='Remove session directory after compilation.')
-
-    parser.add_option(
-        '--lang-links',
-        help='Add Wikipedia language links to index for these languages '
-        '(comma separated list of language codes). Default: %default')
-
-    parser.add_option(
-        '--article-count',
-        default=0,
-        type='int',
-        help=('Request specific number of articles, skip redirects '
-              '(if set to a number greater then 0). '
-              'Default: %default'))
-
-    parser.add_option(
-        '--skip-article-title',
-        action='store_true',
-        help=('Do not include article key in rendered article: '
-              'some XDXF dictionaries already inlude title in article text and '
-              'needs this to avoid title duplication'))
-
-    parser.add_option('--siteinfo',
-                      help='Mediawiki JSON-formatted site info file')
-
-    parser.add_option('--filters',
-                      help='JSON-formatted list of filters to apply to data')
+from abc import ABCMeta, abstractmethod, abstractproperty
+import collections
 
 
-    parser.add_option('--rtl',
-                      action="store_true",
-                      help='Set direction for Wikipedia articles to rtl')
+class Article(object):
 
-    return parser
+    def __init__(self, title, text,
+                 isredirect=False, counted=True,
+                 timedout=False, failed=False, skipped=False):
+        """
+        Parameters:
+
+        title
+          Article title, unicode or utf8-encoded string
+
+        text
+          Article text, unicode or utf8-encoded string
+
+        redirect
+          Whether this entry is a redirect. Compiler is only interested in this
+          for statistical purposes.
+
+        counted
+          Whether this entry is included in total article count
+
+          Some redirects may be generated based on parsed article text
+          to provide additional keywords to look up an article (such as
+          titles in other languages derived from language links in
+          wikipedia articles) and where not included in total article
+          count reported by article source.
+
+        timedout
+          True if article couldn't be converted in a reasonable amount of time
+
+        failed
+          True if article conversion failed with an error
+
+        skipped
+          True if article source skipped the article
+
+        """
+        self.title = title
+        self.text = text
+        self.isredirect = isredirect
+        self.counted = counted
+        self.timedout = timedout
+        self.failed = failed
+        self.skipped = skipped
+
+    @property
+    def ok(self):
+        return (self.text and self.title and
+                not self.timedout and
+                not self.failed and
+                not self.skipped)
+
+    @property
+    def empty(self):
+        return (not (self.failed or self.timedout)) and ((not self.text) or (not self.title))
+
+
+class ArticleSource(collections.Iterable):
+
+    """
+    Base class for article sources. Optionally
+    article source class may extend collections.Sized
+    to allow queirying for total number of articles
+    """
+
+    __metaclass__ = ABCMeta
+
+    @classmethod
+    @abstractmethod
+    def register_argparser(cls, subparsers):
+        """
+        Adds argparse.ArgumentParser subparser to be used
+        for parsing this article source's command line args.
+
+        """
+
+    @abstractmethod
+    def __init__(self, args):
+        """
+        Constructor to initialize this article source
+        with command line args parsed with provided arg parser
+
+        """
+
+    @abstractproperty
+    def metadata(self):
+        """
+        Metadata to be added to resulting dictionary,
+        simple dictionary.
+        """
+        return {}
+
 
 def utf8(func):
     def f(*args, **kwargs):
@@ -231,6 +157,7 @@ def utf8(func):
     f.__name__ = func.__name__
     f.__dict__.update(func.__dict__)
     return f
+
 
 class Volume(object):
 
@@ -338,12 +265,12 @@ class TempArticleStore(object):
         fd, self.title_store_name = tempfile.mkstemp(prefix='aa-', suffix='.titles', dir=work_dir)
         self.title_store = os.fdopen(fd, 'w')
         fd, self.store_idx_name = tempfile.mkstemp(suffix='.index',
-                                                   prefix='aa-', 
+                                                   prefix='aa-',
                                                    dir=work_dir)
         self.store_idx = os.fdopen(fd, 'wb')
 
         fd, self.article_store_name = tempfile.mkstemp(suffix='.articles',
-                                                        prefix='aa-', 
+                                                        prefix='aa-',
                                                         dir=work_dir)
         self.article_store = os.fdopen(fd, 'wb')
 
@@ -356,25 +283,25 @@ class TempArticleStore(object):
 
     def append(self, title, article):
         self.title_store.write(title)
-        title_len = len(title)        
-        
+        title_len = len(title)
+
         self.article_store.write(article)
-        article_len = len(article)        
-        
-        self.store_idx.write(self.pack(self.title_start, title_len, 
+        article_len = len(article)
+
+        self.store_idx.write(self.pack(self.title_start, title_len,
                                        self.article_start, article_len))
 
         self.title_start += title_len
         self.article_start += article_len
-        
+
 
     def sorted(self, key=None):
-        """ Return generator that produces ordered (title, article) 
+        """ Return generator that produces ordered (title, article)
         pairs sorted by title.
 
-        :param key: function of one argument that takes article title 
-                    and returns sort key for this title, title itself is used 
-                    as key if key function is None        
+        :param key: function of one argument that takes article title
+                    and returns sort key for this title, title itself is used
+                    as key if key function is None
         """
 
         self.title_store.flush()
@@ -409,7 +336,7 @@ class TempArticleStore(object):
                     for i in sorted(xrange(len(store_idx)/self.fmt_size),
                                     key=realkey):
                         title_start, title_len, article_start, article_len = index_item_at(i)
-                        yield (title_store[title_start:title_start+title_len], 
+                        yield (title_store[title_start:title_start+title_len],
                                article_store[article_start:article_start+article_len])
 
     def close(self):
@@ -418,14 +345,15 @@ class TempArticleStore(object):
         self.store_idx.close()
         os.remove(self.title_store_name)
         os.remove(self.article_store_name)
-        os.remove(self.store_idx_name)        
+        os.remove(self.store_idx_name)
 
 class Compiler(object):
 
-    def __init__(self, output_file_name, max_file_size, session_dir, metadata=None):
+    def __init__(self, article_source, output_file_name,
+                 max_file_size_, session_dir, metadata=None):
         self.uuid = uuid.uuid4()
         self.output_file_name = output_file_name
-        self.max_file_size = max_file_size
+        self.max_file_size = max_file_size_
         self.index_count = 0
         self.session_dir = session_dir
         self.failed_articles = open(os.path.join(self.session_dir, "failed.txt"), 'w')
@@ -434,9 +362,31 @@ class Compiler(object):
         self.metadata = metadata if metadata is not None else {}
         self.file_names = []
         self.stats = Stats()
+        if isinstance(article_source, collections.Sized):
+            self.stats.total = len(article_source)
         self.last_stat_update = 0
         self.article_store = TempArticleStore(self.session_dir)
-        log.info('Collecting articles')
+        self.article_source = article_source
+
+    def run(self):
+        for article in self.article_source:
+            title = article.title
+            if article.ok:
+                self.add_article(title, article.text,
+                                 redirect=article.isredirect, count=article.counted)
+            elif article.empty:
+                self.empty_article(title)
+            elif article.timedout:
+                self.timedout()
+            elif article.failed:
+                self.fail_article(title)
+            elif article.skipped:
+                self.skip_article(title)
+        log.info('Done collecting articles')
+        if self.article_source.metadata:
+            for k, v in self.article_source.metadata.iteritems():
+                self.add_metadata(k, v)
+        self.compile()
 
     def add_metadata(self, key, value):
         if key not in self.metadata:
@@ -638,7 +588,7 @@ class Compiler(object):
 
     def make_aar(self, volume):
         (index1, index1Length, index2, index2Length, articles,
-         articles_len, index_count) = volume.totuple()
+         _articles_len, index_count) = volume.totuple()
         file_name = '%s.%d' % (self.output_file_name, Volume.number)
         output_file = open(file_name, "wb", 8192)
         metadata = compress(tojson(self.metadata).encode('utf8'))
@@ -653,7 +603,7 @@ class Compiler(object):
         return file_name
 
     def write_volume_count(self):
-        name, fmt = HEADER_SPEC[5]
+        _name, fmt = HEADER_SPEC[5]
         log.info("Writing volume count %d to all volumes as %s",
                  Volume.number, fmt)
         log.debug('Writing' )
@@ -960,36 +910,127 @@ def guess_wiki_lang(input_file_name):
     return m.group(1) if m else None
 
 
+def make_argparser():
+
+    parser = argparse.ArgumentParser()
+
+    parser.add_argument('--version', action='version', version=aardtools.__version__)
+
+    parser.add_argument(
+        '-o', '--output-file',
+        default='',
+        help=
+        'Output file name. By default is the same as input '
+        'file base name with .aar extension'
+        )
+
+    parser.add_argument(
+        '-s', '--max-file-size',
+        default=str(2**31-1),
+        help=
+        'Maximum file size in bytes, kilobytes(K), megabytes(M) or gigabytes(G). '
+        'Default: %(default)s bytes'
+        )
+
+    parser.add_argument(
+        '-d', '--debug',
+        action='store_true',
+        default=False,
+        help='Turn on debugging messages'
+        )
+
+    parser.add_argument(
+        '-q', '--quite',
+        action='store_true',
+        default=False,
+        help='Print minimal information about compilation progress'
+        )
+
+    parser.add_argument(
+        '--work-dir',
+        default='.',
+        help=
+        'Directory for temporary file created during compilatiod. '
+        'Default: %(default)s'
+        )
+
+    parser.add_argument(
+        '--show-legend',
+        action='store_true',
+        help='Show progress legend'
+        )
+
+    parser.add_argument('--log-file',
+                       help='Log file name. By default derived from output '
+                       'file name by adding .log extension')
+
+    parser.add_argument('-r', '--remove-session-dir',
+                      action='store_true',
+                      help='Remove session directory after compilation.')
+
+    parser.add_argument(
+        '--metadata',
+        default=None,
+        help='INI containing dictionary metadata in [metadata] section'
+        )
+    parser.add_argument(
+        '--license',
+        default=None,
+        help='Name of a UTF-8 encoded text file containing license text'
+        )
+    parser.add_argument(
+        '--copyright',
+        default=None,
+        help='Name of a UTF-8 encoded text file containing copyright notice'
+        )
+
+    parser.add_argument(
+        '--dict-ver',
+        help='Version of the compiled dictionary'
+        )
+
+    parser.add_argument(
+        '--dict-update',
+        default='1',
+        help='Update number for the compiled dictionary. Default: %(default)s'
+        )
+
+
+    return parser
+
 def main():
 
-    opt_parser = make_opt_parser()
-    options, args = opt_parser.parse_args()
+    argparser = make_argparser()
 
-    if not args:
-        opt_parser.print_help()
-        raise SystemExit(1)
+    parent_parser = argparse.ArgumentParser(add_help=False)
 
-    if len(args) < 2:
-        sys.stderr.write('Not enough parameters\n')
-        opt_parser.print_help()
-        raise SystemExit(1)
+    parent_parser.add_argument(
+            'input_files',
+            nargs='+',
+            help='Path(s) to input file')
 
-    input_type = args[0]
-    input_files = args[1:]
+    subparsers = argparser.add_subparsers(title='converters',
+                                          description='Available article source types')
 
-    if not input_files:
-        sys.stderr.write('No input files specified\n')
-        raise SystemExit(1)
+    parser_parents = [parent_parser]
 
-    if '-' in input_files and len(input_files) != 1:
-        sys.stderr.write('stdin is specified as input file, but other files '
-                         'are specified too (%s), can\'t proceed\n' % input_files)
-        raise SystemExit(1)
+    from aardtools.wiki.wiki import MediawikiArticleSource
+    from aardtools.xdxf import XdxfArticleSource
+    from aardtools.wordnet import WordNetArticleSource
+    from aardtools.aard import AardArticleSource
 
-    for input_file in input_files:
-        if not input_file == '-' and not os.path.exists(input_file):
-            sys.stderr.write('No such file: %s\n' % input_file)
-            raise SystemExit(1)
+    for cls in (MediawikiArticleSource,
+                XdxfArticleSource,
+                WordNetArticleSource,
+                AardArticleSource):
+        cls.register_argarser(subparsers, parents=parser_parents)
+
+    args = argparser.parse_args()
+
+    input_files = args.input_files
+
+    #TODO replace all regs to "options" with args
+    options = args
 
     session_dir = os.path.join(options.work_dir,
                                'aardc-'+('%.2f' % time.time()).replace('.','-'))
@@ -1002,13 +1043,6 @@ def main():
         os.mkdir(session_dir)
         display.write('Session dir ').bold(session_dir).writeln()
 
-
-    try:
-        converter = __import__(input_type, globals=globals())
-    except ImportError:
-        sys.stderr.write('Unknown input type %s\n' % args[0])
-        opt_parser.print_help()
-        raise SystemExit(1)
 
     output_file_name = make_output_file_name(input_files[0], options)
 
@@ -1026,7 +1060,7 @@ def main():
 
     display.write('Writing log to ').bold(log_file_name).writeln()
     root_logger = logging.getLogger()
-    root_logger.handlers[:] = []    
+    root_logger.handlers[:] = []
     logging.basicConfig(format='%(asctime)s %(levelname)s [%(name)s] %(message)s',
                         level=log_level,
                         filename=log_file_name,
@@ -1044,15 +1078,6 @@ def main():
         log.info('Maximum file size is too big 32-bit offsets, '
                  'setting index item format to %s',
                  INDEX1_ITEM_FORMAT)
-
-    if input_type=='wiki':
-        if not options.wiki_lang:
-            options.wiki_lang = guess_wiki_lang(input_files[0])
-            if not options.wiki_lang:
-                sys.stderr.write('Wiki language is neither specified with --wiki-lang '
-                                 'not could be guessed from input file name\n')
-                raise SystemExit(1)
-        log.info('Wikipedia language: %s', options.wiki_lang)
 
     if not options.dict_ver:
         options.dict_ver = guess_version(input_files[0])
@@ -1076,30 +1101,23 @@ def main():
     log.debug('Metadata: %s', metadata)
 
 
-    compiler = Compiler(output_file_name, max_volume_size,
+    article_source =args.article_source_class(args)
+
+    compiler = Compiler(article_source, output_file_name, max_volume_size,
                         session_dir, metadata)
 
 
     t0 = time.time()
     display.write('Converting ').bold(', '.join(input_files)).writeln()
 
-    if hasattr(converter, 'total'):
-        display.write('Calculating total number of articles...').cr().flush()
-        if options.article_count>0:
-            compiler.stats.total = options.article_count
-        else:
-            for input_file in input_files:
-                compiler.stats.total += converter.total(converter.make_input(input_file), options)
-        compiler.stats.article_start_time = time.time()
+    compiler.stats.article_start_time = time.time()
     display.erase_line().writeln('total: %d' % compiler.stats.total)
 
     if options.show_legend:
         print_legend()
 
-    for input_file in input_files:
-        log.info('Collecting articles in %s', input_file)
-        converter.collect_articles(converter.make_input(input_file), options, compiler)
-    compiler.compile()
+    compiler.run()
+
     if options.remove_session_dir:
         writeln('Removing session dir')
         shutil.rmtree(session_dir)

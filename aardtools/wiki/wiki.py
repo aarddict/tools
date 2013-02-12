@@ -11,19 +11,17 @@
 # GNU General Public License <http://www.gnu.org/licenses/gpl-3.0.txt>
 # for more details.
 #
-# Copyright (C) 2008-2009  Igor Tkach
+# Copyright (C) 2008-2013  Igor Tkach
 
 from __future__ import with_statement
 import functools
 import logging
 import os
 import urlparse
-from itertools import islice
+import collections
 
-try:
-    import json
-except ImportError:
-    import simplejson as json
+from itertools import islice
+import json
 
 import yaml
 
@@ -45,7 +43,7 @@ from mwlib.cdb.cdbwiki import WikiDB
 from mwlib._version import version as mwlib_version
 import mwlib.siteinfo
 
-import mwaardhtmlwriter as writer
+from aardtools.wiki import mwaardhtmlwriter as writer
 
 import re
 
@@ -93,8 +91,6 @@ class ConvertError(Exception):
         return 'ConvertError: %r' % self.title
 
 
-class EmptyArticleError(ConvertError): pass
-
 def mkredirect(title, redirect_target):
     meta = {u'r': redirect_target}
     return title, tojson(('', [], meta)), True, None
@@ -104,7 +100,7 @@ def convert(title):
         text = wikidb.reader[title]
 
         if not text:
-            raise EmptyArticleError(title)
+            return title, None, False, None
 
         redirect = wikidb.get_redirect(text)
         if redirect:
@@ -120,9 +116,6 @@ def convert(title):
 
         for item in wikidb.filters.get('REGEX', ()):
             text = item['re'].sub( item['sub'], text )
-
-    except EmptyArticleError:
-        raise
     except Exception:
         log.exception('Failed to process article %s', title.encode('utf8'))
         raise ConvertError(title)
@@ -251,45 +244,18 @@ class Wiki(WikiDB):
         if "/" in fqname:
             return None
 
-def total(inputfile, options):
-    load_siteinfo(options.siteinfo)
-    filters = load_filters(options.filters)
-    w = Wiki(inputfile, options.wiki_lang, options.rtl, filters)
-    for i,a in enumerate(islice(w.articles(), options.start, options.end)):
-        pass
-    try:
-        return i+1
-    except:
-        return 0
-
-
-def make_input(input_file_name):
-    return input_file_name
-
-def collect_articles(input_file, options, compiler):
-    p = WikiParser(options, compiler)
-    p.parse(input_file)
-
-siteinfo_loaded = False
 
 def load_siteinfo(filename):
-    global siteinfo_loaded
-    if siteinfo_loaded:
-        return mwlib.siteinfo.get_siteinfo(None)
     if not filename:
         raise Exception('Site info not specified (fetch with aard-siteinfo, '
-                        'specify with use --siteinfo)')
-
+                        'specify with --siteinfo)')
     if not os.path.exists(filename):
         raise Exception('File %s not found' % filename)
-
     with open(filename) as f:
         siteinfo = json.load(f)
-        siteinfo_loaded = True
-
     mwlib.siteinfo.get_siteinfo = lambda lang: siteinfo
-
     return siteinfo
+
 
 def load_filters(filename):
     if not filename:
@@ -348,14 +314,139 @@ def fix_server_url(general_siteinfo):
     return server
 
 
+from aardtools.compiler import ArticleSource, Article
+
+
+class MediawikiArticleSource(ArticleSource, collections.Sized):
+
+    @classmethod
+    def register_argarser(cls, subparsers, parents):
+
+        parser = subparsers.add_parser('wiki', parents=parents)
+
+        parser.add_argument(
+            '--timeout',
+            type=float,
+            default=2.0,
+            help=
+            'Skip article if it was not process in the amount of time '
+            'specified. Default: %(default)ss'
+            )
+
+        parser.add_argument(
+            '--processes',
+            type=int,
+            default=None,
+            help=
+            'Size of the worker pool (by default equals to the '
+            'number of detected CPUs).'
+            )
+        parser.add_argument(
+            '--nomp',
+            action='store_true',
+            default=False,
+            help='Disable multiprocessing, useful for debugging.'
+            )
+
+        parser.add_argument( # could be common option, but currently only supported by wiki
+            '--start',
+            default=0,
+            type=int,
+            help='Starting article, skip all articles before. Default: %(default)s'
+            )
+
+        parser.add_argument( # could be common option, but currently only supported by wiki
+            '--end',
+            default=None,
+            type=int,
+            help='End article, stop processing at this article. Default: %(default)s'
+            )
+
+        parser.add_argument(
+            '--wiki-lang',
+            help='Wikipedia language (like en, de, fr). This may be different from actual language '
+            'in which articles are written. For example, the value for Simple English Wikipedia  is "simple" '
+            '(although the actual articles language is "en"). This is inferred from input file name '
+            'if it follows same naming pattern as Wiki XML dumps and starts with "{lang}wiki". '
+            'Default: %(default)s'
+            )
+
+        parser.add_argument(
+            '--mp-chunk-size',
+            default=10000,
+            type=int,
+            help='This value defines maximum number articles to be processed by pool'
+            'of worker processes before it is closed and new pool is created. Typically'
+            'there should be no need to change the default value.'
+            'Default: %(default)s'
+            )
+
+        parser.add_argument(
+            '--lang-links',
+            help='Add Wikipedia language links to index for these languages '
+            '(comma separated list of language codes). Default: %(default)s')
+
+        parser.add_argument( #could be compiler option, but currently support only by wiki
+            '--article-count',
+            default=0,
+            type=int,
+            help=('Request specific number of articles, skip redirects '
+                  '(if set to a number greater then 0). '
+                  'Default: %(default)s'))
+
+        parser.add_argument('--siteinfo',
+                          help='Mediawiki JSON-formatted site info file')
+
+        parser.add_argument('--filters',
+                          help='JSON-formatted list of filters to apply to data')
+
+        parser.add_argument('--rtl',
+                          action="store_true",
+                          help='Set direction for Wikipedia articles to rtl')
+
+
+        parser.set_defaults(article_source_class=cls)
+
+
+    def __init__(self, args):
+        super(MediawikiArticleSource, self).__init__(self)
+        self.filters = load_filters(args.filters)
+        self.siteinfo = load_siteinfo(args.siteinfo)
+        self.wiki_parser = WikiParser(args, self.filters, self.siteinfo)
+        self.start = args.start
+        self.end = args.end
+        self.input_file  = args.input_files[0]
+
+    @property
+    def metadata(self):
+        return self.wiki_parser.metadata
+
+    def __len__(self):
+        w = Wiki(self.input_file, self.wiki_parser.lang,
+                 self.wiki_parser.rtl, self.filters)
+        for i,a in enumerate(islice(w.articles(), self.start, self.end)):
+            pass
+        try:
+            return i+1
+        except:
+            return 0
+
+    def __iter__(self):
+        return self.parse(self.input_file)
+
+    def parse(self, f):
+        for article in self.wiki_parser.parse(f):
+            yield article
+
+
 class WikiParser():
 
-    def __init__(self, options, consumer):
-        self.consumer = consumer
+    def __init__(self, options, filters, siteinfo):
         wiki_lang = options.wiki_lang
-        siteinfo = load_siteinfo(options.siteinfo)
-        self.filters = load_filters(options.filters)
-        consumer.add_metadata('siteinfo', siteinfo)
+        self.filters = filters
+        self.metadata = {}
+        self.metadata['siteinfo'] = siteinfo
+
         general_siteinfo = siteinfo['general']
         sitename = general_siteinfo['sitename']
         sitelang = general_siteinfo['lang']
@@ -377,7 +468,7 @@ class WikiParser():
                 log.info('Using metadata from %s', ', '.join(read_metadata_files))
                 for opt in c.options('metadata'):
                     value = c.get('metadata', opt)
-                    self.consumer.add_metadata(opt, value)
+                    self.metadata[opt] = value
         else:
             log.warn('No metadata file specified')
 
@@ -390,43 +481,41 @@ class WikiParser():
                 license_file = known_licenses[rights]
             else:
                 license_file = None
-                self.consumer.add_metadata('license', rights)
+                self.metadata['license'] = rights
 
         if license_file:
             with open(license_file) as f:
                 log.info('Using license text from %s', license_file)
                 license_text = f.read()
-                self.consumer.add_metadata('license', license_text)
+                self.metadata['license'] = license_text
 
         if options.copyright:
             copyright_file = options.copyright
             with open(copyright_file) as f:
                 log.info('Using copyright text from %s', copyright_file)
                 copyright_text = f.read()
-                self.consumer.add_metadata('copyright', copyright_text)
+                self.metadata['copyright'] = copyright_text
 
-        self.consumer.add_metadata("title", sitename)
+        self.metadata["title"] = sitename
         if options.dict_ver:
-            self.consumer.add_metadata("version",
-                                       "-".join((options.dict_ver,
-                                                 options.dict_update)))
+            self.metadata["version"] = "-".join((options.dict_ver,
+                                                 options.dict_update))
 
         server = fix_server_url(general_siteinfo)
 
-        self.consumer.add_metadata("source", server)
-        self.consumer.add_metadata("description", default_description % dict(server=server,
-                                                                             title=sitename))
+        self.metadata["source"] = server
+        self.metadata["description"] = default_description % dict(server=server,
+                                                                  title=sitename)
 
         self.lang = wiki_lang
         self.rtl = options.rtl
-        self.consumer.add_metadata("lang", wiki_lang)
-        self.consumer.add_metadata("sitelang", sitelang)
-        self.consumer.add_metadata("index_language", sitelang)
-        self.consumer.add_metadata("article_language", sitelang)
+        self.metadata["lang"] = wiki_lang
+        self.metadata["sitelang"] =  sitelang
+        self.metadata["index_language"] = sitelang
+        self.metadata["article_language"] = sitelang
         log.info('Language: %s (%s)', self.lang, sitelang)
 
-        self.consumer.add_metadata('mwlib',
-                                   '.'.join(str(v) for v in mwlib_version))
+        self.metadata['mwlib'] = '.'.join(str(v) for v in mwlib_version)
         self.processes = options.processes if options.processes else None
         self.pool = None
         self.timeout = options.timeout
@@ -444,7 +533,7 @@ class WikiParser():
             self.lang_links_langs = frozenset(l.strip().lower()
                                               for l in options.lang_links.split(',')
                                               if l.strip().lower() != sitelang)
-            self.consumer.add_metadata("language_links", list(self.lang_links_langs))
+            self.metadata["language_links"] = list(self.lang_links_langs)
         else:
             self.lang_links_langs = frozenset()
 
@@ -471,79 +560,49 @@ class WikiParser():
 
     def parse_simple(self, f):
         _init_process(f, self.lang, self.rtl, self.filters)
-        self.consumer.add_metadata('article_format', 'html')
         articles = self.articles(f)
         for a in articles:
             try:
                 result = convert(a)
                 title, serialized, redirect, langugagelinks = result
-                self.consumer.add_article(title, serialized, redirect)
-                self.process_languagelinks(title, langugagelinks)
-            except EmptyArticleError, e:
-                self.consumer.empty_article(e.title)
-            except ConvertError, e:
-                self.consumer.fail_article(e.title)
+                yield Article(title, serialized, isredirect=redirect)
+                for item in self.process_languagelinks(title, langugagelinks):
+                    yield item
+            except ConvertError as e:
+                yield Article(e.title, None, failed=True)
+
 
     def parse_mp(self, f):
         try:
-            self.consumer.add_metadata('article_format', 'html')
             articles = self.articles(f)
             self.reset_pool(f)
-            iter_count = 1
             real_article_count = 0
+            resulti = self.pool.imap_unordered(convert, articles)
             while True:
-                if iter_count:
-                    chunk = islice(articles, self.mp_chunk_size)
-                    iter_count = 0
-                else:
-                    break
-
-                resulti = self.pool.imap_unordered(convert, chunk)
-                while True:
+                try:
                     try:
                         result = resulti.next(self.timeout)
-                        iter_count += 1
-                        title, serialized, redirect, langugagelinks  = result
-
-                        if self.requested_article_count:
-                            if  not redirect:
-                                real_article_count += 1
-                                self.consumer.add_article(title, serialized, redirect)
-                                self.process_languagelinks(title, langugagelinks)
-                                if real_article_count >= self.requested_article_count:
-                                    try:
-                                        self.pool.terminate()
-                                    except:
-                                        log.exception()
-                                    finally:
-                                        return
-                        else:
-                            self.consumer.add_article(title, serialized, redirect)
-                            self.process_languagelinks(title, langugagelinks)
-                    except StopIteration:
-                        break
                     except TimeoutError:
-                        log.warn('Worker pool timed out')
-                        self.consumer.timedout(count=len(multiprocessing.active_children()))
-                        self.reset_pool(f)
-                        resulti = self.pool.imap_unordered(convert, chunk)
-                    except AssertionError:
-                        log.exception()
-                    except EmptyArticleError, e:
-                        self.consumer.empty_article(e.title)
-                    except ConvertError, e:
-                        self.consumer.fail_article(e.title)
-                    except KeyboardInterrupt:
-                        log.error('Keyboard interrupt: '
-                                  'terminating worker pool')
-                        self.pool.terminate()
-                        raise
+                        yield Article(None, None, timedout=True)
+                        continue
+                    title, serialized, redirect, langugagelinks  = result
 
-                self.pool.close()
-                self.reset_pool(f, terminate=False)
+                    if not redirect or not self.requested_article_count:
+                        real_article_count += 1
+                        yield Article(title, serialized, isredirect=redirect)
+                        for item in self.process_languagelinks(title, langugagelinks):
+                            yield item
+                        if (self.requested_article_count and
+                            real_article_count >= self.requested_article_count):
+                            self.pool.terminate()
+                            break
+                except ConvertError as e:
+                    yield Article(e.title, None, failed=True)
+        except:
+            log.exception('')
+            raise
         finally:
-            self.pool.close()
-            self.pool.join()
+            self.pool.terminate()
 
     def process_languagelinks(self, title, languagelinks):
         if not languagelinks:
@@ -565,7 +624,8 @@ class WikiParser():
                     log.warn('Invalid language link "%s"', target.encode('utf8'))
         for target in targets:
             (l_title, l_serialized,
-             l_redirect, l_langugagelinks) = mkredirect(wikidb.nshandler.get_fqname(target), title)
-            self.consumer.add_article(l_title, l_serialized,
-                                      redirect=True, count=False)
+             _redirect, _langugagelinks) = mkredirect(
+                wikidb.nshandler.get_fqname(target), title)
+            yield Article(l_title, l_serialized,
+                                      isredirect=True, counted=False)
 

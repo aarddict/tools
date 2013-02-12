@@ -1,11 +1,7 @@
 #! /usr/bin/env python
-
 import sys
 import urllib
-try:
-    import simplejson as json
-except ImportError:
-    import json
+import json
 
 def fetch(sitehostname):
     url = 'http://%s/w/api.php?action=query&meta=siteinfo&siprop=general|namespaces|namespacealiases|magicwords|interwikimap&format=json' % sitehostname
