@@ -93,12 +93,8 @@ class Article(object):
         self.skipped = skipped
 
     @property
-    def ok(self):
-        return (not self.empty) and (not self.skipped)
-
-    @property
     def empty(self):
-        return not ((self.text and self.title) or self.failed)
+        return not self.text or not self.title
 
 
 class ArticleSource(collections.Iterable):
@@ -134,6 +130,44 @@ class ArticleSource(collections.Iterable):
         simple dictionary.
         """
         return {}
+
+
+class DummyArticleSource(ArticleSource, collections.Sized):
+
+    @classmethod
+    def register_argparser(cls, subparsers, parents):
+        parser = subparsers.add_parser('dummy', parents=parents)
+        parser.add_argument(
+            '--len',
+            type=int,
+            default=100,
+            help= 'Number of "articles" in dummy source')
+
+        parser.set_defaults(article_source_class=cls)
+
+    def __init__(self, args):
+        super(DummyArticleSource, self).__init__(self)
+        self.len = args.len
+
+    def __len__(self):
+        return self.len
+
+    @property
+    def metadata(self):
+        return {}
+
+    def __iter__(self):
+        for i in range(len(self)):
+            title = 'title %s' % i
+            text = 'article %s' %i
+            if i % 4 == 0:
+                yield Article(title, None, failed=True)
+            elif i % 4 == 1:
+                yield Article(title, None)
+            elif i % 4 == 2:
+                yield Article(title, None, skipped=True)
+            else:
+                yield Article(title, json.dumps((text, [])))
 
 
 def utf8(func):
@@ -360,15 +394,15 @@ class Compiler(object):
     def run(self):
         for article in self.article_source:
             title = article.title
-            if article.ok:
-                self.add_article(title, article.text,
-                                 redirect=article.isredirect, count=article.counted)
-            elif article.empty:
-                self.empty_article(title)
-            elif article.failed:
+            if article.failed:
                 self.fail_article(title)
             elif article.skipped:
                 self.skip_article(title)
+            elif article.empty:
+                self.empty_article(title)
+            else:
+                self.add_article(title, article.text,
+                                 redirect=article.isredirect, count=article.counted)
         log.info('Done collecting articles')
         if self.article_source.metadata:
             for k, v in self.article_source.metadata.iteritems():
@@ -1003,7 +1037,8 @@ def main():
     for cls in (MediawikiArticleSource,
                 XdxfArticleSource,
                 WordNetArticleSource,
-                AardArticleSource):
+                AardArticleSource,
+                DummyArticleSource):
         cls.register_argparser(subparsers, parents=parser_parents)
 
     args = argparser.parse_args()
