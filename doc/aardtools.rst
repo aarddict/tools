@@ -99,13 +99,6 @@ equations, but not all of them. When it fails, it falls back to
 :command:`blahtexml`, and then finally :command:`texvc`. If all fails (for example
 neither tools is installed) article ends up with raw math markup.
 
-.. note::
-   This applies to HTML article format (:term:`aar-HTML`), which is what aardtools 0.8.0
-   uses for Wikipedia by default. Articles in older JSON format (:term:`aar-JSON`) do not
-   support math rendering.
-
-.. warning::
-   aarddict 0.7.x can't render :term:`aar-HTML` articles, will show raw HTML.
 
 Installation
 ------------
