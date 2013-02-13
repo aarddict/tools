@@ -361,16 +361,6 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
             )
 
         parser.add_argument(
-            '--mp-chunk-size',
-            default=10000,
-            type=int,
-            help='This value defines maximum number articles to be processed by pool'
-            'of worker processes before it is closed and new pool is created. Typically'
-            'there should be no need to change the default value.'
-            'Default: %(default)s'
-            )
-
-        parser.add_argument(
             '--lang-links',
             help='Add Wikipedia language links to index for these languages '
             '(comma separated list of language codes). Default: %(default)s')
@@ -525,7 +515,6 @@ class WikiParser():
             self.parse = self.parse_simple
         else:
             self.parse = self.parse_mp
-        self.mp_chunk_size = options.mp_chunk_size
 
         if options.lang_links:
             self.lang_links_langs = frozenset(l.strip().lower()
@@ -538,27 +527,17 @@ class WikiParser():
         self.requested_article_count = options.article_count
 
 
-    def articles(self, f):
+    def articles(self, cdbdir):
         if self.start > 0:
             log.info('Skipping to article %d', self.start)
-        _create_wikidb(f, self.lang, self.rtl, self.filters)
+        _create_wikidb(cdbdir, self.lang, self.rtl, self.filters)
         for title in islice(wikidb.articles(), self.start, self.end):
             log.debug('Yielding "%s" for processing', title.encode('utf8'))
             yield title
 
-    def reset_pool(self, cdbdir, terminate=True):
-        if self.pool and terminate:
-            log.info('Terminating current worker pool')
-            self.pool.terminate()
-        log.info('Creating new worker pool with wiki cdb at %s', cdbdir)
-
-        self.pool = Pool(processes=self.processes,
-                         initializer=_init_process,
-                         initargs=[cdbdir, self.lang, self.rtl, self.filters])
-
-    def parse_simple(self, f):
-        _init_process(f, self.lang, self.rtl, self.filters)
-        articles = self.articles(f)
+    def parse_simple(self, cdbdir):
+        _init_process(cdbdir, self.lang, self.rtl, self.filters)
+        articles = self.articles(cdbdir)
         for a in articles:
             try:
                 result = convert(a)
@@ -570,10 +549,13 @@ class WikiParser():
                 yield Article(e.title, None, failed=True)
 
 
-    def parse_mp(self, f):
+    def parse_mp(self, cdbdir):
         try:
-            articles = self.articles(f)
-            self.reset_pool(f)
+            articles = self.articles(cdbdir)
+            self.pool = Pool(processes=self.processes,
+                             initializer=_init_process,
+                             initargs=[cdbdir, self.lang, self.rtl, self.filters],
+                             maxtasksperchild=100000)
             real_article_count = 0
             resulti = self.pool.imap_unordered(convert, articles)
             while True:
