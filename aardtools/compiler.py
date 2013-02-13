@@ -1107,15 +1107,16 @@ def main():
                         session_dir, metadata)
 
 
-    t0 = time.time()
+
     display.write('Converting ').bold(', '.join(input_files)).writeln()
 
-    compiler.stats.article_start_time = time.time()
     display.erase_line().writeln('total: %d' % compiler.stats.total)
 
     if options.show_legend:
         print_legend()
 
+    t0 = time.time()
+    compiler.stats.article_start_time = t0
     compiler.run()
 
     if options.remove_session_dir:
