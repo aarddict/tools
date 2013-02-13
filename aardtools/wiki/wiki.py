@@ -602,7 +602,6 @@ class WikiParser():
                             yield item
                         if (self.requested_article_count and
                             real_article_count >= self.requested_article_count):
-                            self.pool.terminate()
                             break
                 except ConvertError as e:
                     yield Article(e.title, None, failed=True)
