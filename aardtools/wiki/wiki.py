@@ -246,11 +246,6 @@ class Wiki(WikiDB):
 
 
 def load_siteinfo(filename):
-    if not filename:
-        raise Exception('Site info not specified (fetch with aard-siteinfo, '
-                        'specify with --siteinfo)')
-    if not os.path.exists(filename):
-        raise Exception('File %s not found' % filename)
     with open(filename) as f:
         siteinfo = json.load(f)
     mwlib.siteinfo.get_siteinfo = lambda lang: siteinfo
@@ -321,6 +316,10 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
 
         parser = subparsers.add_parser('wiki', parents=parents)
 
+        parser.add_argument('siteinfo',
+                            help=('Path to Mediawiki JSON-formatted site info file. Get it with '
+                                  'aard-siteinfo command'))
+
         parser.add_argument(
             '--processes',
             type=int,
@@ -372,9 +371,6 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
             help=('Request specific number of articles, skip redirects '
                   '(if set to a number greater then 0). '
                   'Default: %(default)s'))
-
-        parser.add_argument('--siteinfo',
-                          help='Mediawiki JSON-formatted site info file')
 
         parser.add_argument('--filters',
                           help='JSON-formatted list of filters to apply to data')
