@@ -258,12 +258,9 @@ def load_siteinfo(filename):
 
 
 def load_filters(filename):
-    if not filename:
-        return {}
-    if not os.path.exists(filename):
-        raise Exception('File %s not found' % filename)
 
     with open(filename) as f:
+        print 'Using filters from', filename
         filters = yaml.load(f)
 
     for filter_section in ['EXCLUDE_PAGES', 'EXCLUDE_CLASSES', 'EXCLUDE_IDS', 'TEXT_REPLACE']:
@@ -410,12 +407,23 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
 
     def __init__(self, args):
         super(MediawikiArticleSource, self).__init__(self)
-        self.filters = load_filters(args.filters)
+        self.input_file  = args.input_files[0]
+        self.filters = {}
+        if args.filters:
+            self.filters = load_filters(args.filters)
+        else:
+            filters_file_name = self.input_file.split('-')[0] + '.yaml'
+            filters_file_name = os.path.join(os.path.dirname(__file__),
+                                            'filters', filters_file_name)
+            if os.path.exists(filters_file_name):
+                self.filters = load_filters(filters_file_name)
+        if not self.filters:
+            print 'Warning: no article content filters specified'
+
         self.siteinfo = load_siteinfo(args.siteinfo)
         self.wiki_parser = WikiParser(args, self.filters, self.siteinfo)
         self.start = args.start
         self.end = args.end
-        self.input_file  = args.input_files[0]
 
     @property
     def metadata(self):
