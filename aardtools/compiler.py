@@ -108,12 +108,11 @@ class ArticleSource(collections.Iterable):
     article source class may extend collections.Sized
     to allow queirying for total number of articles
     """
-
     __metaclass__ = ABCMeta
 
     @classmethod
     @abstractmethod
-    def register_argparser(cls, subparsers):
+    def register_argparser(cls, subparsers, parents):
         """
         Adds argparse.ArgumentParser subparser to be used
         for parsing this article source's command line args.
@@ -1005,7 +1004,7 @@ def main():
                 XdxfArticleSource,
                 WordNetArticleSource,
                 AardArticleSource):
-        cls.register_argarser(subparsers, parents=parser_parents)
+        cls.register_argparser(subparsers, parents=parser_parents)
 
     args = argparser.parse_args()
 

@@ -312,7 +312,7 @@ from aardtools.compiler import ArticleSource, Article
 class MediawikiArticleSource(ArticleSource, collections.Sized):
 
     @classmethod
-    def register_argarser(cls, subparsers, parents):
+    def register_argparser(cls, subparsers, parents):
 
         parser = subparsers.add_parser('wiki', parents=parents)
 

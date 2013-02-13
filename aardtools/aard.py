@@ -22,7 +22,7 @@ from aardtools.compiler import ArticleSource, Article
 class AardArticleSource(ArticleSource, collections.Sized):
 
     @classmethod
-    def register_argarser(cls, subparsers, parents):
+    def register_argparser(cls, subparsers, parents):
         parser = subparsers.add_parser('aard', parents=parents)
         parser.set_defaults(article_source_class=cls)
 
