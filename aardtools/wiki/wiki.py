@@ -38,7 +38,7 @@ Expander.parsedTemplateCache = lrucache.lrucache(100)
 tojson = functools.partial(json.dumps, ensure_ascii=False)
 
 import multiprocessing
-from multiprocessing import Pool, TimeoutError
+from multiprocessing import Pool
 from mwlib.cdb.cdbwiki import WikiDB
 from mwlib._version import version as mwlib_version
 import mwlib.siteinfo
@@ -322,15 +322,6 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
         parser = subparsers.add_parser('wiki', parents=parents)
 
         parser.add_argument(
-            '--timeout',
-            type=float,
-            default=2.0,
-            help=
-            'Skip article if it was not process in the amount of time '
-            'specified. Default: %(default)ss'
-            )
-
-        parser.add_argument(
             '--processes',
             type=int,
             default=None,
@@ -338,6 +329,7 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
             'Size of the worker pool (by default equals to the '
             'number of detected CPUs).'
             )
+
         parser.add_argument(
             '--nomp',
             action='store_true',
@@ -526,8 +518,6 @@ class WikiParser():
         self.metadata['mwlib'] = '.'.join(str(v) for v in mwlib_version)
         self.processes = options.processes if options.processes else None
         self.pool = None
-        self.timeout = options.timeout
-        self.timedout_count = 0
         self.start = options.start
         self.end = options.end
         if options.nomp:
@@ -588,13 +578,8 @@ class WikiParser():
             resulti = self.pool.imap_unordered(convert, articles)
             while True:
                 try:
-                    try:
-                        result = resulti.next(self.timeout)
-                    except TimeoutError:
-                        yield Article(None, None, timedout=True)
-                        continue
+                    result = resulti.next()
                     title, serialized, redirect, langugagelinks  = result
-
                     if not redirect or not self.requested_article_count:
                         real_article_count += 1
                         yield Article(title, serialized, isredirect=redirect)

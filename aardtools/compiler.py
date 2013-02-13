@@ -55,7 +55,7 @@ class Article(object):
 
     def __init__(self, title, text,
                  isredirect=False, counted=True,
-                 timedout=False, failed=False, skipped=False):
+                 failed=False, skipped=False):
         """
         Parameters:
 
@@ -78,9 +78,6 @@ class Article(object):
           wikipedia articles) and where not included in total article
           count reported by article source.
 
-        timedout
-          True if article couldn't be converted in a reasonable amount of time
-
         failed
           True if article conversion failed with an error
 
@@ -92,20 +89,16 @@ class Article(object):
         self.text = text
         self.isredirect = isredirect
         self.counted = counted
-        self.timedout = timedout
         self.failed = failed
         self.skipped = skipped
 
     @property
     def ok(self):
-        return (self.text and self.title and
-                not self.timedout and
-                not self.failed and
-                not self.skipped)
+        return (not self.empty) and (not self.skipped)
 
     @property
     def empty(self):
-        return (not (self.failed or self.timedout)) and ((not self.text) or (not self.title))
+        return not ((self.text and self.title) or self.failed)
 
 
 class ArticleSource(collections.Iterable):
@@ -222,7 +215,6 @@ class Stats(object):
         self.skipped = 0
         self.failed = 0
         self.empty = 0
-        self.timedout = 0
         self.articles = 0
         self.redirects = 0
         self.start_time = time.time()
@@ -232,7 +224,6 @@ class Stats(object):
                                        self.redirects +
                                        self.skipped +
                                        self.empty +
-                                       self.timedout +
                                        self.failed))
 
 
@@ -244,13 +235,12 @@ class Stats(object):
 
     def __str__(self):
         return ('total: %d, skipped: %d, failed: %d, '
-                'empty: %d, timed out: %d, articles: %d, '
+                'empty: %d, articles: %d, '
                 'redirects: %d, average: %.2f/s '
                 'elapsed: %s' % (self.total,
                                  self.skipped,
                                  self.failed,
                                  self.empty,
-                                 self.timedout,
                                  self.articles,
                                  self.redirects,
                                  self.average,
@@ -376,8 +366,6 @@ class Compiler(object):
                                  redirect=article.isredirect, count=article.counted)
             elif article.empty:
                 self.empty_article(title)
-            elif article.timedout:
-                self.timedout()
             elif article.failed:
                 self.fail_article(title)
             elif article.skipped:
@@ -431,10 +419,6 @@ class Compiler(object):
     def skip_article(self, title):
         self.stats.skipped += 1
         self.skipped_articles.write(title+'\n')
-        self.print_stats()
-
-    def timedout(self, count=1):
-        self.stats.timedout += count
         self.print_stats()
 
     def print_stats(self):
@@ -834,7 +818,6 @@ def print_legend():
     .ok('r').writeln(' - number of processed redirects')
     .warn('s').writeln(' - number of skipped articles')
     .warn('e').writeln(' - number of articles with no text (empty)')
-    .fail('to').writeln(' - approximate number of articles that couldn\'t be converted fast enough (timed out)')
     .fail('f').writeln(' - number of articles that couldn\'t be converted (failed)'))
 
 
@@ -849,7 +832,6 @@ def print_progress(stats):
          .ok('a: %d r: %d ' % (stats.articles, stats.redirects))
          .warn('s: %d ' % stats.skipped)
          .warn('e: %d ' % stats.empty)
-         .fail('to: %d ' % stats.timedout)
          .fail('f: %d ' % stats.failed)
          .cr().flush())
     except KeyboardInterrupt:
