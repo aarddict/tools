@@ -13,6 +13,16 @@ Aard Dictionary uses dictionaries in it's own
 compression. `Aard Tools` is a collection of tools to produce
 :doc:`Aard files <aardformat>` (``.aar``).
 
+
+Requirements
+============
+
+- Python 2.7
+- UNIX-like OS.
+- Compiling large Mediawiki dumps such as English or German Wikipedia
+  requires *64-bit* multicore machine.
+
+
 Installation
 ============
 
@@ -45,7 +55,7 @@ beforehand::
 
 Install other non-Python dependencies::
 
-  sudo apt-get install libevent-dev
+  sudo apt-get install libevent-dev libxml2-dev libxslt1-dev
 
 If you would like to get source code repository you will need
 Git_::
@@ -109,17 +119,6 @@ Activate it::
   env-aard/bin/activate
   source env-aard/bin/activate
 
-and install pip_::
-
-  easy_install pip
-
-.. note::
-
-   Recent versions of virtualenv already come with pip_
-   installed. Make sure it's up to date::
-
-     pip install --upgrade pip
-
 Install `Aard Tools`::
 
   pip install aardtools
@@ -128,8 +127,6 @@ or, if you would like to install from the source code repository at
 GitHub::
 
   pip install -e git+git://github.com/aarddict/tools.git#egg=aardtools
-
-.. _pip: http://pypi.python.org/pypi/pip
 
 Usage
 =====
@@ -174,15 +171,15 @@ Get Mediawiki site information::
 
 Build mwlib article database::
 
-  mw-buildcdb --input simplewiki-20101026-pages-articles.xml.bz2 --output simplewiki-20101026-pages-articles.cdb
+  mw-buildcdb --input simplewiki-20130203-pages-articles.xml.bz2 --output simplewiki-20130203.cdb
 
 Original dump is not needed after this, it may be deleted or moved to
 free up disk space. Compile aar dictionary from the article database::
 
- aardc wiki simplewiki-20101026-pages-articles.cdb --siteinfo simple.json
+ aardc wiki simplewiki-20130203.cdb simplewiki.json
 
 Compiler infers from the input file name that Wikipedia language
-is "simple" and that version is 20101026. These need to be specified
+is "simple" and that version is 20130203. These need to be specified
 explicitely through command line options if cdb directory name doesn't
 follow the pattern of the xml dump file names.
 
