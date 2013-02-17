@@ -253,7 +253,6 @@ def load_siteinfo(filename):
 
 
 def load_filters(filename):
-
     with open(filename) as f:
         print 'Using filters from', filename
         filters = yaml.load(f)
@@ -384,16 +383,22 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
         parser.set_defaults(article_source_class=cls)
 
 
+    def make_filers_file_name(self, aname):
+        filters_file_name = aname + '.yaml'
+        filters_file_name = os.path.join(os.path.dirname(__file__),
+                                         'filters', filters_file_name)
+        return filters_file_name
+
     def __init__(self, args):
         super(MediawikiArticleSource, self).__init__(self)
         self.input_file  = args.input_files[0]
         self.filters = {}
         if args.filters:
-            self.filters = load_filters(args.filters)
+            if not args.filters.lower().endswith('.yaml'):
+                filters_file_name = self.make_filers_file_name(args.filters)
+            self.filters = load_filters(filters_file_name)
         else:
-            filters_file_name = self.input_file.split('-')[0] + '.yaml'
-            filters_file_name = os.path.join(os.path.dirname(__file__),
-                                            'filters', filters_file_name)
+            filters_file_name = self.make_filers_file_name(self.input_file.split('-')[0])
             if os.path.exists(filters_file_name):
                 self.filters = load_filters(filters_file_name)
         if not self.filters:
