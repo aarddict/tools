@@ -361,6 +361,7 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
 
         parser.add_argument(
             '--lang-links',
+            nargs="*",
             help='Add Wikipedia language links to index for these languages '
             '(comma separated list of language codes). Default: %(default)s')
 
@@ -514,7 +515,7 @@ class WikiParser():
 
         if options.lang_links:
             self.lang_links_langs = frozenset(l.strip().lower()
-                                              for l in options.lang_links.split(',')
+                                              for l in options.lang_links
                                               if l.strip().lower() != sitelang)
             self.metadata["language_links"] = list(self.lang_links_langs)
         else:
