@@ -416,6 +416,8 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
         return self.wiki_parser.metadata
 
     def __len__(self):
+        if self.wiki_parser.requested_article_count:
+            return self.wiki_parser.requested_article_count
         w = Wiki(self.input_file, self.wiki_parser.lang,
                  self.wiki_parser.rtl, self.filters)
         for i,a in enumerate(islice(w.articles(), self.start, self.end)):
