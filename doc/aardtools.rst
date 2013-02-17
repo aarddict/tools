@@ -20,30 +20,29 @@ Requirements
 - Python 2.7
 - UNIX-like OS.
 - Compiling large Mediawiki dumps such as English or German Wikipedia
-  requires *64-bit* multicore machine.
+  requires **64-bit** multicore machine.
 
 
 Installation
 ============
 
 .. note::
-   Examples below use ``apt-get`` on Ubuntu Linux. Consult your
+   Instructions below are for Ubuntu Linux 12.10. Consult your
    distibution's packaging system to find corresponding package names
    and commands to install them.
 
-Prerequisits
-------------
+Prerequisites
+-------------
 
 Your system must be able to compile C and C++ programs::
 
   sudo apt-get install build-essential
 
-You will also need to have Python headers::
+Your system must be able to compiled Python C extensions::
 
   sudo apt-get install python-dev
 
-It is highly recommended to install and run `Aard Tools` inside
-`virtualenv`_::
+`Aard Tools` will be installed in a  `virtualenv`_::
 
   sudo apt-get install python-virtualenv
 
@@ -57,8 +56,7 @@ Install other non-Python dependencies::
 
   sudo apt-get install libevent-dev libxml2-dev libxslt1-dev
 
-If you would like to get source code repository you will need
-Git_::
+Install Git_::
 
   sudo apt-get install git
 
@@ -67,16 +65,18 @@ Git_::
 .. _setuptools: http://peak.telecommunity.com/DevCenter/setuptools
 .. _International Components for Unicode: http://icu-project.org/
 
-When compiling Wikipedia into dictionary with HTML articles `Aard
-Tools` renders mathematical formulas using several tools: :command:`latex`,
+`Aard Tools` renders mathematical formulas using several tools: :command:`latex`,
 :command:`blahtexml`, :command:`texvc` and :command:`dvipng`.
 
 Install :command:`latex`::
 
   sudo apt-get install texlive-latex-base
 
-Install :command:`blahtexml` following instructions at
-http://gva.noekeon.org/blahtexml/
+Install `blahtex`_::
+
+  sudo apt-get install blahtex
+
+.. _blahtex: http://gva.noekeon.org/blahtexml/
 
 Install :command:`texvc` (it is part of MediaWiki distribution)::
 
@@ -109,17 +109,12 @@ Create Python virtual environment::
 
 Activate it::
 
-  env-aard/bin/activate
   source env-aard/bin/activate
 
 Install `Aard Tools`::
 
-  pip install aardtools
+  pip install -e git+git://github.com/aarddict/tools.git@0.9.0#egg=aardtools
 
-or, if you would like to install from the source code repository at
-GitHub::
-
-  pip install -e git+git://github.com/aarddict/tools.git#egg=aardtools
 
 Usage
 =====
@@ -141,12 +136,15 @@ aard
     and changing the way it is split into volumes. Multiple input files can
     be combined into one single or multi volume dictionary.
 
+wordnet
+   WordNet_
+
 .. _XDXF: http://xdxf.sourceforge.net/
 .. _XDXF-visual: http://xdxf.revdanica.com/drafts/visual/latest/XDXF-draft-028.txt
 
 Synopsis::
 
-  aardc (wiki|xdxf|aard) FILE [FILE2 [FILE3 ...]] [options]
+  aardc [compiler options] (wiki|xdxf|aard) FILE [FILE2 [FILE3 ...]] [converter options]
 
 .. note::
    Only `aard` input type allows multiple files.
@@ -167,9 +165,27 @@ Build mwlib article database::
   mw-buildcdb --input simplewiki-20130203-pages-articles.xml.bz2 --output simplewiki-20130203.cdb
 
 Original dump is not needed after this, it may be deleted or moved to
-free up disk space. Compile aar dictionary from the article database::
+free up disk space. 
 
- aardc wiki simplewiki-20130203.cdb simplewiki.json
+Parsing certain content elements is locale specific. Make sure your
+system has approparite locale available. For example, if compiling
+Polish Wikipedia::
+
+  sudo locale-gen pl
+
+Compile small sample dictionary from the article database::
+
+ aardc wiki simplewiki-20130203.cdb simplewiki.json --article-count 1000 --filter enwiki
+
+Verify that resulting dictionary has good metadata (description,
+license, source url), that "View Online" action works and article
+formatting is formatting. Content filters may need to be created or
+modified to clean up resulting articles of unwanted navigational
+links, article messages, empty sections etc. In the example above we
+indicate that we would like to use built-in filter set for English
+Wikipedia. 
+
+.. seealso:: `Content Filters`_
 
 Compiler infers from the input file name that Wikipedia language
 is "simple" and that version is 20130203. These need to be specified
@@ -188,6 +204,96 @@ additional dictionary meta data, such as description.
 .. _Wikimedia Foundation: http://wikimediafoundation.org
 .. _Creative Commons Attribution-Share Alike 3.0 Unported: http://creativecommons.org/licenses/by-sa/3.0/legalcode
 .. _GNU Free Documentation License 1.2: http://www.gnu.org/licenses/fdl-1.2.html
+
+Content Filters
+~~~~~~~~~~~~~~~
+
+.. versionadded: 0.9.0
+
+Content filters are defined in YAML_, as a dictionary with the
+following keys:
+
+EXCLUDE_PAGES
+  List of regular expressions matching Mediawiki template
+  names. Excluding templates improves compilation performance since
+  their content is completely excluded from processing.
+
+  .. note::
+     Entries containing ``:`` character must be quoted
+
+EXCLUDE_CLASSES
+  List of HTML class names to be excluded. Article HTML elements having one of
+  these classes will be excluded from final output.
+
+EXCLUDE_IDS
+  List of HTML element ids to excluded. Article HTML elements having one of
+  these ids will be excluded from final output.
+
+TEXT_REPLACE
+  List of dictionaries with `re` and `sub` keys defining text
+  substitutions. Text substitutions are performed on the resulting
+  article HTML text.
+  Matching expressions will be replaced with optional substition text
+  If no substition text is provided, matching patterns will be removed
+
+Here's an example of content filter file:
+
+.. code-block:: yaml
+
+   EXCLUDE_PAGES:
+     - "Template:Only in print"
+     # Don't process navigation boxes
+     - "Template:Navbar"
+     - "Template:Navbox"
+     - "Template:Navboxes"
+     - "Template:Side box"
+     - "Template:Sidebar with collapsible lists"
+     # No need for audio
+     - "Template:Audio"
+     - "Template:Spoken Wikipedia"
+     # Bulky and unnecessary tables
+     - "Template:Latin alphabet navbox"
+     - "Template:Greek Alphabet"
+     # Exclude any stub templates, match case-insensitive
+     - "(?i).*-stub"
+
+   EXCLUDE_CLASSES:
+     - collapsible
+     - maptable
+     - printonly
+
+   EXCLUDE_IDS:
+     - interProject
+
+   TEXT_REPLACE:
+     - re  : "&lt;(\\w+) (class=[^>]*?)&gt;"
+       sub : "<\\1 \\2>"
+
+     # Remove empty sections
+     # Used in articles like encyclopaedia
+     - re  : "<div><h.>[\\w\\s]*</h.>(<p>\\s*</p>)*</div>"
+
+
+Excluding content by template name is the most effective approach,
+however sometimes it is more convenient and concise to exclude content
+by HTML class or id. Text replacement is useful for things like fixing
+broken output of some templates and getting rid of empty sections.
+
+Content filters are specified with ``--filters`` command line
+option, as a path to the filters file, or a name of one of filter
+files bundled with aardtools. For example, filters defined for English
+Wikipedia also work well for Simple English Wikipedia, so to compile
+simplewiki we can run
+
+::
+
+ aardc wiki simplewiki-20130203.cdb simplewiki.json --filter enwiki
+
+
+.. seealso:: `Documentation <http://docs.python.org/2/library/re.html>`_ for the :mod:`re` module
+
+
+.. _YAML: http://www.yaml.org/
 
 
 Compiling XDXF Dictionaries
@@ -278,7 +384,7 @@ Release Notes
 - Add option ``--skip-article-title`` for xdxf to not add article title
   at the beginning of article (some dicitonaries already have it)
 
-- Remove support for article :term:`aar-JSON` article format
+- Remove support for JSON article format
 
 - Add command to fetch siteinfo, require that siteinfo file is
   explicitely specified with ``--siteinfo`` option
