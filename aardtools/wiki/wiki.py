@@ -391,11 +391,13 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
 
     def __init__(self, args):
         super(MediawikiArticleSource, self).__init__(self)
-        self.input_file  = args.input_files[0]
+        self.input_file  = os.path.expanduser(args.input_files[0])
         self.filters = {}
         if args.filters:
             if not args.filters.lower().endswith('.yaml'):
                 filters_file_name = self.make_filers_file_name(args.filters)
+            else:
+                filters_file_name = os.path.expanduser(args.filters)
             self.filters = load_filters(filters_file_name)
         else:
             filters_file_name = self.make_filers_file_name(self.input_file.split('-')[0])
@@ -404,7 +406,7 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
         if not self.filters:
             print 'Warning: no article content filters specified'
 
-        self.siteinfo = load_siteinfo(args.siteinfo)
+        self.siteinfo = load_siteinfo(os.path.expanduser(args.siteinfo))
         self.wiki_parser = WikiParser(args, self.filters, self.siteinfo)
         self.start = args.start
         self.end = args.end
