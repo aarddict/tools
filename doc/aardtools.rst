@@ -165,7 +165,7 @@ Build mwlib article database::
   mw-buildcdb --input simplewiki-20130203-pages-articles.xml.bz2 --output simplewiki-20130203.cdb
 
 Original dump is not needed after this, it may be deleted or moved to
-free up disk space. 
+free up disk space.
 
 Parsing certain content elements is locale specific. Make sure your
 system has approparite locale available. For example, if compiling
@@ -183,9 +183,10 @@ formatting is formatting. Content filters may need to be created or
 modified to clean up resulting articles of unwanted navigational
 links, article messages, empty sections etc. In the example above we
 indicate that we would like to use built-in filter set for English
-Wikipedia. 
+Wikipedia.
 
 .. seealso:: `Content Filters`_
+.. seealso:: `Language Links`_
 
 Compiler infers from the input file name that Wikipedia language
 is "simple" and that version is 20130203. These need to be specified
@@ -294,6 +295,20 @@ simplewiki we can run
 
 
 .. _YAML: http://www.yaml.org/
+
+Language Links
+~~~~~~~~~~~~~~
+
+Many Wikipedia articles include language links - links to the
+same article in a different language. Optionally, article titles in
+other languages can be added to lookup index. This is specified with
+``--lang-links`` command line option. For example::
+
+  aardc wiki enwiki-20130128.cdb enwiki.json --lang-links de fr
+
+In resulting dictionary articles can be found by their German and
+French title, in addition to English. Note that adding language links
+slightly increases resulting dictionary size.
 
 
 Compiling XDXF Dictionaries
