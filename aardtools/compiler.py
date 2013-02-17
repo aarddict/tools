@@ -386,6 +386,7 @@ class Compiler(object):
         self.file_names = []
         self.stats = Stats()
         if isinstance(article_source, collections.Sized):
+            writeln('Calculating total number of items...')
             self.stats.total = len(article_source)
         self.last_stat_update = 0
         self.article_store = TempArticleStore(self.session_dir)
@@ -1117,14 +1118,12 @@ def main():
     log.debug('Metadata: %s', metadata)
 
 
-    article_source =args.article_source_class(args)
+    article_source = args.article_source_class(args)
+
+    display.write('Converting ').bold(', '.join(input_files)).writeln()
 
     compiler = Compiler(article_source, output_file_name, max_volume_size,
                         session_dir, metadata)
-
-
-
-    display.write('Converting ').bold(', '.join(input_files)).writeln()
 
     display.erase_line().writeln('total: %d' % compiler.stats.total)
 
