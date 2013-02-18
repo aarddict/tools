@@ -28,6 +28,7 @@ EXCLUDE_PAGES:
   - "Template:DMCA"
   # Bulky and unnecessary tables
   - "Template:Latin alphabet navbox"
+  - "Template:Latin alphabet"
   - "Template:Greek Alphabet"
   # Message boxes for wiki editors
   - "Template:Tmbox"
@@ -94,11 +95,8 @@ EXCLUDE_IDS:
 # If no substition text is provided, matching patterns will be removed
 
 TEXT_REPLACE:
+  # Remove empty sections
+  - re  : "<div><h.>[\\w\\s]*</h.>(<p>\\s*</p>|<p\\s*/>)*</div>"
 
-#   Example: replace all occurances of cat with dog
-#  - re  : cat
-#    sub : dog
 
-#   Example: remove all occurances of tiger
-#  - re  : "tiger"
 
