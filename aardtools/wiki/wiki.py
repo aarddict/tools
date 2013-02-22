@@ -375,7 +375,7 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
                   'Default: %(default)s'))
 
         parser.add_argument('--filters',
-                          help='JSON-formatted list of filters to apply to data')
+                          help='Name of YAML file containing content filter definitions.')
 
         parser.add_argument('--rtl',
                           action="store_true",
