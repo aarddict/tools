@@ -20,6 +20,7 @@ import argparse
 import functools
 import json
 import logging
+import mmap
 import os
 import shutil
 import struct
@@ -191,25 +192,46 @@ class Volume(object):
 
     number = 0
 
-    def __init__(self, header_meta_len, max_file_size, work_dir):
+
+    def __init__(self, dictionary_uuid, header_meta_len, max_file_size_, work_dir):
+        self.dictionary_uuid = dictionary_uuid
         self.header_meta_len = header_meta_len
-        self.max_file_size = max_file_size
+        self.max_file_size = max_file_size_
+        self.work_dir = work_dir
         self.index1 = tempfile.NamedTemporaryFile(prefix='index1',
-                                                  dir=work_dir)
+                                                  dir=work_dir,
+                                                  delete=False)
         log.info('Creating temporary index 1 file %s', self.index1.name)
         self.index2 = tempfile.NamedTemporaryFile(prefix='index2',
-                                                  dir=work_dir)
+                                                  dir=work_dir,
+                                                  delete=False)
         log.info('Creating temporary index 2 file %s', self.index2.name)
         self.articles =  tempfile.NamedTemporaryFile(prefix='articles',
-                                                     dir=work_dir)
+                                                     dir=work_dir,
+                                                     delete=False)
         log.info('Creating temporary articles file %s', self.articles.name)
+
+        self.index1_sorted = None
+
         self.index1Length = 0
         self.index2Length = 0
         self.articles_len = 0
         self.index_count = 0
         Volume.number += 1
 
-    def add(self, index1_unit, index2_unit, article_unit):
+
+    def add(self, title, serialized_article):
+        index1Unit = struct.pack(INDEX1_ITEM_FORMAT,
+                                 self.index2Length,
+                                 self.articles_len)
+        index2Unit = struct.pack(KEY_LENGTH_FORMAT, len(title)) + title
+        article_unit = (struct.pack(ARTICLE_LENGTH_FORMAT,
+                                   len(serialized_article)) +
+                        serialized_article)
+        self._add(index1Unit, index2Unit, article_unit)
+
+
+    def _add(self, index1_unit, index2_unit, article_unit):
         if sum((self.header_meta_len,
                 self.index1Length,
                 self.index2Length,
@@ -228,15 +250,105 @@ class Volume(object):
         self.articles_len += len(article_unit)
 
 
-    def flush(self):
-        self.index1.flush()
-        self.index2.flush()
-        self.articles.flush()
+    def _sort(self):
+        index1_sorted = tempfile.NamedTemporaryFile(prefix='index1_sorted',
+                                                    dir=self.work_dir,
+                                                    delete=False)
+        self.index1_sorted = index1_sorted
+        index1_unit_len = struct.calcsize(INDEX1_ITEM_FORMAT)
+        klen_structsize = struct.calcsize(KEY_LENGTH_FORMAT)
 
-    def totuple(self):
-        return (self.index1, self.index1Length, self.index2,
-                self.index2Length, self.articles, self.articles_len,
-                self.index_count)
+        key = lambda x: collation_key(x).getByteArray()
+
+        with open(self.index1.name) as fi1, open(self.index2.name) as fi2:
+
+            index1 = mmap.mmap(fi1.fileno(), 0, prot=mmap.PROT_READ)
+            index2 = mmap.mmap(fi2.fileno(), 0, prot=mmap.PROT_READ)
+
+            index_item_count = len(index1)/index1_unit_len
+
+            def read_packed_index1_item(i):
+                pos_start = i*index1_unit_len
+                pos_end = pos_start + index1_unit_len
+                return index1[pos_start:pos_end]
+
+            def index1_item_at(i):
+                return struct.unpack(INDEX1_ITEM_FORMAT,
+                                     read_packed_index1_item(i))
+
+            def read_key(pos):
+                start = pos+klen_structsize
+                s = index2[pos:start]
+                strlen = struct.unpack(KEY_LENGTH_FORMAT, s)[0]
+                return index2[start:start+strlen]
+
+            def realkey(x):
+                index_item = index1_item_at(x)
+                index2_ptr = index_item[0]
+                title = read_key(index2_ptr)
+                return key(title)
+
+            def sorted_index1_items():
+                for i in sorted(xrange(index_item_count), key=realkey):
+                    yield read_packed_index1_item(i)
+
+            for index1_item in sorted_index1_items():
+                index1_sorted.write(index1_item)
+
+            index1_sorted.close()
+        log.info("Index sorted, removing temp file %s", self.index1.name)
+        os.remove(self.index1.name)
+
+    #FIXME currently metadata is processed after all articles collected
+    #but now we want to create Volume right away, so we need to know
+    #metadata length before we start with articles... sort of - that's only
+    #to detect when we exceed desired volume size
+    def finalize(self, output_file_name, serialized_metadata):
+        self.index1.close()
+        self.index2.close()
+        self.articles.close()
+        self._sort()
+        file_name = '%s.%d' % (output_file_name, Volume.number)
+        buf_size = 1024*1024
+        with open(file_name, "wb", buf_size) as output_file:
+            self.write_header_and_meta(output_file, serialized_metadata)
+            for fname in (self.index1_sorted.name, self.index2.name, self.articles.name):
+                with open(fname) as f:
+                    while True:
+                        data = f.read(buf_size)
+                        if len(data) == 0:
+                            break
+                        output_file.write(data)
+        log.info("Done with %s", file_name)
+        log.info("Removing temp file %s", self.index1_sorted.name)
+        os.remove(self.index1_sorted.name)
+        log.info("Removing temp file %s", self.index2.name)
+        os.remove(self.index2.name)
+        log.info("Removing temp file %s", self.articles.name)
+        os.remove(self.articles.name)
+        return file_name
+
+    def write_header_and_meta(self, output_file, serialized_metadata):
+        meta_length = len(serialized_metadata)
+        article_offset = (spec_len(HEADER_SPEC) + meta_length +
+                          self.index1Length + self.index2Length)
+        values = dict(signature='aard',
+                      sha1sum='0'*40,
+                      version=1,
+                      uuid=self.dictionary_uuid.bytes,
+                      volume=self.number,
+                      of=0,
+                      total_volumes=0,
+                      meta_length=meta_length,
+                      index_count=self.index_count,
+                      article_offset=article_offset,
+                      index1_item_format=INDEX1_ITEM_FORMAT,
+                      key_length_format=KEY_LENGTH_FORMAT,
+                      article_length_format=ARTICLE_LENGTH_FORMAT)
+        for name, fmt in HEADER_SPEC:
+            output_file.write(struct.pack(fmt, values[name]))
+        output_file.write(serialized_metadata)
+
 
 import threading
 article_add_lock = threading.RLock()
@@ -280,96 +392,6 @@ class Stats(object):
                                  self.elapsed))
 
 
-import mmap
-
-class TempArticleStore(object):
-
-    def __init__(self, work_dir=None):
-        fd, self.title_store_name = tempfile.mkstemp(prefix='aa-', suffix='.titles', dir=work_dir)
-        self.title_store = os.fdopen(fd, 'w')
-        fd, self.store_idx_name = tempfile.mkstemp(suffix='.index',
-                                                   prefix='aa-',
-                                                   dir=work_dir)
-        self.store_idx = os.fdopen(fd, 'wb')
-
-        fd, self.article_store_name = tempfile.mkstemp(suffix='.articles',
-                                                        prefix='aa-',
-                                                        dir=work_dir)
-        self.article_store = os.fdopen(fd, 'wb')
-
-        self.title_start = 0
-        self.article_start = 0
-        idx_format = '>IHQI'
-        self.pack = functools.partial(struct.pack, idx_format)
-        self.unpack = functools.partial(struct.unpack, idx_format)
-        self.fmt_size = struct.calcsize(idx_format)
-
-    def append(self, title, article):
-        self.title_store.write(title)
-        title_len = len(title)
-
-        self.article_store.write(article)
-        article_len = len(article)
-
-        self.store_idx.write(self.pack(self.title_start, title_len,
-                                       self.article_start, article_len))
-
-        self.title_start += title_len
-        self.article_start += article_len
-
-
-    def sorted(self, key=None):
-        """ Return generator that produces ordered (title, article)
-        pairs sorted by title.
-
-        :param key: function of one argument that takes article title
-                    and returns sort key for this title, title itself is used
-                    as key if key function is None
-        """
-
-        self.title_store.flush()
-        self.article_store.flush()
-        self.store_idx.flush()
-
-        if key is None:
-            key = lambda x: x
-
-        with open(self.title_store_name, 'r+') as title_store_f:
-            with open(self.article_store_name, 'r+') as article_store_f:
-                with open(self.store_idx_name, 'r+b') as store_idx_f:
-
-                    title_store = mmap.mmap(title_store_f.fileno(), 0)
-                    article_store = mmap.mmap(article_store_f.fileno(), 0)
-                    store_idx = mmap.mmap(store_idx_f.fileno(), 0)
-
-                    def index_item_at(pos):
-                        pos_start = pos*self.fmt_size
-                        pos_end = pos_start + self.fmt_size
-                        return self.unpack(store_idx[pos_start:pos_end])
-
-
-                    def realkey(x):
-                        index_item = index_item_at(x)
-                        title_start = index_item[0]
-                        title_len = index_item[1]
-                        title_end = title_start+title_len
-                        title = title_store[title_start:title_end]
-                        return key(title)
-
-                    for i in sorted(xrange(len(store_idx)/self.fmt_size),
-                                    key=realkey):
-                        title_start, title_len, article_start, article_len = index_item_at(i)
-                        yield (title_store[title_start:title_start+title_len],
-                               article_store[article_start:article_start+article_len])
-
-    def close(self):
-        self.title_store.close()
-        self.article_store.close()
-        self.store_idx.close()
-        os.remove(self.title_store_name)
-        os.remove(self.article_store_name)
-        os.remove(self.store_idx_name)
-
 class Compiler(object):
 
     def __init__(self, article_source, output_file_name,
@@ -388,9 +410,21 @@ class Compiler(object):
         if isinstance(article_source, collections.Sized):
             writeln('Calculating total number of items...')
             self.stats.total = len(article_source)
+        #this is just placeholder value to we pad metadata size enough
+        #so that final volume file size does not exceed specified limit
+        self.metadata["article_count"] = int(1e+16)
+        #article_count used to mean dictionary total
+        #allow readers distinguish between the two
+        self.metadata["article_count_is_volume_total"] = True
         self.last_stat_update = 0
-        self.article_store = TempArticleStore(self.session_dir)
         self.article_source = article_source
+        log.info('Collecting metadata...')
+        if self.article_source.metadata:
+            for k, v in self.article_source.metadata.iteritems():
+                self.add_metadata(k, v)
+        log.info('Metadata collected')
+        self.current_volume = None
+        self.current_volume_article_count = 0
 
     def run(self):
         for article in self.article_source:
@@ -404,11 +438,27 @@ class Compiler(object):
             else:
                 self.add_article(title, article.text,
                                  redirect=article.isredirect, count=article.counted)
-        log.info('Done collecting articles')
-        if self.article_source.metadata:
-            for k, v in self.article_source.metadata.iteritems():
-                self.add_metadata(k, v)
-        self.compile()
+        self.finalize_current_volume()
+        self.write_volume_count()
+        self.write_sha1sum()
+        rename_files(self.file_names)
+
+    def finalize_current_volume(self):
+        if self.current_volume:
+            self.print_stats(force=True)
+            writeln()
+            m = "Finalizing volume %d" % self.current_volume.number
+            log.info(m)
+            writeln(m).flush()
+            self.metadata['article_count'] = self.current_volume_article_count
+            file_name = self.current_volume.finalize(self.output_file_name,
+                                                     self.serialized_metadata)
+            self.file_names.append(file_name)
+            m = "Wrote volume %d" % self.current_volume.number
+            log.info(m)
+            writeln(m).flush()
+            self.current_volume = None
+            self.current_volume_article_count = 0
 
     def add_metadata(self, key, value):
         if key not in self.metadata:
@@ -421,6 +471,10 @@ class Compiler(object):
     @utf8
     def add_article(self, title, serialized_article, redirect=False, count=True):
         with article_add_lock:
+
+            if self.current_volume is None:
+                self.current_volume = self.create_volume()
+
             if not title:
                 log.warn('Blank title, ignoring article "%s"',
                          serialized_article)
@@ -429,10 +483,16 @@ class Compiler(object):
                 self.empty_article(title)
                 return
             log.debug('Adding article for "%s"', title)
-            self.article_store.append(title, compress(serialized_article))
+            try:
+                self.current_volume.add(title, compress(serialized_article))
+            except Volume.ExceedsMaxSize:
+                self.finalize_current_volume()
+                self.add_article(title, serialized_article, redirect=redirect, count=count)
+                return
             if count:
                 if not redirect:
                     self.stats.articles += 1
+                    self.current_volume_article_count += 1
                 else:
                     self.stats.redirects += 1
             self.print_stats()
@@ -455,135 +515,22 @@ class Compiler(object):
         self.skipped_articles.write(title+'\n')
         self.print_stats()
 
-    def print_stats(self):
+    def print_stats(self, force=False):
         t = time.time()
-        if (t - self.last_stat_update) > 1.0:
+        if force or (t - self.last_stat_update) > 1.0:
             self.last_stat_update = t
             print_progress(self.stats)
 
-    def compile(self):
-        print_progress(self.stats)
-        writeln()
-        self.failed_articles.close()
-        self.empty_articles.close()
-        self.skipped_articles.close()
-        writeln('Compiling .aar files')
-        self.add_metadata("article_count", self.stats.articles)
-        articles = self.article_store.sorted(key=lambda x:
-                                                 collation_key(x).getByteArray())
-        log.info('Compiling %s', self.output_file_name)
-        metadata = compress(tojson(self.metadata).encode('utf8'))
-        header_meta_len = spec_len(HEADER_SPEC) + len(metadata)
-        create_volume_func = functools.partial(self.create_volume,
-                                               header_meta_len)
-        for volume in self.make_volumes(create_volume_func, articles):
-            m = "Creating volume %d" % volume.number
-            log.info(m)
-            writeln(m).flush()
-            file_name = self.make_aar(volume)
-            self.file_names.append(file_name)
-            m = "Wrote volume %d" % volume.number
-            log.info(m)
-            writeln(m).flush()
-        self.article_store.close()
-        self.write_volume_count()
-        self.write_sha1sum()
-        rename_files(self.file_names)
+    def create_volume(self):
+        header_meta_len = spec_len(HEADER_SPEC) + len(self.serialized_metadata)
+        return Volume(self.uuid,
+                      header_meta_len,
+                      self.max_file_size,
+                      self.session_dir)
 
-    def create_volume(self, header_meta_len):
-        return Volume(header_meta_len, self.max_file_size, self.session_dir)
-
-    def make_volumes(self, create_volume_func, articles):
-        volume = create_volume_func()
-        for title, serialized_article in articles:
-            index1Unit = struct.pack(INDEX1_ITEM_FORMAT,
-                                     volume.index2Length,
-                                     volume.articles_len)
-            index2Unit = struct.pack(KEY_LENGTH_FORMAT, len(title)) + title
-            article_unit = (struct.pack(ARTICLE_LENGTH_FORMAT,
-                                       len(serialized_article)) +
-                            serialized_article)
-            try:
-                volume.add(index1Unit, index2Unit, article_unit)
-            except Volume.ExceedsMaxSize:
-                volume.flush()
-                yield volume
-                volume = create_volume_func()
-                index1Unit = struct.pack(INDEX1_ITEM_FORMAT,
-                                         volume.index2Length,
-                                         volume.articles_len)
-                volume.add(index1Unit, index2Unit, article_unit)
-        volume.flush()
-        yield volume
-
-    def write_header(self, output_file, meta_length, index1Length,
-                     index2Length, index_count, volume):
-        article_offset = (spec_len(HEADER_SPEC) + meta_length +
-                          index1Length + index2Length)
-        values = dict(signature='aard',
-                      sha1sum='0'*40,
-                      version=1,
-                      uuid=self.uuid.bytes,
-                      volume=volume,
-                      of=0,
-                      total_volumes=0,
-                      meta_length=meta_length,
-                      index_count=index_count,
-                      article_offset=article_offset,
-                      index1_item_format=INDEX1_ITEM_FORMAT,
-                      key_length_format=KEY_LENGTH_FORMAT,
-                      article_length_format=ARTICLE_LENGTH_FORMAT)
-        for name, fmt in HEADER_SPEC:
-            output_file.write(struct.pack(fmt, values[name]))
-
-    def write_meta(self, output_file, metadata):
-        output_file.write(metadata)
-
-    def write_index1(self, output_file, index1):
-        log.debug('Writing index 1')
-        index1.seek(0)
-        count = 0
-        while True:
-            unit = index1.read(struct.calcsize(INDEX1_ITEM_FORMAT))
-            if len(unit) == 0:
-                break
-            index2ptr, offset = struct.unpack(INDEX1_ITEM_FORMAT, unit)
-            unit = struct.pack(INDEX1_ITEM_FORMAT, index2ptr, offset)
-            output_file.write(unit)
-            count += 1
-        log.debug('Wrote %d items to index 1', count)
-        index1.close()
-
-    def write_index2(self, output_file, index2):
-        log.debug('Writing index 2')
-        index2.seek(0)
-        count = 0
-        while True:
-            unitLengthString = index2.read(struct.calcsize(KEY_LENGTH_FORMAT))
-            if len(unitLengthString) == 0:
-                break
-            count += 1
-            unitLength, = struct.unpack(KEY_LENGTH_FORMAT, unitLengthString)
-            unit = index2.read(unitLength)
-            output_file.write(unitLengthString + unit)
-        log.debug('Wrote %d items to index 2', count)
-        index2.close()
-
-    def write_articles(self, output_file, articles):
-        articles.seek(0)
-        count = 0
-        while True:
-            unitLengthString = articles.read(struct.
-                                             calcsize(ARTICLE_LENGTH_FORMAT))
-            if len(unitLengthString) == 0:
-                break
-            count += 1
-            unitLength, = struct.unpack(ARTICLE_LENGTH_FORMAT,
-                                        unitLengthString)
-            unit = articles.read(unitLength)
-            output_file.write(unitLengthString + unit)
-        log.debug('Wrote %d items to articles', count)
-        articles.close()
+    @property
+    def serialized_metadata(self):
+        return compress(tojson(self.metadata).encode('utf8'))
 
     def write_sha1sum(self):
         for file_name in self.file_names:
@@ -604,22 +551,6 @@ class Compiler(object):
             output_file.write(sha1sum)
             output_file.close()
 
-    def make_aar(self, volume):
-        (index1, index1Length, index2, index2Length, articles,
-         _articles_len, index_count) = volume.totuple()
-        file_name = '%s.%d' % (self.output_file_name, Volume.number)
-        output_file = open(file_name, "wb", 8192)
-        metadata = compress(tojson(self.metadata).encode('utf8'))
-        self.write_header(output_file, len(metadata), index1Length,
-                          index2Length, index_count, Volume.number)
-        self.write_meta(output_file, metadata)
-        self.write_index1(output_file, index1)
-        self.write_index2(output_file, index2)
-        self.write_articles(output_file, articles)
-        output_file.close()
-        log.info("Done with %s", file_name)
-        return file_name
-
     def write_volume_count(self):
         _name, fmt = HEADER_SPEC[5]
         log.info("Writing volume count %d to all volumes as %s",
@@ -630,6 +561,7 @@ class Compiler(object):
             output_file.seek(spec_len(HEADER_SPEC[:5]))
             output_file.write(struct.pack(fmt, Volume.number))
             output_file.close()
+
 
 def rename_files(file_names):
     """
