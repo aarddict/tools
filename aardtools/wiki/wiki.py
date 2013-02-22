@@ -381,6 +381,12 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
                           action="store_true",
                           help='Set direction for Wikipedia articles to rtl')
 
+        parser.add_argument('--title',
+                            dest='titles',
+                            nargs='*',
+                            help=('Title of articles to compile. If specified, '
+                                  'dictionary will contain only these titles.'
+                                  'This is useful for testing content filters.'))
 
 
     def make_filers_file_name(self, aname):
@@ -418,6 +424,8 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
     def __len__(self):
         if self.wiki_parser.requested_article_count:
             return self.wiki_parser.requested_article_count
+        if self.wiki_parser.requested_titles:
+            return len(self.wiki_parser.requested_titles)
         w = Wiki(self.input_file, self.wiki_parser.lang,
                  self.wiki_parser.rtl, self.filters)
         for i,a in enumerate(islice(w.articles(), self.start, self.end)):
@@ -531,12 +539,17 @@ class WikiParser():
             self.lang_links_langs = frozenset()
 
         self.requested_article_count = options.article_count
+        self.requested_titles = options.titles
 
 
     def articles(self, cdbdir):
         if self.start > 0:
             log.info('Skipping to article %d', self.start)
         _create_wikidb(cdbdir, self.lang, self.rtl, self.filters)
+        if self.requested_titles:
+            for title in self.requested_titles:
+                yield title
+            return
         for title in islice(wikidb.articles(), self.start, self.end):
             log.debug('Yielding "%s" for processing', title.encode('utf8'))
             yield title
