@@ -308,7 +308,7 @@ class XHTMLWriter(MWXHTMLWriter):
         return e
 
     def xwriteSource(self, s):
-        e = ET.Element("code")
+        e = ET.Element("pre")
         return e
 
     def xwriteCenter(self, s):
