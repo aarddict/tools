@@ -39,10 +39,12 @@ from aardtools.compiler import ArticleSource, Article
 class WordNetArticleSource(ArticleSource, collections.Sized):
 
     @classmethod
-    def register_argparser(cls, subparsers, parents):
-        parser = subparsers.add_parser('wordnet', parents=parents)
-        parser.set_defaults(article_source_class=cls)
+    def name(cls):
+        return 'wordnet'
 
+    @classmethod
+    def register_args(cls, parser):
+        pass
 
     def __init__(self, args):
         super(WordNetArticleSource, self).__init__(self)

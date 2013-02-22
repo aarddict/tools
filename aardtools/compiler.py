@@ -109,9 +109,18 @@ class ArticleSource(collections.Iterable):
 
     @classmethod
     @abstractmethod
-    def register_argparser(cls, subparsers, parents):
+    def name(cls):
         """
-        Adds argparse.ArgumentParser subparser to be used
+        Return name of this article source
+        """
+        return "XYZZ"
+
+    @classmethod
+    @abstractmethod
+    def register_args(cls, parser):
+        """
+        Adds command line argument definitions to
+        provided instance of argparse subparser, to be used
         for parsing this article source's command line args.
 
         """
@@ -129,6 +138,7 @@ class ArticleSource(collections.Iterable):
         """
         Metadata to be added to resulting dictionary,
         simple dictionary.
+
         """
         return {}
 
@@ -136,15 +146,16 @@ class ArticleSource(collections.Iterable):
 class DummyArticleSource(ArticleSource, collections.Sized):
 
     @classmethod
-    def register_argparser(cls, subparsers, parents):
-        parser = subparsers.add_parser('dummy', parents=parents)
+    def name(cls):
+        return 'dummy'
+
+    @classmethod
+    def register_args(cls, parser):
         parser.add_argument(
             '--len',
             type=int,
             default=100,
             help= 'Number of "articles" in dummy source')
-
-        parser.set_defaults(article_source_class=cls)
 
     def __init__(self, args):
         super(DummyArticleSource, self).__init__(self)
@@ -972,7 +983,9 @@ def main():
                 WordNetArticleSource,
                 AardArticleSource,
                 DummyArticleSource):
-        cls.register_argparser(subparsers, parents=parser_parents)
+        parser = subparsers.add_parser(cls.name(), parents=parser_parents)
+        cls.register_args(parser)
+        parser.set_defaults(article_source_class=cls)
 
     args = argparser.parse_args()
 

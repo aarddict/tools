@@ -38,9 +38,11 @@ from aardtools.compiler import ArticleSource, Article
 class XdxfArticleSource(ArticleSource, collections.Sized):
 
     @classmethod
-    def register_argparser(cls, subparsers, parents):
+    def name(cls):
+        return 'xdxf'
 
-        parser = subparsers.add_parser('xdxf', parents=parents)
+    @classmethod
+    def register_args(cls, parser):
 
         parser.add_argument(
             '--skip-article-title',
@@ -48,8 +50,6 @@ class XdxfArticleSource(ArticleSource, collections.Sized):
             help=('Do not include article key in rendered article: '
                   'some XDXF dictionaries already inlude title in article text and '
                   'needs this to avoid title duplication'))
-
-        parser.set_defaults(article_source_class=cls)
 
     def __init__(self, args):
         super(XdxfArticleSource, self).__init__(self)

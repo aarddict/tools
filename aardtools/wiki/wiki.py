@@ -311,9 +311,11 @@ from aardtools.compiler import ArticleSource, Article
 class MediawikiArticleSource(ArticleSource, collections.Sized):
 
     @classmethod
-    def register_argparser(cls, subparsers, parents):
+    def name(cls):
+        return 'wiki'
 
-        parser = subparsers.add_parser('wiki', parents=parents)
+    @classmethod
+    def register_args(cls, parser):
 
         parser.add_argument('siteinfo',
                             help=('Path to Mediawiki JSON-formatted site info file. Get it with '
@@ -379,8 +381,6 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
                           action="store_true",
                           help='Set direction for Wikipedia articles to rtl')
 
-
-        parser.set_defaults(article_source_class=cls)
 
 
     def make_filers_file_name(self, aname):
