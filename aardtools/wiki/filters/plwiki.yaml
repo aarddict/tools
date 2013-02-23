@@ -1,0 +1,107 @@
+# Exclude pages/templates
+# This is the fastest and best method of cleaning articles
+# Entries containing a : character must be quoted
+EXCLUDE_PAGES:
+  - "(?i)Szablon:wikisłownik"
+  - "(?i)Szablon:wikicytaty"
+  - "(?i)Szablon:wikinews"
+  - "(?i)Szablon:wikibooks"
+  - "(?i)Szablon:Wikiźródła"
+  - "(?i)Szablon:commonscat"
+  - "(?i)Szablon:alfabet"
+  - "(?i)Szablon:Polityka Polski"
+  - "(?i)Szablon:Próżne wyrażenia"
+  - "(?i)Szablon:infobox projekt"
+  - "(?i)Szablon:infobox mapa"
+  - "(?i)Szablon:herb\\s+.*"
+  - "(?i)Szablon:Portal"
+  - "(?i)Szablon:Navbox.*"
+  - "(?i)Szablon:Navbar.*"
+  - "(?i)Szablon:commons"
+  #Template results in parsing error koordynaty
+  - "(?i)Template:koordynaty"
+  - "Template:Only in print"
+  # Don't process navigation boxes
+  - "Template:Navbar"
+  - "Template:Navbox"
+  - "Template:Navboxes"
+  - "Template:Side box"
+  - "Template:Sidebar with collapsible lists"
+  # No need for audio
+  - "Template:Audio"
+  - "Template:Spoken Wikipedia"
+  # Aard does not need categories or portals or sister sites
+  - "Template:Category handler"
+  - "Template:Category handler/blacklist"
+  - "Template:Category handler/numbered"
+  - "Template:Portal"
+  - "Template:Portal/core"
+  - "Template:Portal-inline"
+  - "Template:Sister"
+  - "Template:Sister project links"
+  - "Template:Sister-inline"
+  - "(?i)Template:Commons"
+  - "(?i)Template:Commons category"
+  - "Template:Dated maintenance category"
+  - "Template:DMCA"
+  # Bulky and unnecessary tables
+  - "Template:Latin alphabet navbox"
+  - "Template:Latin alphabet"
+  - "Template:Greek Alphabet"
+  # Message boxes for wiki editors
+  - "Template:Tmbox"
+  - "Template:Imbox"
+  - "Template:Ambox"
+  - "Template:Refimprove"
+  - "Template:Refimprove section"
+  - "Template:Fix"
+  - "Template:Fix/category"
+  - "Template:Dead link"
+  # No need to process templates that add article icons
+  - "Template:Featured article"
+  - "Template:Good article"
+  - "Template:Top icon"
+  # on the 2013-02-04 enwiki dump, the Location map all template displays an error message.
+  # Example articles: All letters of the roman alphabet
+  - "Template:Location map"
+  - "Template:Location map all"
+  - "Template:Location map+"
+  # on the 2013-02-04 enwiki dump, the Wide image template causes any following text to be displayed
+  # in a very narrow column (Example articles: Athens, Central America)
+  - "Template:Wide image"
+
+# Remove elements by XML class
+EXCLUDE_CLASSES:
+  - navbox
+  - collapsible
+  - autocollapse
+  - plainlinksneverexpand
+  - navbar
+  - metadata
+  - navigation-box
+  - stub
+  - template-documentation
+  - portal
+  - NavFrame
+  - NavHead
+  - NavContent
+  - thumbinner
+  - thumbcaption
+  - magnify
+  - vertical-navbox
+  - tmbox
+  - maptable
+  - printonly
+  - fmbox
+  - ombox
+  - cmbox
+  - sisterproject
+  - interProject
+
+# Remove elements by XML ID
+EXCLUDE_IDS:
+  - interProject
+
+TEXT_REPLACE:
+  # Remove empty sections
+  - re  : "<div><h.>[\\w\\s]*</h.>(<p>\\s*</p>|<p\\s*/>)*</div>"
