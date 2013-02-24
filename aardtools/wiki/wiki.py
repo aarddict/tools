@@ -61,9 +61,11 @@ def _create_wikidb(cdbdir, lang, rtl, filters):
     global wikidb
     wikidb = Wiki(cdbdir, lang, rtl, filters)
 
-def _init_process(cdbdir, lang, rtl, filters):
+def _init_process(cdbdir, lang, rtl, filters, log_level=None):
     global log
     log = multiprocessing.get_logger()
+    if log_level is not None:
+        log.setLevel(log_level)
     _create_wikidb(cdbdir, lang, rtl, filters)
 
 class ConvertError(Exception):
@@ -116,6 +118,8 @@ def convert(title):
 
         regex_filters = wikidb.filters.get('REGEX', ())
         if regex_filters:
+            log.debug('About to apply text replacement to this html:'
+                      '\n----%s----\n%s\n========', title.encode('utf8'), text)
             utext = text.decode('utf8')
             for item in regex_filters:
                 utext = item['re'].sub(item['sub'], utext)
@@ -561,7 +565,7 @@ class WikiParser():
             yield title
 
     def parse_simple(self, cdbdir):
-        _init_process(cdbdir, self.lang, self.rtl, self.filters)
+        _create_wikidb(cdbdir, self.lang, self.rtl, self.filters)
         articles = self.articles(cdbdir)
         for a in articles:
             try:
@@ -579,7 +583,7 @@ class WikiParser():
             articles = self.articles(cdbdir)
             self.pool = Pool(processes=self.processes,
                              initializer=_init_process,
-                             initargs=[cdbdir, self.lang, self.rtl, self.filters],
+                             initargs=[cdbdir, self.lang, self.rtl, self.filters, log.getEffectiveLevel()],
                              maxtasksperchild=100000)
             real_article_count = 0
             resulti = self.pool.imap_unordered(convert, articles)

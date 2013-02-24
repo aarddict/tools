@@ -278,7 +278,9 @@ Here's an example of content filter file:
 Excluding content by template name is the most effective approach,
 however sometimes it is more convenient and concise to exclude content
 by HTML class or id. Text replacement is useful for things like fixing
-broken output of some templates and getting rid of empty sections.
+broken output of some templates and getting rid of empty sections. Run
+with ``--debug`` to have converted article html logged - text
+replacement regular expressions should be tested against it.
 
 Content filters are specified with ``--filters`` command line
 option, as a path to the filters file, or a name of one of filter
