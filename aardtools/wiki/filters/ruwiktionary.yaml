@@ -1,0 +1,23 @@
+EXCLUDE_PAGES:
+  - "(?i)Шаблон:unfinished"
+  - "(?i)Шаблон:Нужен перевод"
+  - "(?i)Шаблон:пример"
+  - "(?i)Шаблон:медиа"
+  - "(?i)Шаблон:stub"
+  - "(?i)Шаблон:wikify"
+  - "(?i)Шаблон:wikipedia"
+  - "(?i)Шаблон:по.слогам"
+TEXT_REPLACE:
+
+  # Remove junk text from the end of lists generated using the List template.
+  # Used in articles like wine and pink
+  - re  : "<sup>\\(Category: </sup>.*?<sup class=\"plainlinks\">]</sup>"
+
+  - re : "<font \\s*\\b[^>]*/>"
+  # Remove empty sections
+  - re  : "<div><(h.)>[\\s\\w]*</\\1>(<p>\\s*</p>|<p\\s*/>|<hr\\s*/>)*</div>"
+  - re  : "<div><(h.)>(<font\\s*\\b[^>]*>(.*?)</font>)*</\\1>(<p>\\s*</p>|<p\\s*/>|<hr\\s*/>)*</div>"
+  - re  : "<div><(h.)>[\\s\\w]*</\\1><ol><li>[\\s\\-]*</li></ol></div>"
+  - re  : "<div><(h.)>[\\s\\w]*</\\1>(<p>[\\s\\-]*</p>|<p>\\s*</p>|<p\\s*/>)*</div>"
+
+
