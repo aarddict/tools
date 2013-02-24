@@ -542,7 +542,10 @@ class WikiParser():
             self.lang_links_langs = frozenset()
 
         self.requested_article_count = options.article_count
-        self.requested_titles = options.titles
+        if options.titles:
+            self.requested_titles = [title.decode('utf8') for title in options.titles]
+        else:
+            self.requested_titles = None
 
 
     def articles(self, cdbdir):
