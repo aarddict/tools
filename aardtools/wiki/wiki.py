@@ -114,8 +114,12 @@ def convert(title):
         xhtmlwriter.preprocess(mwobject)
         text, tags, languagelinks = writer.convert(mwobject, wikidb.rtl, wikidb.filters)
 
-        for item in wikidb.filters.get('REGEX', ()):
-            text = item['re'].sub( item['sub'], text )
+        regex_filters = wikidb.filters.get('REGEX', ())
+        if regex_filters:
+            utext = text.decode('utf8')
+            for item in regex_filters:
+                utext = item['re'].sub(item['sub'], utext)
+            text = utext.encode('utf8')
     except Exception:
         log.exception('Failed to process article %s', title.encode('utf8'))
         raise ConvertError(title)
@@ -195,7 +199,7 @@ class Wiki(WikiDB):
 
         self.filters = filters
         raw_exclude_pages_filters = self.filters.get('EXCLUDE_PAGES', ())
-        self.exclude_pages_filters = [re.compile(ex, re.UNICODE)
+        self.exclude_pages_filters = [re.compile(ex, flags=re.UNICODE)
                                       for ex in raw_exclude_pages_filters]
 
 
@@ -264,10 +268,9 @@ def load_filters(filename):
     text_replace_filters = filters.get('TEXT_REPLACE')
     if text_replace_filters:
         for item in filters['TEXT_REPLACE']:
-            sub = ""
-            if 'sub' in item:
-                sub = item['sub']
-            filters['REGEX'].append( { "re": re.compile(item['re']), "sub": sub } )
+            sub = item.get('sub', '')
+            filters['REGEX'].append({'re': re.compile(item['re'], flags=re.UNICODE),
+                                     'sub': sub })
 
     return filters
 
