@@ -113,7 +113,7 @@ Activate it::
 
 Install `Aard Tools`::
 
-  pip install -e git+git://github.com/aarddict/tools.git@0.9.0#egg=aardtools
+  pip install -e git+git://github.com/aarddict/tools.git#egg=aardtools
 
 
 Usage
