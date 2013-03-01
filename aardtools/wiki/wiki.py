@@ -57,16 +57,16 @@ known_licenses = {"Creative Commons Attribution-Share Alike 3.0 Unported":
 wikidb = None
 log = logging.getLogger('wiki')
 
-def _create_wikidb(cdbdir, lang, rtl, filters):
+def _create_wikidb(cdbdir, lang, rtl, filters, skip_refs=False):
     global wikidb
-    wikidb = Wiki(cdbdir, lang, rtl, filters)
+    wikidb = Wiki(cdbdir, lang, rtl, filters, skip_refs=skip_refs)
 
-def _init_process(cdbdir, lang, rtl, filters, log_level=None):
+def _init_process(cdbdir, lang, rtl, filters, log_level=None, skip_refs=False):
     global log
     log = multiprocessing.get_logger()
     if log_level is not None:
         log.setLevel(log_level)
-    _create_wikidb(cdbdir, lang, rtl, filters)
+    _create_wikidb(cdbdir, lang, rtl, filters, skip_refs=skip_refs)
 
 class ConvertError(Exception):
 
@@ -114,7 +114,10 @@ def convert(title):
                                        lang=wikidb.lang,
                                        magicwords=wikidb.siteinfo['magicwords'])
         xhtmlwriter.preprocess(mwobject)
-        text, tags, languagelinks = writer.convert(mwobject, wikidb.rtl, wikidb.filters)
+        text, tags, languagelinks = writer.convert(mwobject,
+                                                   wikidb.rtl,
+                                                   wikidb.filters,
+                                                   skip_refs=wikidb.skip_refs)
 
         regex_filters = wikidb.filters.get('REGEX', ())
         if regex_filters:
@@ -187,10 +190,11 @@ def parse_redirect(text, aliases):
 
 class Wiki(WikiDB):
 
-    def __init__(self, cdbdir, lang, rtl, filters):
+    def __init__(self, cdbdir, lang, rtl, filters, skip_refs=False):
         WikiDB.__init__(self, cdbdir, lang=lang)
         self.lang = lang
         self.rtl = rtl
+        self.skip_refs = skip_refs
         self.redirect_aliases = set()
         aliases = [magicword['aliases']
                                  for magicword in self.siteinfo['magicwords']
@@ -395,6 +399,13 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
                                   'dictionary will contain only these titles.'
                                   'This is useful for testing content filters.'))
 
+        parser.add_argument('--skip-refs',
+                            action="store_true",
+                            help=('Do not generate internal page links for '
+                                  'references (<ref></ref> markup). Specify if Reflist '
+                                  'template is excluded, otherwise non-working links will '
+                                  'be generated'))
+
 
     def make_filers_file_name(self, aname):
         filters_file_name = aname + '.yaml'
@@ -520,6 +531,7 @@ class WikiParser():
 
         self.lang = wiki_lang
         self.rtl = options.rtl
+        self.skip_refs = options.skip_refs
         self.metadata["lang"] = wiki_lang
         self.metadata["sitelang"] =  sitelang
         self.metadata["index_language"] = sitelang
@@ -555,7 +567,7 @@ class WikiParser():
     def articles(self, cdbdir):
         if self.start > 0:
             log.info('Skipping to article %d', self.start)
-        _create_wikidb(cdbdir, self.lang, self.rtl, self.filters)
+        _create_wikidb(cdbdir, self.lang, self.rtl, self.filters, self.skip_refs)
         if self.requested_titles:
             for title in self.requested_titles:
                 yield title
@@ -565,7 +577,7 @@ class WikiParser():
             yield title
 
     def parse_simple(self, cdbdir):
-        _create_wikidb(cdbdir, self.lang, self.rtl, self.filters)
+        _create_wikidb(cdbdir, self.lang, self.rtl, self.filters, self.skip_refs)
         articles = self.articles(cdbdir)
         for a in articles:
             try:
@@ -583,7 +595,8 @@ class WikiParser():
             articles = self.articles(cdbdir)
             self.pool = Pool(processes=self.processes,
                              initializer=_init_process,
-                             initargs=[cdbdir, self.lang, self.rtl, self.filters, log.getEffectiveLevel()],
+                             initargs=[cdbdir, self.lang, self.rtl, self.filters,
+                                       log.getEffectiveLevel(), self.skip_refs],
                              maxtasksperchild=100000)
             real_article_count = 0
             resulti = self.pool.imap_unordered(convert, articles)

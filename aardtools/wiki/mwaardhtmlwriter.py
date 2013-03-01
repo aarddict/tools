@@ -22,7 +22,7 @@ class XHTMLWriter(MWXHTMLWriter):
 
     paratag = 'p'
 
-    def __init__(self, filters, env=None, status_callback=None,imagesrcresolver=None, debug=False):
+    def __init__(self, filters, skip_refs=False, env=None, status_callback=None,imagesrcresolver=None, debug=False):
         #self.filters = filters
         self.exclude_classes = set(filters.get('EXCLUDE_CLASSES', ()))
         self.exclude_ids = set(filters.get('EXCLUDE_IDS', ()))
@@ -32,6 +32,7 @@ class XHTMLWriter(MWXHTMLWriter):
         #also keep named reference positions, separate for each group
         #map named reference to 2-tuple of position first seen and count
         self.namedrefs = defaultdict(dict)
+        self.skip_refs = skip_refs
 
     def xwriteArticle(self, a):
         e = ET.Element("div")
@@ -192,6 +193,8 @@ class XHTMLWriter(MWXHTMLWriter):
     xwriteFont = xwriteGenericElement
 
     def xwriteReference(self, obj):
+        if self.skip_refs:
+            return SkipChildren()
         assert obj is not None
         group = obj.attributes.get(u'group', '')
         group_references = self.references[group]
@@ -333,7 +336,7 @@ def remove_childless_elements(element, parent=None):
     """
     Remove elements that are supposed to have children but are empty
 
-    """   
+    """
 
     for child in element.getchildren()[:]:
         remove_childless_elements(child, element)
@@ -344,8 +347,8 @@ def remove_childless_elements(element, parent=None):
         parent.remove(element)
 
 
-def convert(obj, rtl, filters):
-    w = XHTMLWriter(filters)
+def convert(obj, rtl, filters, skip_refs=False):
+    w = XHTMLWriter(filters, skip_refs=skip_refs)
     e = w.write(obj)
     remove_childless_elements(e)
     if rtl:
