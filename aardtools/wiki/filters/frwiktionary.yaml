@@ -1,0 +1,19 @@
+EXCLUDE_PAGES:
+  - "(?i)Modèle:Article de qualité"
+  - "(?i)Modèle:interwiktionnaire"
+  - "(?i)Modèle:alphabet latin"
+  - "(?i)Modèle:ébauche-étym"
+  - "(?i)Modèle:voir autre alphabet"
+  - "(?i)Modèle:voir/.*"
+  - "(?i)Modèle:suppr\\?"
+  - "(?i)Modèle:ébauche"
+
+TEXT_REPLACE:
+  - re : "<sup>\\(Category: </sup>.*?<sup class=\"plainlinks\">]</sup>"
+  - re : "<a href=\"Catégorie:(.*?)\">(.*?)</a>"
+  - re : "<div><(h.)>(.*?)</\\1>(<p>\\s*</p>|<p\\s*/>|<hr\\s*/>)*</div>"
+  - re : "<div><h.\\s*/>\\s[\\s\\w]*</div>"
+  - re : "<p\\s*/>"
+  - re : "<p>\\s*</p>"
+  - re : "<li>\\s*</li>"
+  - re : "<([u|o])l>\\s*</\\1l>"
