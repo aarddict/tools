@@ -657,31 +657,32 @@ collator.setStrength(Collator.QUATERNARY)
 collation_key = collator.getCollationKey
 
 
-def make_output_file_name(input_file, options):
+def make_output_file_name(input_file, options, session_dir):
     """
     Return output file name based on input file name.
 
     >>> from minimock import Mock
     >>> opts = Mock('options')
     >>> opts.output_file = 'abc'
-    >>> make_output_file_name('123.tar.bz2', opts)
+    >>> make_output_file_name('123.tar.bz2', opts, 'a')
     'abc'
 
     >>> opts.output_file = None
-    >>> make_output_file_name('123.tar.bz2', opts)
-    '123.aar'
+    >>> make_output_file_name('123.tar.bz2', opts, 'a')
+    'a/123.aar'
 
-    >>> make_output_file_name('-', opts)
-    'dictionary.aar'
+    >>> make_output_file_name('-', opts, 'b')
+    'b/dictionary.aar'
 
     """
     if options.output_file:
         output_file = options.output_file
     elif input_file == '-':
-        output_file = 'dictionary.aar'
+        output_file = os.path.join(session_dir, 'dictionary.aar')
     else:
         output_file = strip_ext(input_file.rstrip(os.path.sep))
         output_file += '.aar'
+        output_file = os.path.join(session_dir, output_file)
     return output_file
 
 def strip_ext(fname):
@@ -923,10 +924,6 @@ def make_argparser():
                        help='Log file name. By default derived from output '
                        'file name by adding .log extension')
 
-    parser.add_argument('-r', '--remove-session-dir',
-                      action='store_true',
-                      help='Remove session directory after compilation.')
-
     parser.add_argument(
         '--metadata',
         default=None,
@@ -995,7 +992,9 @@ def main():
     options = args
 
     session_dir = os.path.join(options.work_dir,
-                               'aardc-'+('%.2f' % time.time()).replace('.','-'))
+                               'aardc-'+
+                               os.path.basename(input_files[0]).replace(' ', '-') +
+                               ('-%s' % int(time.time())).replace('.','-'))
 
     if os.path.exists(session_dir):
         sys.stderr.write('Session directory %s already'
@@ -1006,7 +1005,7 @@ def main():
         display.write('Session dir ').bold(session_dir).writeln()
 
 
-    output_file_name = make_output_file_name(input_files[0], options)
+    output_file_name = make_output_file_name(input_files[0], options, session_dir)
 
     if options.quite:
         log_level = logging.ERROR
@@ -1079,9 +1078,6 @@ def main():
     compiler.stats.article_start_time = t0
     compiler.run()
 
-    if options.remove_session_dir:
-        writeln('Removing session dir')
-        shutil.rmtree(session_dir)
     log.info(compiler.stats)
     log.info('Compression: %s',
              ', '.join('%s - %d' % item
@@ -1092,3 +1088,4 @@ def main():
 
 if __name__ == '__main__':
     main()
+
