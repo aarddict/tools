@@ -421,9 +421,9 @@ class Compiler(object):
         if isinstance(article_source, collections.Sized):
             writeln('Calculating total number of items...')
             self.stats.total = len(article_source)
-        #this is just placeholder value to we pad metadata size enough
+        #this is just placeholder value to pad metadata size enough
         #so that final volume file size does not exceed specified limit
-        self.metadata["article_count"] = int(1e+16)
+        self.metadata["article_count"] = 12345678901234567890
         #article_count used to mean dictionary total
         #allow readers distinguish between the two
         self.metadata["article_count_is_volume_total"] = True
