@@ -5,10 +5,20 @@ EXCLUDE_PAGES:
   - "Template:Only in print"
   # Don't process navigation boxes
   - "Template:Navbar"
-  - "Template:Navbox"
-  - "Template:Navboxes"
-  - "Template:Side box"
-  - "Template:Sidebar with collapsible lists"
+  - "(?i)Template:Navbox.*"
+  - "(?i)Template:.*\\s*nav\\s*.*"
+  - "(?i)Template:.*topics"
+  - "(?i)Template:Side box"
+  - "(?i)Template:Sidebar with collapsible lists"
+  - "(?i)Template:Sidebar with collapsible lists"
+  - "(?i)Template:Compact ToC"
+  - "(?i)Template:AlphanumericTOC"
+  - "(?i)Template:CompactTOCprefix"
+  - "(?i)Template:TOC US states"
+  - "(?i)Template:Category TOC"
+  - "(?i)Template:Large category TOC"
+  - "(?i)Template:Category IP TOC"
+
   # No need for audio
   - "Template:Audio"
   - "Template:Spoken Wikipedia"
@@ -16,20 +26,22 @@ EXCLUDE_PAGES:
   - "Template:Category handler"
   - "Template:Category handler/blacklist"
   - "Template:Category handler/numbered"
-  - "Template:Portal"
-  - "Template:Portal/core"
-  - "Template:Portal-inline"
-  - "Template:Sister"
-  - "Template:Sister project links"
-  - "Template:Sister-inline"
-  - "Template:Commons"
-  - "Template:Commons category"
+  - "(?i)Template:Portal.*"
+  - "(?i)Template:Sister.*"
+  - "(?i)Template:.*Commons.*"
+  - "(?i)Template:wikinews.*"
+  - "(?i)Template:.*wikiquote.*"
+  - "(?i)Template:.*wikisource.*"
+  - "(?i)Template:wikispecies"
+  - "(?i)Template:wikivoyage.*"
+  - "(?i)Template:.*wiktionary.*"
   - "Template:Dated maintenance category"
   - "Template:DMCA"
   # Bulky and unnecessary tables
-  - "Template:Latin alphabet navbox"
-  - "Template:Latin alphabet"
-  - "Template:Greek Alphabet"
+  - "(?i)Template:.* alphabet navbox"
+  - "(?i)Template:.* alphabet"
+  - "(?i)Template:Calendar.*"
+  - "Template:Punctuation marks"
   # Message boxes for wiki editors
   - "Template:Tmbox"
   - "Template:Imbox"
@@ -39,10 +51,40 @@ EXCLUDE_PAGES:
   - "Template:Fix"
   - "Template:Fix/category"
   - "Template:Dead link"
+  - "(?i)Template:Cleanup.*"
+  - "(?i)Template:inuse.*"
+  - "(?i)Template:Underconstruction"
+  - "(?i)Template:In creation"
+  - "(?i)Template:New page"
+  - "(?i)Template:New user article"
+  - "(?i)Template:Newlist"
+  - "(?i)Template:New unreviewed article"
+  - "(?i)Template:copyvio"
+  - "(?i)Template:Copyvio-histpurge"
+  - "(?i)Template:copypaste"
+  - "(?i)Template:Close paraphrasing"
+  - "(?i)Template:copyvioel"
+  - "(?i)Template:Multiple issues"
+  - "(?i)Template:broken"
+  - "(?i)Template:expert"
+  - "(?i)Template:globalize"
+  - "(?i)Template:overcoverage"
+  - "(?i)Template:histinfo"
+  - "(?i)Template:ISSN-needed"
+  - "(?i)Template:Verylong"
+  - "(?i)Template:Uncategorized"
+  - "(?i)Template:Catimprove"
+  - "(?i)Template:pp-.*"
+  - "(?i)Template:noteTA"
+
+  # No images
+  - "(?i)Template:imageframe"
+
   # No need to process templates that add article icons
   - "Template:Featured article"
   - "Template:Good article"
   - "Template:Top icon"
+
   # on the 2013-02-04 enwiki dump, the Location map all template displays an error message.
   # Example articles: All letters of the roman alphabet
   - "Template:Location map"
@@ -51,6 +93,23 @@ EXCLUDE_PAGES:
   # on the 2013-02-04 enwiki dump, the Wide image template causes any following text to be displayed
   # in a very narrow column (Example articles: Athens, Central America)
   - "Template:Wide image"
+
+  - "(?i)Template:Image label.*"
+  - "(?i)Template:flagicon"
+
+  # No stubs
+  - "(?i)Template:.*-stub"
+
+  # # Don't include reference and citation lists
+  # - "(?i)Template:Reflist"
+  # - "(?i)Template:Refbegin"
+  # - "(?i)Template:Citation"
+  # - "(?i)Template:Refend"
+  # - "(?i)Template:cite book"
+
+  # Don't include infoboxes
+  # - "(?i)Template:Infobox.*"
+
 
 # Remove elements by XML class
 EXCLUDE_CLASSES:
