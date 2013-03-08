@@ -373,8 +373,7 @@ class Stats(object):
         self.empty = 0
         self.articles = 0
         self.redirects = 0
-        self.start_time = time.time()
-        self.article_start_time = 0
+        self.start_time = 0
 
     processed = property(lambda self: (self.articles +
                                        self.redirects +
@@ -384,7 +383,7 @@ class Stats(object):
 
 
     average = property(lambda self: (self.processed/(time.time() -
-                                                     self.article_start_time)))
+                                                     self.start_time)))
 
     elapsed = property(lambda self: timedelta(seconds=(int(time.time() -
                                                            self.start_time))))
@@ -438,6 +437,7 @@ class Compiler(object):
         self.current_volume_article_count = 0
 
     def run(self):
+        self.stats.start_time = time.time()
         for article in self.article_source:
             title = article.title
             if article.failed:
@@ -1074,16 +1074,16 @@ def main():
     if options.show_legend:
         print_legend()
 
-    t0 = time.time()
-    compiler.stats.article_start_time = t0
     compiler.run()
 
     log.info(compiler.stats)
     log.info('Compression: %s',
              ', '.join('%s - %d' % item
                       for item in compress_counts.iteritems()))
-    log.info('Compilation took %s', timedelta(seconds=time.time() - t0))
-    writeln('Compilation took %s' % timedelta(seconds=int(time.time() - t0)))
+    now = time.time()
+    t0 = compiler.stats.start_time
+    log.info('Compilation took %s', timedelta(seconds=now - t0))
+    writeln('Compilation took %s' % timedelta(seconds=int(now - t0)))
 
 
 if __name__ == '__main__':
