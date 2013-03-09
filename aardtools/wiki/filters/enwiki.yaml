@@ -79,6 +79,8 @@ EXCLUDE_PAGES:
 
   # No images
   - "(?i)Template:imageframe"
+  - "(?i)Template:Letter other reps"
+  - "(?i)Template:Latin letter info"
 
   # No need to process templates that add article icons
   - "Template:Featured article"
@@ -107,9 +109,9 @@ EXCLUDE_PAGES:
   # - "(?i)Template:Refend"
   # - "(?i)Template:cite book"
 
-  # Don't include infoboxes
+  # # Don't include infoboxes
   # - "(?i)Template:Infobox.*"
-
+  # - "(?i)Template:speciesbox.*"
 
 # Remove elements by XML class
 EXCLUDE_CLASSES:
