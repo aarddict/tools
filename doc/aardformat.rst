@@ -72,7 +72,21 @@ Metadata is a dictionary stored as a JSON-encoded string. Aard Dictionary
 viewer uses the following metadata keys:
 
 article_count
-  number of unique articles in the dictionary (in all volumes combined)
+  number of unique articles in the volume
+
+  .. versionchanged:: 0.9.0
+     In previous versions this property meant total number of
+     articles in the whole dictionary. Readers should examine
+     `article_count_is_volume_total` metadata property to determine
+     whether this value refers to number of articles in volume or in
+     dictionary. 
+
+article_count_is_volume_total
+  .. versionadded:: 0.9.0
+  ``true`` if `article_count` property means total number of articles in
+  the volume. Since aardtools 0.9.0 compiler always sets this property
+  to ``true``.
+
 
 index_language
   dictionary's "from" language (two or thre letter ISO code)
