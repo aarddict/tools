@@ -443,7 +443,15 @@ class MediawikiArticleSource(ArticleSource, collections.Sized):
         if self.wiki_parser.requested_article_count:
             return self.wiki_parser.requested_article_count
         if self.wiki_parser.requested_titles:
-            return len(self.wiki_parser.requested_titles)
+            count = 0
+            for title in self.wiki_parser.requested_titles:
+                if title.startswith('@'):
+                    with open(os.path.expanduser(title[1:])) as f:
+                        for _line in f:
+                            count += 1
+                else:
+                    count += 1
+            return count
         w = Wiki(self.input_file, self.wiki_parser.lang,
                  self.wiki_parser.rtl, self.filters)
         for i,a in enumerate(islice(w.articles(), self.start, self.end)):
@@ -570,7 +578,12 @@ class WikiParser():
         _create_wikidb(cdbdir, self.lang, self.rtl, self.filters, self.skip_refs)
         if self.requested_titles:
             for title in self.requested_titles:
-                yield title
+                if title.startswith('@'):
+                    with open(os.path.expanduser(title[1:])) as f:
+                        for line in f:
+                            yield line.strip().replace('_', ' ').decode('utf8')
+                else:
+                    yield title
             return
         for title in islice(wikidb.articles(), self.start, self.end):
             log.debug('Yielding "%s" for processing', title.encode('utf8'))
