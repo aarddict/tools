@@ -74,7 +74,7 @@ Install :command:`latex`::
 
 Install `blahtex`_::
 
-  sudo apt-get install blahtex
+  sudo apt-get install blahtexml
 
 .. _blahtex: http://gva.noekeon.org/blahtexml/
 
