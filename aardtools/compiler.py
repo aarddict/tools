@@ -428,11 +428,6 @@ class Compiler(object):
         self.metadata["article_count_is_volume_total"] = True
         self.last_stat_update = 0
         self.article_source = article_source
-        log.info('Collecting metadata...')
-        if self.article_source.metadata:
-            for k, v in self.article_source.metadata.iteritems():
-                self.add_metadata(k, v)
-        log.info('Metadata collected')
         self.current_volume = None
         self.current_volume_article_count = 0
 
@@ -461,6 +456,9 @@ class Compiler(object):
             m = "Finalizing volume %d" % self.current_volume.number
             log.info(m)
             writeln(m).flush()
+            log.info('Collecting metadata...')
+            self.metadata.update(self.article_source.metadata)
+            log.info('Metadata collected')
             self.metadata['article_count'] = self.current_volume_article_count
             file_name = self.current_volume.finalize(self.output_file_name,
                                                      self.serialized_metadata)
@@ -470,14 +468,6 @@ class Compiler(object):
             writeln(m).flush()
             self.current_volume = None
             self.current_volume_article_count = 0
-
-    def add_metadata(self, key, value):
-        if key not in self.metadata:
-            self.metadata[key] = value
-        else:
-            log.warn('Value for metadata key %s is already set, '
-                     'new value %s will be ignored',
-                     key, value)
 
     @utf8
     def add_article(self, title, serialized_article, redirect=False, count=True):
