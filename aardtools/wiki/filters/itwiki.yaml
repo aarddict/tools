@@ -1,0 +1,166 @@
+# Exclude pages/templates
+# This is the fastest and best method of cleaning articles
+# Entries containing a : character must be quoted
+EXCLUDE_PAGES:
+  - "Template:Only in print"
+  - "Template:Vetrina"
+  - "Template:Galleria"
+  - "Template:Italia2 - Mappa attiva"
+  - "Template:Avvisounicode"
+  # Don't process navigation boxes
+  - "Template:Navbar"
+  - "(?i)Template:Navbox.*"
+  - "(?i)Template:.*\\s*nav\\s*.*"
+  - "(?i)Template:.*topics"
+  - "(?i)Template:Side box"
+  - "(?i)Template:Sidebar with collapsible lists"
+  - "(?i)Template:Sidebar with collapsible lists"
+  - "(?i)Template:Compact ToC"
+  - "(?i)Template:AlphanumericTOC"
+  - "(?i)Template:CompactTOCprefix"
+  - "(?i)Template:TOC US states"
+  - "(?i)Template:Category TOC"
+  - "(?i)Template:Large category TOC"
+  - "(?i)Template:Category IP TOC"
+
+  # No need for audio
+  - "Template:Audio"
+  - "Template:Wikipedia parlata"
+  # Aard does not need categories or portals or sister sites
+  - "Template:Category handler"
+  - "Template:Category handler/blacklist"
+  - "Template:Category handler/numbered"
+  - "(?i)Template:Portal.*"
+  - "(?i)Template:Sister.*"
+  - "(?i)Template:.*Commons.*"
+  - "(?i)Template:wikinews.*"
+  - "(?i)Template:.*wikiquote.*"
+  - "(?i)Template:.*wikisource.*"
+  - "(?i)Template:wikispecies"
+  - "(?i)Template:wikivoyage.*"
+  - "(?i)Template:.*wiktionary.*"
+  - "Template:Dated maintenance category"
+  - "Template:DMCA"
+  # Bulky and unnecessary tables
+  - "(?i)Template:.* alphabet navbox"
+  - "(?i)Template:.* alphabet"
+  - "(?i)Template:Calendar.*"
+  - "Template:Punctuation marks"
+  # Message boxes for wiki editors
+  - "Template:Tmbox"
+  - "Template:Imbox"
+  - "Template:Ambox"
+  - "Template:Refimprove"
+  - "Template:Refimprove section"
+  - "Template:Fix"
+  - "Template:Fix/category"
+  - "Template:Dead link"
+  - "(?i)Template:Cleanup.*"
+  - "(?i)Template:inuse.*"
+  - "(?i)Template:Underconstruction"
+  - "(?i)Template:In creation"
+  - "(?i)Template:New page"
+  - "(?i)Template:New user article"
+  - "(?i)Template:Newlist"
+  - "(?i)Template:New unreviewed article"
+  - "(?i)Template:copyvio"
+  - "(?i)Template:Copyvio-histpurge"
+  - "(?i)Template:copypaste"
+  - "(?i)Template:Close paraphrasing"
+  - "(?i)Template:copyvioel"
+  - "(?i)Template:Multiple issues"
+  - "(?i)Template:broken"
+  - "(?i)Template:expert"
+  - "(?i)Template:globalize"
+  - "(?i)Template:overcoverage"
+  - "(?i)Template:histinfo"
+  - "(?i)Template:ISSN-needed"
+  - "(?i)Template:Verylong"
+  - "(?i)Template:Uncategorized"
+  - "(?i)Template:Catimprove"
+  - "(?i)Template:pp-.*"
+  - "(?i)Template:noteTA"
+
+  # No images
+  - "(?i)Template:imageframe"
+  - "(?i)Template:Letter other reps"
+  - "(?i)Template:Latin letter info"
+
+  # No need to process templates that add article icons
+  - "Template:Featured article"
+  - "Template:Good article"
+  - "Template:Top icon"
+
+  # on the 2013-02-04 enwiki dump, the Location map all template displays an error message.
+  # Example articles: All letters of the roman alphabet
+  - "Template:Location map"
+  - "Template:Location map all"
+  - "Template:Location map+"
+  # on the 2013-02-04 enwiki dump, the Wide image template causes any following text to be displayed
+  # in a very narrow column (Example articles: Athens, Central America)
+  - "Template:Wide image"
+
+  - "(?i)Template:Image label.*"
+  - "(?i)Template:flagicon"
+
+  # No stubs
+  - "(?i)Template:.*-stub"
+
+  # # Don't include reference and citation lists
+  # - "(?i)Template:Reflist"
+  # - "(?i)Template:Refbegin"
+  # - "(?i)Template:Citation"
+  # - "(?i)Template:Refend"
+  # - "(?i)Template:cite book"
+
+  # # Don't include infoboxes
+  # - "(?i)Template:Infobox.*"
+  # - "(?i)Template:speciesbox.*"
+
+# Remove elements by XML class
+EXCLUDE_CLASSES:
+  - navbox
+  - collapsible
+  - autocollapse
+  - plainlinksneverexpand
+  - navbar
+  - metadata
+  - navigation-box
+  - stub
+  - template-documentation
+  - portal
+  - NavFrame
+  - NavHead
+  - NavContent
+  - thumbinner
+  - thumbcaption
+  - magnify
+  - vertical-navbox
+  - tmbox
+  - maptable
+  - printonly
+  - fmbox
+  - ombox
+  - cmbox
+  - sisterproject
+  - interProject
+  - wikilien_alternatif
+  - bandeau
+  - itwiki_template_avviso
+  - itwiki_template_toc
+  - itwiki_template_disclaimer_v
+
+# Remove elements by XML ID
+EXCLUDE_IDS:
+  - interProject
+
+
+# Text substitutions to be run on the resulting HTML page
+# Matching expressions will be replaced with optional substition text
+# If no substition text is provided, matching patterns will be removed
+
+TEXT_REPLACE:
+  # Remove empty sections
+  - re  : "<div><h.>[\\w\\s]*</h.>(<p>\\s*</p>|<p\\s*/>)*</div>"
+
+
