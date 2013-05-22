@@ -4,6 +4,7 @@
 EXCLUDE_PAGES:
   - "Template:Only in print"
   - "Template:Vetrina"
+  - "Template:Voce di qualità"
   - "Template:Galleria"
   - "Template:Italia2 - Mappa attiva"
   - "Template:Avvisounicode"
@@ -162,5 +163,3 @@ EXCLUDE_IDS:
 TEXT_REPLACE:
   # Remove empty sections
   - re  : "<div><h.>[\\w\\s]*</h.>(<p>\\s*</p>|<p\\s*/>)*</div>"
-
-
