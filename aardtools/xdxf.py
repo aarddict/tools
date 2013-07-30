@@ -34,7 +34,6 @@ tojson = functools.partial(json.dumps, ensure_ascii=False)
 import collections
 from aardtools.compiler import ArticleSource, Article
 
-
 class XdxfArticleSource(ArticleSource, collections.Sized):
 
     @classmethod
@@ -82,7 +81,7 @@ class XdxfArticleSource(ArticleSource, collections.Sized):
         return count
 
     def __iter__(self):
-        return self.xdxf_parser.parse(self.input_file)
+        return self.xdxf_parser.parse(make_input(self.input_file))
 
 
 def make_input(input_file_name):
