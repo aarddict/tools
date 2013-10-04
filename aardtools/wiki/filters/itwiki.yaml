@@ -8,6 +8,16 @@ EXCLUDE_PAGES:
   - "Template:Galleria"
   - "Template:Italia2 - Mappa attiva"
   - "Template:Avvisounicode"
+  - "Template:Aumento"
+  - "Template:Profitto"
+  - "Template:Increase"
+  - "Template:Profit"
+  - "Template:Diminuzione"
+  - "Template:Perdita"
+  - "Template:Decrease"
+  - "Template:Loss"
+  - "Template:Stabile"
+  - "Template:Steady"
   # Don't process navigation boxes
   - "Template:Navbar"
   - "(?i)Template:Navbox.*"
@@ -27,6 +37,7 @@ EXCLUDE_PAGES:
   # No need for audio
   - "Template:Audio"
   - "Template:Wikipedia parlata"
+  - "Template:Multimedia"
   # Aard does not need categories or portals or sister sites
   - "Template:Category handler"
   - "Template:Category handler/blacklist"
