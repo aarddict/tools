@@ -7,6 +7,8 @@ install_requires = ['PyICU >= 1.0',
                     'mwlib.cdb',
                     'mwlib.xhtml',
                     'pyyaml',
+                    'BeautifulSoup4',
+                    'couchdb',
                     'mwlib >= 0.14.1']
 
 setup(

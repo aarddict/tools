@@ -142,6 +142,16 @@ class ArticleSource(collections.Iterable):
         """
         return {}
 
+    @property
+    def len_includes_redirects(self):
+        """
+        Depending on how article source handles redirects
+        it may not be able to include redirect count into
+        total reported item count
+
+        """
+        return True
+
 
 class DummyArticleSource(ArticleSource, collections.Sized):
 
@@ -374,12 +384,14 @@ class Stats(object):
         self.articles = 0
         self.redirects = 0
         self.start_time = 0
+        self.total_includes_redirects = True
 
-    processed = property(lambda self: (self.articles +
-                                       self.redirects +
-                                       self.skipped +
-                                       self.empty +
-                                       self.failed))
+    processed = property(lambda self: (
+        self.articles +
+        (self.redirects if self.total_includes_redirects else 0) +
+        self.skipped +
+        self.empty +
+        self.failed))
 
 
     average = property(lambda self: (self.processed/(time.time() -
@@ -420,6 +432,7 @@ class Compiler(object):
         if isinstance(article_source, collections.Sized):
             writeln('Calculating total number of items...')
             self.stats.total = len(article_source)
+            self.stats.total_includes_redirects = article_source.len_includes_redirects
         #this is just placeholder value to pad metadata size enough
         #so that final volume file size does not exceed specified limit
         self.metadata["article_count"] = 12345678901234567890
@@ -964,11 +977,13 @@ def main():
     from aardtools.xdxf import XdxfArticleSource
     from aardtools.wordnet import WordNetArticleSource
     from aardtools.aard import AardArticleSource
+    from aardtools.wikicouch import CouchArticleSource
 
     for cls in (MediawikiArticleSource,
                 XdxfArticleSource,
                 WordNetArticleSource,
                 AardArticleSource,
+                CouchArticleSource,
                 DummyArticleSource):
         parser = subparsers.add_parser(cls.name(), parents=parser_parents)
         cls.register_args(parser)
@@ -1078,4 +1093,3 @@ def main():
 
 if __name__ == '__main__':
     main()
-
