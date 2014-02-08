@@ -12,6 +12,7 @@ import couchdb
 from bs4 import BeautifulSoup, Comment
 
 from aardtools.compiler import ArticleSource, Article
+from aardtools.wiki import tex
 
 tojson = functools.partial(json.dumps, ensure_ascii=False)
 
@@ -19,6 +20,22 @@ log = logging.getLogger(__name__)
 
 DEFAULT_DESCRIPTION = """ %(title)s for Aard Dictionary is a collection of text documents from %(server)s (articles only). Some documents or portions of documents may have been omited or could not be converted to Aard Dictionary format. All documents can be found online at %(server)s under the same title as displayed in Aard Dictionary.
 """
+
+mathcmds = ('latex', 'blahtex', 'texvc')
+
+
+def math_as_datauri(text):
+    for cmd in mathcmds:
+        try:
+            imgurl = 'data:image/png;base64,' + tex.toimg(text, cmd)
+        except tex.MathRenderingFailed as e:
+            log.warn('Could not render math in %r with %r: %s',
+                     text, cmd, e)
+        except:
+            log.warn('Could not render math in %r with %r',
+                     text, cmd, exc_info=1)
+        else:
+            return imgurl
 
 
 class ConvertError(Exception):
@@ -177,10 +194,12 @@ def cleanup(text):
         soup.select('.notice'),
         soup.select('.request-box'),
         soup.select('.mw-editsection'),
-        soup.select('img'), #remove all images for now
         soup.select('.audiotable'), #remove audio tables for now
         soup.select('.edit-page'),
         soup.select('.thumb'),
+        soup(lambda tag:
+             tag and tag.name == 'img' and 'tex'
+             not in tag.attrs.get('class', ())),
         soup(lambda tag:
              tag and tag.name == 'link' and
              not 'stylesheet' in tag.attrs.get('rel', ())),
@@ -197,14 +216,19 @@ def cleanup(text):
     for item in soup('a', **{'class': 'image'}):
         item.unwrap()
 
-    for item in soup('a', **{'class': 'image'}):
-        item.unwrap()
-
     for item in soup(
             lambda tag:
             tag.name == 'a' and tag.attrs.get('href', '').startswith('/wiki/')):
         item.attrs['href'] = (item.attrs['href']
                               .replace('/wiki/', '').replace('_', ' '))
+
+    for item in soup('img', **{'class': 'tex'}):
+        item.attrs.pop('srcset', None)
+        eq = item.get('alt')
+        if eq:
+            data_uri = math_as_datauri(eq)
+            if data_uri:
+                item['src'] = data_uri
 
     for item in soup(
             lambda tag:
