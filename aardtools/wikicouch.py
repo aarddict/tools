@@ -80,7 +80,7 @@ class CouchArticleSource(ArticleSource, collections.Sized):
         self.couch, siteinfo_couch = mkcouch(args.input_files[0])
         self.startkey = args.startkey
         self.endkey = args.endkey
-
+        self.key = args.key
 
         self._metadata = {}
         self._metadata['siteinfo'] = siteinfo = siteinfo_couch[self.couch.name]
@@ -116,6 +116,11 @@ class CouchArticleSource(ArticleSource, collections.Sized):
             '--endkey',
             help='Stop processing when this title is reached')
 
+        parser.add_argument(
+            '--key', nargs="+",
+            help='Process specified keys only')
+
+
     @property
     def metadata(self):
         return self._metadata
@@ -128,11 +133,19 @@ class CouchArticleSource(ArticleSource, collections.Sized):
         return False
 
     def __iter__(self):
+        view_args = {
+            'stale': 'ok',
+            'include_docs': True
+        }
+        if self.startkey:
+            view_args['startkey'] = self.startkey
+        if self.endkey:
+            view_args['endkey'] = self.endkey
+        if self.key:
+            view_args['keys'] = self.key
+
         all_docs = self.couch.iterview('_all_docs', 10,
-                                       stale='ok',
-                                       include_docs=True,
-                                       startkey=self.startkey,
-                                       endkey=self.endkey)
+                                       **view_args)
         def articles():
             for row in all_docs:
                 yield (row.id, set(row.doc.get('aliases', ())),
@@ -186,6 +199,7 @@ def cleanup(text):
         soup.select('script'),
         soup.select('.metadata'),
         soup.select('.navbox'),
+        soup.select('.navbar'),
         soup.select('.mediaContainer'),
         soup.select('.section_anchors'),
         soup.select('.sisterproject'),
@@ -216,6 +230,9 @@ def cleanup(text):
     for item in soup('a', **{'class': 'image'}):
         item.unwrap()
 
+    for item in soup('a', **{'class': 'new'}):
+        item.attrs.pop('href', None)
+
     for item in soup(
             lambda tag:
             tag.name == 'a' and tag.attrs.get('href', '').startswith('/wiki/')):
@@ -235,10 +252,10 @@ def cleanup(text):
             tag.name == 'a' and tag.attrs.get('href', '').startswith('//')):
         item.attrs['href'] = 'http:'+item.attrs['href']
 
-    for item in soup('a', href=lambda href: href.startswith('#cite_')):
+    for item in soup('a', href=lambda href: href and href.startswith('#cite_')):
         item['onclick'] = 'return s("%s")' % item['href'][1:]
 
-    for item in soup('a', href=lambda href: href.endswith('.ogg')):
+    for item in soup('a', href=lambda href: href and href.endswith('.ogg')):
         item.unwrap()
 
     return unicode(soup)
