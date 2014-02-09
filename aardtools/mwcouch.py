@@ -128,25 +128,25 @@ class CouchArticleSource(ArticleSource, collections.Sized):
     @classmethod
     def register_args(cls, parser):
         parser.add_argument(
-            '--startkey',
+            '-s', '--startkey',
             help='Skip articles with titles before this one when sorted')
         parser.add_argument(
-            '--endkey',
+            '-e', '--endkey',
             help='Stop processing when this title is reached')
 
         parser.add_argument(
-            '--key', nargs="+",
+            '-k', '--key', nargs="+",
             help='Process specified keys only')
 
         parser.add_argument(
-            '--filter-file', nargs='+',
+            '-f', '--filter-file', nargs='+',
             help=('Name of filter file. Filter file consists of '
                   'CSS selectors (see BeautifulSoup documentation '
                   'for description of supported selectors), '
                   'one selector per line. '))
 
         parser.add_argument(
-            '--filter', nargs='+',
+            '-F', '--filter', nargs='+',
             help=('CSS selectors for elements to exclude '
                   '(see BeautifulSoup documentation '
                   'for description of supported selectors)'))
