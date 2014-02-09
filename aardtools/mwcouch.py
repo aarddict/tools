@@ -82,6 +82,22 @@ class CouchArticleSource(ArticleSource, collections.Sized):
         self.endkey = args.endkey
         self.key = args.key
 
+        self.filters = []
+
+        if args.filter_file:
+            for name in args.filter_file:
+                with open(name) as f:
+                    for selector in f:
+                        selector = selector.strip()
+                        if selector:
+                            self.filters.append(selector)
+
+        if args.filter:
+            for selector in args.filter:
+                self.filters.append(selector)
+
+        log.info('Will apply following filters:\n%s', '\n'.join(self.filters))
+
         self._metadata = {}
         self._metadata['siteinfo'] = siteinfo = siteinfo_couch[self.couch.name]
 
@@ -105,7 +121,7 @@ class CouchArticleSource(ArticleSource, collections.Sized):
 
     @classmethod
     def name(cls):
-        return 'wikicouch'
+        return 'mwcouch'
 
     @classmethod
     def register_args(cls, parser):
@@ -119,6 +135,19 @@ class CouchArticleSource(ArticleSource, collections.Sized):
         parser.add_argument(
             '--key', nargs="+",
             help='Process specified keys only')
+
+        parser.add_argument(
+            '--filter-file', nargs='+',
+            help=('Name of filter file. Filter file consists of '
+                  'CSS selectors (see BeautifulSoup documentation '
+                  'for description of supported selectors), '
+                  'one selector per line. '))
+
+        parser.add_argument(
+            '--filter', nargs='+',
+            help=('CSS selectors for elements to exclude '
+                  '(see BeautifulSoup documentation '
+                  'for description of supported selectors)'))
 
 
     @property
@@ -148,8 +177,9 @@ class CouchArticleSource(ArticleSource, collections.Sized):
                                        **view_args)
         def articles():
             for row in all_docs:
-                yield (row.id, set(row.doc.get('aliases', ())),
-                       row.doc['parse']['text']['*'])
+                if row and row.doc:
+                    yield (row.id, set(row.doc.get('aliases', ())),
+                           row.doc['parse']['text']['*'], self.filters)
         pool = multiprocessing.Pool()
         try:
             resulti = pool.imap_unordered(clean_and_handle_errors, articles())
@@ -172,9 +202,9 @@ class CouchArticleSource(ArticleSource, collections.Sized):
             pool.terminate()
 
 
-def clean_and_handle_errors((title, aliases, text)):
+def clean_and_handle_errors((title, aliases, text, filters)):
     try:
-        return title, aliases, cleanup(text)
+        return title, aliases, cleanup(text, filters)
     except KeyboardInterrupt:
         raise
     except Exception:
@@ -182,35 +212,10 @@ def clean_and_handle_errors((title, aliases, text)):
         raise ConvertError(title)
 
 
-def cleanup(text):
+def cleanup(text, filters=()):
     soup = BeautifulSoup(text)
-    to_remove = itertools.chain(
-        soup.select('#mw-mf-page-left'),
-        soup.select('#mw-mf-page-left'),
-        soup.select('#toc'),
-        soup.select('.sister-project'),
-        soup.select('.interProject'),
-        soup.select('#siteNotice'),
-        soup.select('#mw-mf-language-section'),
-        soup.select('#header'),
-        soup.select('.header'),
-        soup.select('#footer'),
-        soup.select('#mw-mf-last-modified'),
-        soup.select('script'),
-        soup.select('.metadata'),
-        soup.select('.navbox'),
-        soup.select('.navbar'),
-        soup.select('.mediaContainer'),
-        soup.select('.section_anchors'),
-        soup.select('.sisterproject'),
-        soup.select('#page-actions'),
-        soup.select('#calendar'),
-        soup.select('.notice'),
-        soup.select('.request-box'),
-        soup.select('.mw-editsection'),
-        soup.select('.audiotable'), #remove audio tables for now
-        soup.select('.edit-page'),
-        soup.select('.thumb'),
+
+    to_remove = [
         soup(lambda tag:
              tag and tag.name == 'img' and 'tex'
              not in tag.attrs.get('class', ())),
@@ -220,11 +225,13 @@ def cleanup(text):
         soup(lambda tag:
              tag and tag.name == 'meta' and
              not 'charset' in tag.attrs),
-        soup(text=lambda text: isinstance(text, Comment)),
-        soup('style')
-    )
+        soup(text=lambda text: isinstance(text, Comment))
+    ]
 
-    for item in to_remove:
+    for selector in filters:
+        to_remove.append(soup.select(selector))
+
+    for item in itertools.chain(*to_remove):
         item.extract()
 
     for item in soup('a', **{'class': 'image'}):

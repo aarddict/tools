@@ -977,7 +977,7 @@ def main():
     from aardtools.xdxf import XdxfArticleSource
     from aardtools.wordnet import WordNetArticleSource
     from aardtools.aard import AardArticleSource
-    from aardtools.wikicouch import CouchArticleSource
+    from aardtools.mwcouch import CouchArticleSource
 
     for cls in (MediawikiArticleSource,
                 XdxfArticleSource,
