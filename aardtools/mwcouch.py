@@ -4,7 +4,9 @@ import functools
 import itertools
 import json
 import logging
+import os
 import multiprocessing
+
 from datetime import datetime
 from urlparse import urlparse
 
@@ -86,7 +88,7 @@ class CouchArticleSource(ArticleSource, collections.Sized):
 
         if args.filter_file:
             for name in args.filter_file:
-                with open(name) as f:
+                with open(os.path.expanduser(name)) as f:
                     for selector in f:
                         selector = selector.strip()
                         if selector:
