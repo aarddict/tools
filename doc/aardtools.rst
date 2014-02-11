@@ -127,6 +127,10 @@ support for the following input types:
 xdxf
     Dictionaries in XDXF_ format (only `XDXF-visual`_ is supported).
 
+mwcouch
+    Wikipedia articles stored in CouchDB (as returned by `MediaWiki
+    API`_'s `parse`)
+
 wiki
     Wikipedia articles and templates :abbr:`CDB (Constant Database)`
     built with :command:`mw-buildcdb` from Wikipedia XML dump.
@@ -139,18 +143,98 @@ aard
 wordnet
    WordNet_
 
+.. _CouchDB: http://couchdb.apache.org
+.. _MediaWiki API: https://www.mediawiki.org/wiki/API
 .. _XDXF: http://xdxf.sourceforge.net/
 .. _XDXF-visual: http://xdxf.revdanica.com/drafts/visual/latest/XDXF-draft-028.txt
 
 Synopsis::
 
-  aardc [compiler options] (wiki|xdxf|aard) FILE [FILE2 [FILE3 ...]] [converter options]
+  usage: aardc [-h] [--version] [-o OUTPUT_FILE] [-s MAX_FILE_SIZE] [-d] [-q]
+               [--work-dir WORK_DIR] [--show-legend] [--log-file LOG_FILE]
+               [--metadata METADATA] [--license LICENSE] [--copyright COPYRIGHT]
+               [--dict-ver DICT_VER] [--dict-update DICT_UPDATE]
+               {wiki,xdxf,wordnet,aard,mwcouch,dummy} ...
 
-.. note::
-   Only `aard` input type allows multiple files.
+  optional arguments:
+    -h, --help            show this help message and exit
+    --version             show program's version number and exit
+    -o OUTPUT_FILE, --output-file OUTPUT_FILE
+                          Output file name. By default is the same as input file
+                          base name with .aar extension
+    -s MAX_FILE_SIZE, --max-file-size MAX_FILE_SIZE
+                          Maximum file size in bytes, kilobytes(K), megabytes(M)
+                          or gigabytes(G). Default: 2147483647 bytes
+    -d, --debug           Turn on debugging messages
+    -q, --quite           Print minimal information about compilation progress
+    --work-dir WORK_DIR   Directory for temporary file created during
+                          compilatiod. Default: .
+    --show-legend         Show progress legend
+    --log-file LOG_FILE   Log file name. By default derived from output file
+                          name by adding .log extension
+    --metadata METADATA   INI containing dictionary metadata in [metadata]
+                          section
+    --license LICENSE     Name of a UTF-8 encoded text file containing license
+                          text
+    --copyright COPYRIGHT
+                          Name of a UTF-8 encoded text file containing copyright
+                          notice
+    --dict-ver DICT_VER   Version of the compiled dictionary
+    --dict-update DICT_UPDATE
+                          Update number for the compiled dictionary. Default: 1
+
+  converters:
+    Available article source types
+
+    {wiki,xdxf,wordnet,aard,mwcouch,dummy}
+
+
+Compiling MediaWiki CouchDB Dump
+--------------------------------
+
+Get MediaWiki CouchDB using `mwscrape.py`_ (if downloading pre-made
+CouchDB_ database be sure to also download siteinfo database and/or run
+`mwscrape.py`_ to fetch or update it).
+
+Run
+
+::
+
+  aardc mwcouch -h
+
+for usage details and complete list of options.
+
+For example, command to compile a dictionary from a database named
+``ru-m-wiktionary-org`` on a local CouchDB server may look like this::
+
+  aardc mwcouch http://localhost:5984/ru-m-wiktionary-org --filter-file ~/aardtools/mwcouch/filters/wiktionary.txt
+
+Optional content filter file may be specified to clean up articles of
+unnecessary elements and to reduce resulting dictionary size.  Content
+filter file for ``mwcouch`` converter is a text file with one CSS
+selector per line. Individual selectors may also be specified as
+command line argument.  Each selector is applied to article HTML and
+matching elements are removed. See BeautifulSoup_ documentation for
+details on supported selectors. Sample content filters for a typical
+Note that no content filters are applied by default.
+
+.. _BeautifulSoup: http://www.crummy.com/software/BeautifulSoup/bs4/doc/
+.. _mwscrape.py: https://github.com/itkach/mwscrape
+
 
 Compiling Wiki XML Dump
 -----------------------
+
+.. note::
+
+   Since early 2013 Wikipedia sites are actively using `Lua
+   scripting`_ instead of traditional MediaWiki templates. Such
+   content is not rendered by mwlib_, library wiki converter uses to
+   parse MediaWiki markup. Use ``mwcouch`` converter instead, as
+   described above.
+
+.. _mwlib: http://pediapress.com/code/
+.. _Lua scripting: https://www.mediawiki.org/wiki/Lua_scripting
 
 Get a Wiki dump to compile, for example::
 
@@ -368,152 +452,3 @@ Please submit issue reports and enhancement requests to `Aard
 Tools issue tracker`_.
 
 .. _Aard Tools issue tracker: http://github.com/aarddict/tools/issues
-
-
-Release Notes
-=============
-
-0.8.3
------
-
-- Add ``--rtl`` compilation option for wiki converter - adds `dir`
-  attribute with value `rtl` to article's enclosing element.
-
-- Fix aard converter (was broken after refactoring in aarddict 0.9.0)
-
-
-0.8.2
------
-
-- Add WordNet_ convertor
-
-
-0.8.1
------
-
-- Exclude more boxes, exclude sister and inter project links
-
-- Add ``--article-count`` option - compile specified number of articles,
-  not counting redirects
-
-- Change article format for xdxf from json to html
-
-- Add option ``--skip-article-title`` for xdxf to not add article title
-  at the beginning of article (some dicitonaries already have it)
-
-- Remove support for JSON article format
-
-- Add command to fetch siteinfo, require that siteinfo file is
-  explicitely specified with ``--siteinfo`` option
-
-- Don't load default license, copyright and metadata files, don't
-  provide any defaults when loading specified meta data
-
-- Don't include any language links languages by default
-
-- Add known wiki licenses
-
-- Better version guessing from file name
-
-- Updated mwlib dependency to 0.12.13
-
-- Make compiler work with aarddict 0.9.0
-
-0.8.0
------
-
-- Use json module from standard lib if using Python 2.6
-
-- Update mwlib dependency to 0.12.10
-
-- Add option to convert Wikipedia articles to HTML instead of JSON
-
-- Render math in Wikipedia articles (when converting to HTML)
-
-- Properly handle multiple occurences of named references in Wikipedia
-  articles (when converting to HTML)
-
-- Properly handle multiple reference lists in Wikipedia
-  articles (when converting to HTML)
-
-- Use upwords arrow character instead of ^ for footnote back
-  references
-
-- Add list of language link languages to metadata
-
-- Generate smaller dictionaries when compiling Wikipedia by excluding
-  more metadata, navigation and image related elements
-
-0.7.6
------
-
-- Add Wikipedia language link support (include article titles from
-  language links into index for languages specified with ``--lang-links``
-  option)
-
-- Rework title sorting implementation to speed up title sorting step
-
-- Use simple text file with index instead of shelve for temporary
-  article storage to reduce disk space requirements
-
-- Change default max file size to 2 :superscript:`31` - 1 instead of
-  2 :superscript:`32` - 1
-
-0.7.5
------
-
-- Include license, doc and wiki files in source distribution generated
-  by setuptools_
-
-- Write Wikipedia siteinfo to dictionary metadata
-
-- Exclude elements with classes `navbar` and `plainlinksneverexpand`,
-  this get's rid of talk-view-edit links in wiki articles
-
-- Discard generic tag attributes when parsing wiki since they are not
-  used
-
-- Updated Wikipedia copyright and license information to reflect
-  Wikipedia's switch to Common Attribution license
-
-- Removed dependency on lxml_
-
-- Moved converter specific functions to converter modules, this
-  makes it possible to implement new converters without changing
-  compiler.py
-
-- Parse XDXF's ``nu`` and ``opt`` tags
-
-.. _lxml: http://codespeak.net/lxml/
-
-0.7.4
------
-
-- Improved Wiki redirect parsing: case insensitive, recognize
-  site-specific redirect magic word aliases
-
-- Improved statisics, logging and progress display
-
-- Improved stability and memory usage
-
-- Better guess wiki language and version from input file name
-
-
-0.7.3
------
-
-- Compile wiki directly from CDB (original wiki xml dump is no longer
-  needed after generating CDB)
-
-- Infer wiki language and version from input file name if it follows
-  the same pattern as wiki xml dump file names
-
-- Include a copy of GNU Free Documentation License, wiki copyright
-  notice text and general description, write this into
-  dictionary metadata by default
-
-- Improve memory usage (:tools-issue:`4`)
-
-
-
-
