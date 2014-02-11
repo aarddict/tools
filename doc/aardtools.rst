@@ -215,8 +215,10 @@ filter file for ``mwcouch`` converter is a text file with one CSS
 selector per line. Individual selectors may also be specified as
 command line argument.  Each selector is applied to article HTML and
 matching elements are removed. See BeautifulSoup_ documentation for
-details on supported selectors. Sample content filters for a typical
-Note that no content filters are applied by default.
+details on supported selectors. Examples of content filters for a
+typical wikipedia and wiktionary are included (under
+:file:`aardtools/mwcouch/filters`). Note that no content filters are
+applied by default.
 
 .. _BeautifulSoup: http://www.crummy.com/software/BeautifulSoup/bs4/doc/
 .. _mwscrape.py: https://github.com/itkach/mwscrape
