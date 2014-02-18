@@ -245,8 +245,7 @@ def cleanup(text, filters=()):
     for item in soup(
             lambda tag:
             tag.name == 'a' and tag.attrs.get('href', '').startswith('/wiki/')):
-        item.attrs['href'] = (item.attrs['href']
-                              .replace('/wiki/', '').replace('_', ' '))
+        item.attrs['href'] = item.attrs['href'].replace('/wiki/', '')
 
     for item in soup('img', **{'class': 'tex'}):
         item.attrs.pop('srcset', None)
