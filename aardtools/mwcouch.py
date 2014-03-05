@@ -180,8 +180,12 @@ class CouchArticleSource(ArticleSource, collections.Sized):
         def articles():
             for row in all_docs:
                 if row and row.doc:
-                    yield (row.id, set(row.doc.get('aliases', ())),
-                           row.doc['parse']['text']['*'], self.filters)
+                    try:
+                        result = (row.id, set(row.doc.get('aliases', ())),
+                                  row.doc['parse']['text']['*'], self.filters)
+                    except Exception:
+                        result = row.id, None, None, None
+                    yield result
         pool = multiprocessing.Pool()
         try:
             resulti = pool.imap_unordered(clean_and_handle_errors, articles())
@@ -206,6 +210,8 @@ class CouchArticleSource(ArticleSource, collections.Sized):
 
 def clean_and_handle_errors((title, aliases, text, filters)):
     try:
+        if text is None:
+            return title, aliases, u''
         return title, aliases, cleanup(text, filters)
     except KeyboardInterrupt:
         raise
