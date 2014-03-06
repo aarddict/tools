@@ -107,7 +107,7 @@ class CouchArticleSource(ArticleSource, collections.Sized):
         sitename = general_siteinfo['sitename']
         sitelang = general_siteinfo['lang']
         rightsinfo = siteinfo['rightsinfo']
-
+        self.rtl = 'rtl' in general_siteinfo
         self._metadata['title'] = sitename
         self._metadata['version'] = datetime.now().isoformat().split('T')[0]
 
@@ -182,9 +182,9 @@ class CouchArticleSource(ArticleSource, collections.Sized):
                 if row and row.doc:
                     try:
                         result = (row.id, set(row.doc.get('aliases', ())),
-                                  row.doc['parse']['text']['*'], self.filters)
+                                  row.doc['parse']['text']['*'], self.filters, self.rtl)
                     except Exception:
-                        result = row.id, None, None, None
+                        result = row.id, None, None, None, False
                     yield result
         pool = multiprocessing.Pool()
         try:
@@ -208,11 +208,11 @@ class CouchArticleSource(ArticleSource, collections.Sized):
             pool.terminate()
 
 
-def clean_and_handle_errors((title, aliases, text, filters)):
+def clean_and_handle_errors((title, aliases, text, filters, rtl)):
     try:
         if text is None:
             return title, aliases, u''
-        return title, aliases, cleanup(text, filters)
+        return title, aliases, cleanup(text, filters=filters, rtl=rtl)
     except KeyboardInterrupt:
         raise
     except Exception:
@@ -220,7 +220,8 @@ def clean_and_handle_errors((title, aliases, text, filters)):
         raise ConvertError(title)
 
 
-def cleanup(text, filters=()):
+def cleanup(text, filters=(), rtl=False):
+
     soup = BeautifulSoup(text)
 
     to_remove = [
@@ -272,4 +273,9 @@ def cleanup(text, filters=()):
     for item in soup('a', href=lambda href: href and href.endswith('.ogg')):
         item.unwrap()
 
-    return unicode(soup)
+    result = u''.join(unicode(item) for item in soup.body.contents)
+
+    if rtl:
+        result = u'<div dir="rtl" class="rtl">%s</div>' % result
+
+    return result
