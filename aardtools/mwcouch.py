@@ -83,6 +83,7 @@ class CouchArticleSource(ArticleSource, collections.Sized):
         self.startkey = args.startkey
         self.endkey = args.endkey
         self.key = args.key
+        self.key_file = args.key_file
 
         self.filters = []
 
@@ -139,6 +140,10 @@ class CouchArticleSource(ArticleSource, collections.Sized):
             help='Process specified keys only')
 
         parser.add_argument(
+            '-K', '--key-file',
+            help='Process only keys specified in file')
+
+        parser.add_argument(
             '-f', '--filter-file', nargs='+',
             help=('Name of filter file. Filter file consists of '
                   'CSS selectors (see BeautifulSoup documentation '
@@ -157,6 +162,11 @@ class CouchArticleSource(ArticleSource, collections.Sized):
         return self._metadata
 
     def __len__(self):
+        if self.key:
+            return len(self.key)
+        if self.key_file:
+            with open(os.path.expanduser(self.key_file)) as f:
+                return sum(1 for line in f if line)
         return self.couch.info()['doc_count']
 
     @property
@@ -175,17 +185,33 @@ class CouchArticleSource(ArticleSource, collections.Sized):
         if self.key:
             view_args['keys'] = self.key
 
-        all_docs = self.couch.iterview('_all_docs', 10,
-                                       **view_args)
-        def articles():
-            for row in all_docs:
-                if row and row.doc:
-                    try:
-                        result = (row.id, set(row.doc.get('aliases', ())),
-                                  row.doc['parse']['text']['*'], self.filters, self.rtl)
-                    except Exception:
-                        result = row.id, None, None, None, False
-                    yield result
+        if self.key_file:
+            def articles():
+                with open(os.path.expanduser(self.key_file)) as f:
+                    for line in f:
+                        if line:
+                            key = line.strip().decode('utf8').replace('_', ' ')
+                            doc = self.couch.get(key)
+                            if doc:
+                                result = (doc.id, set(doc.get('aliases', ())),
+                                          doc['parse']['text']['*'], self.filters, self.rtl)
+                            else:
+                                print key, 'not found'
+                                result = key, None, None, None, False
+                            yield result
+        else:
+            def articles():
+                all_docs = self.couch.iterview('_all_docs', 10,
+                                               **view_args)
+                for row in all_docs:
+                    if row and row.doc:
+                        try:
+                            result = (row.id, set(row.doc.get('aliases', ())),
+                                      row.doc['parse']['text']['*'], self.filters, self.rtl)
+                        except Exception:
+                            result = row.id, None, None, None, False
+                        yield result
+
         pool = multiprocessing.Pool()
         try:
             resulti = pool.imap_unordered(clean_and_handle_errors, articles())
@@ -195,7 +221,7 @@ class CouchArticleSource(ArticleSource, collections.Sized):
                 except ConvertError as cerr:
                     yield Article(cerr.title, '', failed=True)
                 else:
-                    serialized = tojson((text, []))
+                    serialized = tojson((text, [])) if text else None
                     yield Article(title, serialized, isredirect=False)
                     if aliases:
                         for name in aliases:
