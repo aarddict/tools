@@ -196,7 +196,6 @@ class CouchArticleSource(ArticleSource, collections.Sized):
                                 result = (doc.id, set(doc.get('aliases', ())),
                                           doc['parse']['text']['*'], self.filters, self.rtl)
                             else:
-                                print key, 'not found'
                                 result = key, None, None, None, False
                             yield result
         else:
