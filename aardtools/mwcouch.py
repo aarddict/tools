@@ -208,7 +208,7 @@ class CouchArticleSource(ArticleSource, collections.Sized):
                                 result = (doc.id, set(doc.get('aliases', ())),
                                           doc['parse']['text']['*'], self.rtl)
                             else:
-                                result = key, None, None, None, False
+                                result = key, None, None, False
                             yield result
         else:
             def articles():
@@ -220,7 +220,7 @@ class CouchArticleSource(ArticleSource, collections.Sized):
                             result = (row.id, set(row.doc.get('aliases', ())),
                                       row.doc['parse']['text']['*'], self.rtl)
                         except Exception:
-                            result = row.id, None, None, None, False
+                            result = row.id, None, None, False
                         yield result
 
         pool = multiprocessing.Pool(None, process_initializer, [self.filters])
