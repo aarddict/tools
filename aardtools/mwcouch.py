@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 import collections
 import functools
+import itertools
 import json
 import logging
 import multiprocessing
@@ -43,6 +44,13 @@ def math_as_datauri(text):
                      text, cmd, exc_info=1)
         else:
             return imgurl
+
+
+def grouper(iterable, n, fillvalue=None):
+    "Collect data into fixed-length chunks or blocks"
+    # grouper('ABCDEFG', 3, 'x') --> ABC DEF Gxx
+    args = [iter(iterable)] * n
+    return itertools.izip_longest(fillvalue=fillvalue, *args)
 
 
 class ConvertError(Exception):
@@ -186,10 +194,11 @@ class CouchArticleSource(ArticleSource, collections.Sized):
         return False
 
     def __iter__(self):
-        view_args = {
+        basic_view_args = {
             'stale': 'ok',
             'include_docs': True
         }
+        view_args = dict(basic_view_args)
         if self.startkey:
             view_args['startkey'] = self.startkey
         if self.endkey:
@@ -197,31 +206,39 @@ class CouchArticleSource(ArticleSource, collections.Sized):
         if self.key:
             view_args['keys'] = self.key
 
+        def articles_from_viewiter(viewiter):
+            for row in viewiter:
+                if row and row.doc:
+                    try:
+                        result = (row.id, set(row.doc.get('aliases', ())),
+                                  row.doc['parse']['text']['*'], self.rtl)
+                    except Exception:
+                        result = row.id, None, None, False
+                    yield result
+
         if self.key_file:
             def articles():
                 with open(os.path.expanduser(self.key_file)) as f:
-                    for line in f:
-                        if line:
-                            key = line.strip().decode('utf8').replace('_', ' ')
-                            doc = self.couch.get(key)
-                            if doc:
-                                result = (doc.id, set(doc.get('aliases', ())),
-                                          doc['parse']['text']['*'], self.rtl)
-                            else:
-                                result = key, None, None, False
-                            yield result
+                    for key_group in grouper(
+                            (line.strip().replace('_', ' ')
+                             for line in f if line), 50):
+                        query_args = dict(basic_view_args)
+                        query_args['keys'] = [key for key in key_group if key]
+                        keys_found = set()
+                        viewiter = self.couch.iterview(
+                            '_all_docs', len(query_args['keys']), **query_args)
+                        for item in articles_from_viewiter(viewiter):
+                            keys_found.add(item[0])
+                            yield item
+                        for key in (set(query_args['keys']) - keys_found):
+                            yield key, None, None, False
+                        keys_found.clear()
         else:
             def articles():
-                all_docs = self.couch.iterview('_all_docs', 10,
-                                               **view_args)
-                for row in all_docs:
-                    if row and row.doc:
-                        try:
-                            result = (row.id, set(row.doc.get('aliases', ())),
-                                      row.doc['parse']['text']['*'], self.rtl)
-                        except Exception:
-                            result = row.id, None, None, False
-                        yield result
+                viewiter = self.couch.iterview(
+                    '_all_docs', 50, **view_args)
+                for item in articles_from_viewiter(viewiter):
+                    yield item
 
         pool = multiprocessing.Pool(None, process_initializer, [self.filters])
         try:
