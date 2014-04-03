@@ -1,3 +1,9 @@
+p:empty
+div:empty
+img:not(.tex)
+a.image
+a[href$=".ogg"]
+
 #calendar
 #footer
 #header

@@ -1,22 +1,28 @@
 # -*- coding: utf-8 -*-
 import collections
 import functools
-import itertools
 import json
 import logging
-import os
 import multiprocessing
+import os
+import re
 
 from datetime import datetime
 from urlparse import urlparse
 
 import couchdb
-from bs4 import BeautifulSoup, Comment
+
+import lxml.html
+import lxml.html.clean
+
+from lxml.cssselect import CSSSelector
 
 from aardtools.compiler import ArticleSource, Article
 from aardtools.wiki import tex
 
 tojson = functools.partial(json.dumps, ensure_ascii=False)
+
+CSSSelector = functools.partial(CSSSelector, translator='html')
 
 log = logging.getLogger(__name__)
 
@@ -24,7 +30,6 @@ DEFAULT_DESCRIPTION = """ %(title)s for Aard Dictionary is a collection of text 
 """
 
 mathcmds = ('latex', 'blahtex', 'texvc')
-
 
 def math_as_datauri(text):
     for cmd in mathcmds:
@@ -75,6 +80,13 @@ def mkcouch(couch_url):
     return server[couch_db], server['siteinfo']
 
 
+SELECTORS = []
+
+def process_initializer(css_selectors):
+    for css_selector in css_selectors:
+        SELECTORS.append(CSSSelector(css_selector))
+
+
 class CouchArticleSource(ArticleSource, collections.Sized):
 
     def __init__(self, args):
@@ -97,7 +109,7 @@ class CouchArticleSource(ArticleSource, collections.Sized):
 
         if args.filter:
             for selector in args.filter:
-                self.filters.append(selector)
+                self.filters.append(CSSSelector(selector))
 
         log.info('Will apply following filters:\n%s', '\n'.join(self.filters))
 
@@ -194,7 +206,7 @@ class CouchArticleSource(ArticleSource, collections.Sized):
                             doc = self.couch.get(key)
                             if doc:
                                 result = (doc.id, set(doc.get('aliases', ())),
-                                          doc['parse']['text']['*'], self.filters, self.rtl)
+                                          doc['parse']['text']['*'], self.rtl)
                             else:
                                 result = key, None, None, None, False
                             yield result
@@ -206,12 +218,12 @@ class CouchArticleSource(ArticleSource, collections.Sized):
                     if row and row.doc:
                         try:
                             result = (row.id, set(row.doc.get('aliases', ())),
-                                      row.doc['parse']['text']['*'], self.filters, self.rtl)
+                                      row.doc['parse']['text']['*'], self.rtl)
                         except Exception:
                             result = row.id, None, None, None, False
                         yield result
 
-        pool = multiprocessing.Pool()
+        pool = multiprocessing.Pool(None, process_initializer, [self.filters])
         try:
             resulti = pool.imap_unordered(clean_and_handle_errors, articles())
             while True:
@@ -233,11 +245,11 @@ class CouchArticleSource(ArticleSource, collections.Sized):
             pool.terminate()
 
 
-def clean_and_handle_errors((title, aliases, text, filters, rtl)):
+def clean_and_handle_errors((title, aliases, text, rtl)):
     try:
         if text is None:
             return title, aliases, u''
-        return title, aliases, cleanup(text, filters=filters, rtl=rtl)
+        return title, aliases, cleanup(text, rtl=rtl)
     except KeyboardInterrupt:
         raise
     except Exception:
@@ -245,62 +257,62 @@ def clean_and_handle_errors((title, aliases, text, filters, rtl)):
         raise ConvertError(title)
 
 
-def cleanup(text, filters=(), rtl=False):
+NEWLINE_RE = re.compile(r'[\n]{2,}')
 
-    soup = BeautifulSoup(text)
+SEL_IMG_TEX = CSSSelector('img.tex')
+SEL_A_NEW = CSSSelector('a.new')
+SEL_A_HREF_WIKI = CSSSelector('a[href^="/wiki/"]')
+SEL_A_HREF_NO_PROTO = CSSSelector('a[href^="//"]')
+SEL_A_HREF_CITE = CSSSelector('a[href^="#cite"]')
 
-    to_remove = [
-        soup(lambda tag:
-             tag and tag.name == 'img' and 'tex'
-             not in tag.attrs.get('class', ())),
-        soup(lambda tag:
-             tag and tag.name == 'link' and
-             not 'stylesheet' in tag.attrs.get('rel', ())),
-        soup(lambda tag:
-             tag and tag.name == 'meta' and
-             not 'charset' in tag.attrs),
-        soup(text=lambda text: isinstance(text, Comment))
-    ]
+CLEANER = lxml.html.clean.Cleaner(
+    comments=True,
+    scripts=True,
+    javascript=True,
+    style=False,
+    links=False,
+    meta=True,
+    processing_instructions=True,
+    embedded=True,
+    page_structure=True,
+    safe_attrs_only=False)
 
-    for selector in filters:
-        to_remove.append(soup.select(selector))
 
-    for item in itertools.chain(*to_remove):
-        item.extract()
+def cleanup(text, rtl=False):
 
-    for item in soup('a', **{'class': 'image'}):
-        item.unwrap()
+    text = NEWLINE_RE.sub('\n', text)
+    doc = lxml.html.fromstring(text)
 
-    for item in soup('a', **{'class': 'new'}):
-        item.attrs.pop('href', None)
+    print CLEANER.style
+    CLEANER(doc)
 
-    for item in soup(
-            lambda tag:
-            tag.name == 'a' and tag.attrs.get('href', '').startswith('/wiki/')):
-        item.attrs['href'] = item.attrs['href'].replace('/wiki/', '')
+    for selector in SELECTORS:
+        for item in selector(doc):
+            item.drop_tree()
 
-    for item in soup('img', **{'class': 'tex'}):
-        item.attrs.pop('srcset', None)
-        eq = item.get('alt')
-        if eq:
-            data_uri = math_as_datauri(eq)
+    for item in SEL_IMG_TEX(doc):
+        item.attrib.pop('srcset', None)
+        equation = item.attrib.pop('alt', None)
+        if equation:
+            data_uri = math_as_datauri(equation)
             if data_uri:
-                item['src'] = data_uri
+                item.attrib['src'] = data_uri
 
-    for item in soup(
-            lambda tag:
-            tag.name == 'a' and tag.attrs.get('href', '').startswith('//')):
-        item.attrs['href'] = 'http:'+item.attrs['href']
+    for item in SEL_A_NEW(doc):
+        item.attrib.pop('href', None)
 
-    for item in soup('a', href=lambda href: href and href.startswith('#cite_')):
-        item['onclick'] = 'return s("%s")' % item['href'][1:]
+    for item in SEL_A_HREF_WIKI(doc):
+        item.attrib['href'] = item.attrib['href'].replace('/wiki/', '')
 
-    for item in soup('a', href=lambda href: href and href.endswith('.ogg')):
-        item.unwrap()
+    for item in SEL_A_HREF_NO_PROTO(doc):
+        item.attrib['href'] = 'http:'+item.attrib['href']
 
-    result = u''.join(unicode(item) for item in soup.body.contents)
+    for item in SEL_A_HREF_CITE(doc):
+        item.attrib['onclick'] = 'return s("%s")' % item.attrib['href'][1:]
+
+    result = lxml.html.tostring(doc)
 
     if rtl:
-        result = u'<div dir="rtl" class="rtl">%s</div>' % result
+        result = '<div dir="rtl" class="rtl">%s</div>' % result
 
     return result
