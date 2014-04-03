@@ -109,7 +109,7 @@ class CouchArticleSource(ArticleSource, collections.Sized):
 
         if args.filter:
             for selector in args.filter:
-                self.filters.append(CSSSelector(selector))
+                self.filters.append(selector)
 
         log.info('Will apply following filters:\n%s', '\n'.join(self.filters))
 
