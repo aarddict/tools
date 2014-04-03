@@ -8,6 +8,7 @@ install_requires = ['PyICU >= 1.0',
                     'mwlib.xhtml',
                     'pyyaml',
                     'lxml',
+                    'cssselect',
                     'couchdb',
                     'mwlib >= 0.14.1']
 
