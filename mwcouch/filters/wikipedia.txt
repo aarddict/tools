@@ -1,7 +1,6 @@
 p:empty
 div:empty
-img:not(.tex)
-a.image
+
 a[href$=".ogg"]
 
 #calendar
@@ -44,7 +43,6 @@ a[href$=".ogg"]
 .navigation-box
 .notice
 .ombox
-.plainlinksneverexpand
 .portal
 .printonly
 .request-box
@@ -61,3 +59,6 @@ a[href$=".ogg"]
 
 script
 style
+
+__img:not(.tex)
+__.plainlinksneverexpand

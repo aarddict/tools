@@ -265,6 +265,7 @@ SEL_A_HREF_WIKI = CSSSelector('a[href^="/wiki/"]')
 SEL_A_HREF_NO_PROTO = CSSSelector('a[href^="//"]')
 SEL_IMG_SRC_NO_PROTO = CSSSelector('img[src^="//"]')
 SEL_A_HREF_CITE = CSSSelector('a[href^="#cite"]')
+SEL_A_IMAGE = CSSSelector('a.image')
 
 CLEANER = lxml.html.clean.Cleaner(
     comments=True,
@@ -297,6 +298,9 @@ def cleanup(text, rtl=False):
             data_uri = math_as_datauri(equation)
             if data_uri:
                 item.attrib['src'] = data_uri
+
+    for item in SEL_A_IMAGE(doc):
+        item.drop_tag()
 
     for item in SEL_A_NEW(doc):
         item.attrib.pop('href', None)
