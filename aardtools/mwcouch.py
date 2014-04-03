@@ -263,6 +263,7 @@ SEL_IMG_TEX = CSSSelector('img.tex')
 SEL_A_NEW = CSSSelector('a.new')
 SEL_A_HREF_WIKI = CSSSelector('a[href^="/wiki/"]')
 SEL_A_HREF_NO_PROTO = CSSSelector('a[href^="//"]')
+SEL_IMG_SRC_NO_PROTO = CSSSelector('img[src^="//"]')
 SEL_A_HREF_CITE = CSSSelector('a[href^="#cite"]')
 
 CLEANER = lxml.html.clean.Cleaner(
@@ -283,7 +284,6 @@ def cleanup(text, rtl=False):
     text = NEWLINE_RE.sub('\n', text)
     doc = lxml.html.fromstring(text)
 
-    print CLEANER.style
     CLEANER(doc)
 
     for selector in SELECTORS:
@@ -305,7 +305,12 @@ def cleanup(text, rtl=False):
         item.attrib['href'] = item.attrib['href'].replace('/wiki/', '')
 
     for item in SEL_A_HREF_NO_PROTO(doc):
-        item.attrib['href'] = 'http:'+item.attrib['href']
+        item.attrib['href'] = 'http:' + item.attrib['href']
+
+    for item in SEL_IMG_SRC_NO_PROTO(doc):
+        item.attrib['src'] = 'http:' + item.attrib['src']
+        if 'srcset' in item.attrib:
+            item.attrib['srcset'] = item.attrib['srcset'].replace('//', 'http://')
 
     for item in SEL_A_HREF_CITE(doc):
         item.attrib['onclick'] = 'return s("%s")' % item.attrib['href'][1:]
