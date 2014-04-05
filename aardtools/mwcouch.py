@@ -107,9 +107,12 @@ class CouchArticleSource(ArticleSource, collections.Sized):
 
         self.filters = []
 
+        filter_dir = os.environ.get('AARDC_MWCOUCH_FILTER_DIR', '.')
         if args.filter_file:
             for name in args.filter_file:
-                with open(os.path.expanduser(name)) as f:
+                full_name = os.path.expanduser(os.path.join(filter_dir, name))
+                print 'Reading filters from', full_name
+                with open(full_name) as f:
                     for selector in f:
                         selector = selector.strip()
                         if selector:
