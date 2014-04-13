@@ -132,6 +132,8 @@ mwcouch
     API`_'s `parse`)
 
 wiki
+    .. deprecated:: 0.9.0
+    Use `mwcouch` instead.
     Wikipedia articles and templates :abbr:`CDB (Constant Database)`
     built with :command:`mw-buildcdb` from Wikipedia XML dump.
 
@@ -207,21 +209,30 @@ for usage details and complete list of options.
 For example, command to compile a dictionary from a database named
 ``ru-m-wiktionary-org`` on a local CouchDB server may look like this::
 
-  aardc mwcouch http://localhost:5984/ru-m-wiktionary-org --filter-file ~/aardtools/mwcouch/filters/wiktionary.txt
+  export AARDC_MWCOUCH_FILTER_DIR=~/aardtools/mwcouch/filters/
+  aardc mwcouch http://localhost:5984/ru-m-wiktionary-org -f common image wikt
+
+To compile wikipedia from ``en-m-wikipedia-org`` CouchDB database::
+
+  aardc mwcouch http://127.0.0.1:5984/en-m-wikipedia-org -f common wiki image
+
+To compile also remove reference lists and infoboxes::
+
+  aardc mwcouch http://127.0.0.1:5984/en-m-wikipedia-org -f common wiki image reflist infobox
 
 Optional content filter file may be specified to clean up articles of
 unnecessary elements and to reduce resulting dictionary size.  Content
 filter file for ``mwcouch`` converter is a text file with one CSS
 selector per line. Individual selectors may also be specified as
 command line argument.  Each selector is applied to article HTML and
-matching elements are removed. See BeautifulSoup_ documentation for
-details on supported selectors. Examples of content filters for a
-typical wikipedia and wiktionary are included (under
+matching elements are removed. See `cssselect documentation`_ for
+details on supported selectors. Examples of content filters are included (under
 :file:`aardtools/mwcouch/filters`). Note that no content filters are
-applied by default.
+applied by default. Multiple file names may be specified to combine
+filters from several files.
 
-.. _BeautifulSoup: http://www.crummy.com/software/BeautifulSoup/bs4/doc/
 .. _mwscrape.py: https://github.com/itkach/mwscrape
+.. _cssselect documentation: http://pythonhosted.org/cssselect/
 
 
 Compiling Wiki XML Dump
