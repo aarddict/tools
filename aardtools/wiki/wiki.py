@@ -519,6 +519,8 @@ class WikiParser():
                 rights = general_siteinfo['rights']
             elif 'righsinfo' in siteinfo:
                 rights = siteinfo['rightsinfo'].get('text', '')
+            else:
+                rights = ''
             if rights in known_licenses:
                 license_file = known_licenses[rights]
             else:
