@@ -4,7 +4,7 @@ import urllib
 import json
 
 def fetch(sitehostname):
-    url = 'http://%s/w/api.php?action=query&meta=siteinfo&siprop=general|namespaces|namespacealiases|magicwords|interwikimap&format=json' % sitehostname
+    url = 'http://%s/w/api.php?action=query&meta=siteinfo&siprop=general|rightsinfo|namespaces|namespacealiases|magicwords|interwikimap&format=json' % sitehostname
     sys.stderr.write('fetching %r\n' % url)
     data = urllib.urlopen(url).read()
     data = json.loads(data)['query']
