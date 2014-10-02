@@ -169,14 +169,14 @@ class CouchArticleSource(ArticleSource, collections.Sized):
         parser.add_argument(
             '-f', '--filter-file', nargs='+',
             help=('Name of filter file. Filter file consists of '
-                  'CSS selectors (see BeautifulSoup documentation '
+                  'CSS selectors (see cssselect documentation '
                   'for description of supported selectors), '
                   'one selector per line. '))
 
         parser.add_argument(
             '-F', '--filter', nargs='+',
             help=('CSS selectors for elements to exclude '
-                  '(see BeautifulSoup documentation '
+                  '(see cssselect documentation '
                   'for description of supported selectors)'))
 
 
