@@ -49,10 +49,19 @@ import re
 
 lic_dir = os.path.join(os.path.dirname(__file__), 'licenses')
 
-known_licenses = {"Creative Commons Attribution-Share Alike 3.0 Unported":
-                  os.path.join(lic_dir, "ccasau-3.0.txt"),
-                  "GNU Free Documentation License 1.2":
-                  os.path.join(lic_dir, "gfdl-1.2.txt")}
+
+known_licenses = {
+
+    "Creative Commons Attribution-Share Alike 3.0 Unported":
+    os.path.join(lic_dir, "ccasau-3.0.txt"),
+
+    "Creative Commons Attribution-Share Alike 3.0":
+    os.path.join(lic_dir, "ccasau-3.0.txt"),
+
+    "GNU Free Documentation License 1.2":
+    os.path.join(lic_dir, "gfdl-1.2.txt")
+}
+
 
 wikidb = None
 log = logging.getLogger('wiki')
@@ -506,7 +515,10 @@ class WikiParser():
         if options.license:
             license_file = options.license
         else:
-            rights = general_siteinfo['rights']
+            if 'rights' in general_siteinfo:
+                rights = general_siteinfo['rights']
+            elif 'righsinfo' in siteinfo:
+                rights = siteinfo['rightsinfo'].get('text', '')
             if rights in known_licenses:
                 license_file = known_licenses[rights]
             else:
@@ -657,4 +669,3 @@ class WikiParser():
                 wikidb.nshandler.get_fqname(target), title)
             yield Article(l_title, l_serialized,
                                       isredirect=True, counted=False)
-
