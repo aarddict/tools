@@ -889,7 +889,7 @@ def make_argparser():
 
     parser.add_argument(
         '-s', '--max-file-size',
-        default=str(2**31-1),
+        default=str(2*10**9),
         help=
         'Maximum file size in bytes, kilobytes(K), megabytes(M) or gigabytes(G). '
         'Default: %(default)s bytes'
