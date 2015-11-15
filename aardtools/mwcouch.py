@@ -212,10 +212,22 @@ class CouchArticleSource(ArticleSource, collections.Sized):
         def articles_from_viewiter(viewiter):
             for row in viewiter:
                 if row and row.doc:
+                    if not 'parse' in row.doc:
+                        log.warn('%r has no "parse" key', row)
+                        yield row.id, None, None, False
+                        continue
                     try:
-                        result = (row.id, set(row.doc.get('aliases', ())),
+                        aliases = row.doc.get('aliases', ())
+                        str_aliases = set()
+                        for alias in aliases:
+                            if isinstance(alias, basestring):
+                                str_aliases.add(alias)
+                            else:
+                                str_aliases.add(u'#'.join(alias))
+                        result = (row.id, str_aliases,
                                   row.doc['parse']['text']['*'], self.rtl)
                     except Exception:
+                        log.exception('Failed to load %r', row)
                         result = row.id, None, None, False
                     yield result
 
@@ -258,6 +270,8 @@ class CouchArticleSource(ArticleSource, collections.Sized):
                         for name in aliases:
                             serialized = tojson(('', [], {u'r': title}))
                             yield Article(name, serialized, isredirect=True)
+        except StopIteration:
+            raise
         except:
             log.exception('')
             raise
